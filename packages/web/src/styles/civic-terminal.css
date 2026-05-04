@@ -1,0 +1,326 @@
+/* ─────────────────────────────────────────────────────────────
+   civic-terminal.css
+   Wireframe styles for zkqes.org — old-Curve chrome × Ukraine/EU civic.
+   Beige/grey base, dashed inner frames, monospace everywhere.
+   ───────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap');
+
+:root {
+  /* Base — Curve-era beige/grey chrome */
+  --ct-paper:      #d8d4c4;   /* primary panel fill */
+  --ct-paper-2:    #e6e2d2;   /* lighter inset */
+  --ct-paper-3:    #c8c4b4;   /* darker outer */
+  --ct-ink:        #1a1a1a;
+  --ct-ink-2:      #3a352c;
+  --ct-mute:       #6b6558;
+  --ct-mute-2:     #8a8273;
+  --ct-rule:       #1a1a1a;
+  --ct-rule-soft:  rgba(26,26,26,.35);
+
+  /* Civic accents */
+  --ua-blue:    #0057B7;
+  --ua-yellow:  #FFD700;
+  --eu-blue:    #003399;
+  --eu-gold:    #FFCC00;
+
+  /* Status */
+  --ok:    #2e7d32;
+  --warn:  #b8860b;
+  --err:   #b00020;
+
+  /* Curve-era selection blue */
+  --hilite: #2f4a8a;
+  --hilite-text: #f5f1e2;
+
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --display: 'VT323', 'IBM Plex Mono', monospace;
+}
+
+/* density tweak */
+:root[data-density="dense"]    { --ct-pad: 10px; --ct-gap: 8px;  --ct-fs: 12px; }
+:root[data-density="regular"]  { --ct-pad: 14px; --ct-gap: 12px; --ct-fs: 13px; }
+:root[data-density="sparse"]   { --ct-pad: 20px; --ct-gap: 18px; --ct-fs: 14px; }
+:root { --ct-pad: 14px; --ct-gap: 12px; --ct-fs: 13px; }
+
+/* chrome heaviness tweak */
+:root[data-chrome="thick"]   { --ct-frame-w: 2px;  --ct-inner-w: 2px; --ct-dash: 3 3; }
+:root[data-chrome="medium"]  { --ct-frame-w: 1.5px;--ct-inner-w: 1px; --ct-dash: 2 2; }
+:root[data-chrome="minimal"] { --ct-frame-w: 1px;  --ct-inner-w: 1px; --ct-dash: 1 3; }
+:root { --ct-frame-w: 1.5px; --ct-inner-w: 1px; --ct-dash: 2 2; }
+
+/* ─── primitives ─── */
+.ct {
+  font-family: var(--mono);
+  font-size: var(--ct-fs);
+  color: var(--ct-ink);
+  background: var(--ct-paper);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ct-page {
+  background: var(--ct-paper);
+  min-height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Curve-style outer panel: solid outline + inner double-frame */
+.ct-panel {
+  background: var(--ct-paper);
+  border: var(--ct-frame-w) solid var(--ct-ink);
+  padding: var(--ct-pad);
+  position: relative;
+}
+.ct-panel--raised {
+  background: var(--ct-paper);
+  border-top: 1.5px solid #fff;
+  border-left: 1.5px solid #fff;
+  border-right: 1.5px solid #6b6558;
+  border-bottom: 1.5px solid #6b6558;
+  outline: 1px solid var(--ct-ink);
+  outline-offset: 0;
+}
+.ct-panel--inset {
+  background: var(--ct-paper-2);
+  border-top: 1.5px solid #6b6558;
+  border-left: 1.5px solid #6b6558;
+  border-right: 1.5px solid #fff;
+  border-bottom: 1.5px solid #fff;
+  outline: 1px solid var(--ct-ink);
+}
+
+/* dashed inner frame — the "field" outline from Curve */
+.ct-field {
+  border: 1px dashed var(--ct-rule);
+  padding: var(--ct-pad);
+  position: relative;
+}
+.ct-field--solid { border-style: solid; }
+.ct-field > .ct-legend {
+  position: absolute;
+  top: -0.7em;
+  left: var(--ct-pad);
+  background: var(--ct-paper);
+  padding: 0 6px;
+  font-size: 11px;
+  color: var(--ct-ink);
+}
+
+/* civic stripe — three thin bars ua/ua/eu, like a govt letterhead */
+.ct-civic-stripe {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ct-civic-stripe i {
+  display: block;
+  height: 4px;
+}
+.ct-civic-stripe i:nth-child(1) { background: var(--ua-blue); }
+.ct-civic-stripe i:nth-child(2) { background: var(--ua-yellow); }
+.ct-civic-stripe i:nth-child(3) { background: var(--eu-blue); }
+.ct-civic-stripe i:nth-child(4) { background: var(--eu-gold); }
+
+/* civic flag bar — UA top blue / yellow bottom */
+.ct-flag-ua {
+  display: flex; flex-direction: column;
+  height: 16px; width: 24px;
+  border: 1px solid var(--ct-ink);
+  flex: none;
+}
+.ct-flag-ua i { flex: 1; display: block; }
+.ct-flag-ua i:nth-child(1) { background: var(--ua-blue); }
+.ct-flag-ua i:nth-child(2) { background: var(--ua-yellow); }
+
+.ct-flag-eu {
+  height: 16px; width: 24px;
+  background: var(--eu-blue);
+  border: 1px solid var(--ct-ink);
+  display: grid; place-items: center;
+  color: var(--eu-gold);
+  font-size: 10px;
+  flex: none;
+}
+
+/* ─── headings (use VT323 where civic-monumental) ─── */
+.ct h1, .ct h2, .ct h3, .ct h4 { margin: 0; font-weight: 600; letter-spacing: 0.01em; }
+.ct h1.ct-mono { font-family: var(--mono); font-size: 22px; }
+.ct h1.ct-display { font-family: var(--display); font-size: 44px; line-height: 1; letter-spacing: 0.02em; }
+.ct h2.ct-display { font-family: var(--display); font-size: 28px; line-height: 1; }
+
+.ct-kicker {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ct-mute);
+}
+.ct-cert-no {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--ct-mute);
+}
+
+/* ─── ASCII / pre ─── */
+.ct-ascii {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.05;
+  white-space: pre;
+  color: var(--ct-ink);
+  margin: 0;
+}
+.ct-ascii--dense { font-size: 9.5px; line-height: 1.0; }
+
+/* ─── form-y bits (radio/checkbox in Curve style) ─── */
+.ct-radio { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+.ct-radio .b { font-family: var(--mono); }
+.ct-radio.on .b::before { content: "(•)"; }
+.ct-radio:not(.on) .b::before { content: "( )"; }
+
+.ct-check::before { content: "[ ]"; font-family: var(--mono); margin-right: 6px; }
+.ct-check.on::before { content: "[x]"; }
+
+/* ─── buttons (Curve "green Sell" + tab + ghost) ─── */
+.ct-btn {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  border: 1.5px solid var(--ct-ink);
+  background: var(--ct-paper-2);
+  color: var(--ct-ink);
+  padding: 6px 16px;
+  cursor: default;
+  user-select: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  border-top-color: #fff;
+  border-left-color: #fff;
+  outline: 1px solid var(--ct-ink);
+}
+.ct-btn:hover { background: var(--ct-paper-3); }
+.ct-btn--primary { background: #6cd960; }
+.ct-btn--primary:hover { background: #57c84b; }
+.ct-btn--ua { background: var(--ua-yellow); color: var(--ua-blue); }
+.ct-btn--ua:hover { background: #f5cb00; }
+.ct-btn--eu { background: var(--eu-blue); color: var(--eu-gold); border-color: var(--eu-gold); }
+.ct-btn--ghost { background: transparent; }
+.ct-btn--sm { font-size: 11px; padding: 3px 10px; }
+.ct-btn--lg { font-size: 16px; padding: 10px 22px; }
+
+/* tab look — dark blue header with white text */
+.ct-tab {
+  font-family: var(--mono);
+  background: var(--hilite);
+  color: var(--hilite-text);
+  border: 1.5px solid var(--ct-ink);
+  padding: 6px 14px;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px;
+}
+.ct-tab--off { background: var(--ct-paper-2); color: var(--ct-ink); }
+
+/* ─── inputs ─── */
+.ct-input {
+  font-family: var(--mono);
+  font-size: 14px;
+  border: 1.5px solid var(--ct-ink);
+  background: var(--hilite);
+  color: var(--hilite-text);
+  padding: 6px 10px;
+  width: 100%;
+  border-top-color: #6b6558;
+  border-left-color: #6b6558;
+  outline: 1px solid var(--ct-ink);
+}
+.ct-input--paper {
+  background: var(--ct-paper-2);
+  color: var(--ct-ink);
+}
+
+/* ─── tables / log lines ─── */
+.ct-row { display: grid; gap: 10px; align-items: baseline; padding: 4px 0; border-bottom: 1px dashed var(--ct-rule-soft); }
+.ct-row:last-child { border-bottom: 0; }
+.ct-row--head { font-weight: 600; border-bottom: 1.5px solid var(--ct-ink); }
+
+.ct-log { font-size: 11.5px; }
+.ct-log .t { color: var(--ct-mute); }
+.ct-log .ok { color: var(--ok); }
+.ct-log .warn { color: var(--warn); }
+.ct-log .err { color: var(--err); }
+.ct-log .b { font-weight: 600; }
+
+/* ─── tags / pills ─── */
+.ct-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  border: 1px solid var(--ct-ink);
+  padding: 1px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ct-tag--ua { background: var(--ua-yellow); color: var(--ua-blue); }
+.ct-tag--eu { background: var(--eu-blue); color: var(--eu-gold); border-color: var(--eu-gold); }
+.ct-tag--ok { background: #cfe9d2; }
+.ct-tag--warn { background: #f3e1b3; }
+.ct-tag--err { background: #f3c5c5; }
+
+/* ─── seal / stamp ─── */
+.ct-seal {
+  width: 96px; height: 96px;
+  border: 2px solid var(--ua-blue);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--ua-blue);
+  position: relative;
+  transform: rotate(-6deg);
+}
+.ct-seal::before {
+  content: "";
+  position: absolute; inset: 4px;
+  border: 1px dashed var(--ua-blue);
+  border-radius: 50%;
+}
+.ct-seal b { font-family: var(--display); font-size: 18px; letter-spacing: 0.04em; display: block; }
+
+/* ─── grid helpers ─── */
+.ct-stack { display: flex; flex-direction: column; gap: var(--ct-gap); }
+.ct-row-h { display: flex; gap: var(--ct-gap); align-items: center; }
+.ct-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ct-gap); }
+.ct-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--ct-gap); }
+.ct-spacer { flex: 1; }
+
+.ct-divider { border-top: 1px solid var(--ct-ink); }
+.ct-divider--dashed { border-top: 1px dashed var(--ct-rule); }
+
+/* ─── language toggle (visual only) ─── */
+.ct-lang {
+  display: inline-flex; gap: 0; border: 1.5px solid var(--ct-ink); font-size: 11px;
+}
+.ct-lang span { padding: 2px 8px; }
+.ct-lang span.on { background: var(--ct-ink); color: var(--ct-paper); }
+
+/* ─── progress bar (mono) ─── */
+.ct-progress {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em;
+}
+
+/* ─── corners (decorative) ─── */
+.ct-corners { position: relative; }
+.ct-corners::before, .ct-corners::after {
+  content: "+"; position: absolute; font-family: var(--mono);
+  font-size: 12px; color: var(--ct-ink);
+}
+.ct-corners::before { top: -6px; left: -6px; }
+.ct-corners::after { bottom: -6px; right: -6px; }
+
+/* tiny help cursor disable */
+.ct, .ct * { cursor: default; }
+.ct a, .ct .ct-link { cursor: pointer; text-decoration: underline; color: var(--ua-blue); }
+.ct .ct-btn, .ct .ct-tab { cursor: pointer; }
