@@ -408,8 +408,8 @@ This re-prioritizes contracts-eng's #15 task. **It moves up the critical path.**
 4. **#18 Base Sepolia E2E §9.4 acceptance gate** — verifies the full pipeline end-to-end including /register against stub
 5. **Founder fires recruitment** (Phase A outreach DMs)
 6. Ceremony rounds 1–10 run; /ceremony populates; phase = `ceremony-live`
-7. Final-round beacon + real verifier deploys to Base Sepolia (replaces stub)
-8. Phase = `live`; /register switches to real verifier in `fixtures/contracts/base-sepolia.json`
+7. Final-round beacon + real verifier deploys to Base Sepolia. **A fresh `ZkqesRegistryV5_2` is also deployed pointing at the real verifier** — `groth16Verifier` is `immutable` in the registry, so verifier rotation = full registry redeploy, NOT an in-place `setVerifier` call (no such setter exists). New addresses pumped to `fixtures/contracts/base-sepolia.json` with `verifierKind: "real"`.
+8. Phase = `live`; /register + /rotate + /verify switch to the new registry address via the pumped `base-sepolia.json` (web rebuild + redeploy).
 9. Base mainnet deploy gated on audit + go-live decision
 
 ### 8.3 Consequence for the existing task list

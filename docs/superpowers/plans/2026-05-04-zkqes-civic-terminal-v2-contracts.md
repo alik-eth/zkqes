@@ -4,7 +4,7 @@
 
 **Goal:** Deploy a stub-verifier-backed `ZkqesRegistryV5_2` + `ZkqesCertificate` to **Base Sepolia testnet (chainId 84532)** now (no longer gated on Phase B ceremony), so the full `/register` and `/account/rotate` flows can run end-to-end against a real chain before recruitment fires (per v2 spec §8.2 reorder).
 
-**Architecture:** Existing `DeployV5_2.s.sol` already supports both placeholder (always-true, dev) and real-pairing-stub paths via `GROTH16_VERIFIER_ADDR` env. v2 deploys the **real-pairing stub** (`Groth16VerifierV5_2Stub.sol`, already in tree) so the on-chain Groth16 verify path is exercised end-to-end. Post-ceremony, the registry's `setVerifier(address)` admin call (or a fresh deploy with the real verifier address) flips it over.
+**Architecture:** Existing `DeployV5_2.s.sol` already supports both placeholder (always-true, dev) and real-pairing-stub paths via `GROTH16_VERIFIER_ADDR` env. v2 deploys the **real-pairing stub** (`Groth16VerifierV5_2Stub.sol`, already in tree) so the on-chain Groth16 verify path is exercised end-to-end. **Post-ceremony rotation = fresh registry redeploy** pointing at the real ceremonied verifier address — `groth16Verifier` is `immutable` in `ZkqesRegistryV5_2.sol` (no in-place `setVerifier` setter exists). Web/SDK consumers swap registry address via the next `base-sepolia.json` pump.
 
 **Chain target:** **Base Sepolia (chainId 84532)** — the L2 testnet for Base. Base Sepolia is the Coinbase Layer 2 OP-Stack testnet. RPC endpoint: `https://sepolia.base.org` (public) or your provider's URL. Block explorer: `https://sepolia.basescan.org`. Verification API: BaseScan's Etherscan-compatible endpoint at `https://api-sepolia.basescan.org/api` with a BaseScan API key.
 
@@ -86,7 +86,7 @@ import {ZkqesCertificate} from "../src/ZkqesCertificate.sol";
 ///         so the full /register and /account/rotate flows can be smoked
 ///         on Base Sepolia (chainId 84532) ahead of recruitment.
 ///         Post-ceremony, the registry admin rotates to the real
-///         ceremonied verifier via `ZkqesRegistryV5_2.setVerifier(address)`
+///         ceremonied verifier via a FRESH registry redeploy
 ///         (or a fresh redeploy, depending on what audit finds).
 ///
 /// Required env (same as DeployV5_2 less GROTH16_VERIFIER_ADDR):
@@ -139,7 +139,9 @@ contract DeployV5_2WithStub is Script {
         console2.log("ZkqesRegistryV5_2:", registry);
 
         // 3. Certificate NFT bound to the registry.
-        ZkqesCertificate nft = new ZkqesCertificate(registry, chainLabel, mintDeadline);
+        // NB: ZkqesCertificate constructor is (address, uint64, string)
+        // — registry, mintDeadline, chainLabel. uint64 BEFORE string.
+        ZkqesCertificate nft = new ZkqesCertificate(registry, mintDeadline, chainLabel);
         certificate = address(nft);
         console2.log("ZkqesCertificate:", certificate);
 
@@ -251,7 +253,7 @@ Save the three addresses + the deploy block + the deploy tx hashes — they go i
 REGISTRY=<address from log>
 VERIFIER=<address from log>
 
-cast call $REGISTRY 'verifier()(address)' --rpc-url $BASE_SEPOLIA_RPC_URL          # returns $VERIFIER
+cast call $REGISTRY 'groth16Verifier()(address)' --rpc-url $BASE_SEPOLIA_RPC_URL   # returns $VERIFIER (accessor is groth16Verifier, not verifier)
 cast call $REGISTRY 'admin()(address)' --rpc-url $BASE_SEPOLIA_RPC_URL             # returns $ADMIN_ADDRESS
 cast call $REGISTRY 'trustedListRoot()(bytes32)' --rpc-url $BASE_SEPOLIA_RPC_URL  # returns $INITIAL_TRUST_ROOT
 cast chain-id --rpc-url $BASE_SEPOLIA_RPC_URL                                      # returns 84532
@@ -275,7 +277,7 @@ BaseScan verification: all three contracts verified at sepolia.basescan.org.
 Stub-verifier rationale: pre-ceremony, real-pairing stub exercises the
 on-chain Groth16 verify path end-to-end so /register can smoke against
 the live chain ahead of Phase B recruitment per spec §8.2 reorder.
-Post-ceremony rotation: registry.setVerifier(realVerifierAddress) admin call."
+Post-ceremony rotation: fresh registry redeploy pointing at real verifier (groth16Verifier is immutable; no in-place setter exists)."
 ```
 
 ---
@@ -324,7 +326,7 @@ Create `fixtures/contracts/base-sepolia.json`. Use the Task 2 broadcast log to f
     "deployBlock": <block-number>,
     "deployTx": "0x<tx-hash>",
     "stubArtifactSha256": "<sha-from-step-2>",
-    "verifierFlipNote": "registry.setVerifier(realAddr) post-ceremony per spec §8.2"
+    "verifierFlipNote": "groth16Verifier is immutable; post-ceremony swap = fresh registry redeploy + new base-sepolia.json pump per spec §8.2"
   }
 }
 ```
@@ -403,7 +405,8 @@ contract BaseSepoliaStubSmokeTest is Test {
 
     function testFork_VerifierIsStub() public view {
         if (address(reg) == address(0)) return;  // skipped
-        address verifier = address(reg.verifier());
+        // NB: accessor is `groth16Verifier`, not `verifier` (public field name in ZkqesRegistryV5_2.sol).
+        address verifier = address(reg.groth16Verifier());
         assertGt(verifier.code.length, 0, "verifier has no code");
     }
 
@@ -475,7 +478,7 @@ Lead pumps the fixture into the web worktree per orchestration §5 and merges th
 
 After Phase B ceremony completes (separately tracked as task #8), a follow-up plan will dispatch:
 - Deploy real ceremonied verifier to Base Sepolia.
-- `registry.setVerifier(realVerifierAddress)` admin call.
+- Fresh registry redeploy pointing at the real ceremonied verifier (`groth16Verifier` is `immutable`; no in-place setter exists).
 - Update `base-sepolia.json` `verifierKind: "stub"` → `"real"` and add `verifierFlipBlock`.
 - BaseScan verify the real verifier.
 

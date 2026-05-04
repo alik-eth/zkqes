@@ -209,7 +209,7 @@ forge script script/DeployV5_2.s.sol --rpc-url $ANVIL  # dry-run on local fork b
 
 After live deploy:
 - BaseScan verification green for `Groth16VerifierV5_2Stub`, `ZkqesRegistryV5_2`, `ZkqesCertificate` (sepolia.basescan.org).
-- `cast call $REGISTRY 'verifier()(address)' --rpc-url $BASE_SEPOLIA_RPC_URL` returns the stub verifier address.
+- `cast call $REGISTRY 'groth16Verifier()(address)' --rpc-url $BASE_SEPOLIA_RPC_URL` returns the stub verifier address. (Accessor is `groth16Verifier`, not `verifier` — public field name in `ZkqesRegistryV5_2.sol`. The verifier is `immutable`; post-ceremony rotation = fresh registry redeploy, not setVerifier.)
 - `cast call $REGISTRY 'admin()(address)' --rpc-url $BASE_SEPOLIA_RPC_URL` returns expected admin.
 
 ### Web-eng (per task)
