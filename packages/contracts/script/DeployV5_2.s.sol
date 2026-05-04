@@ -29,6 +29,18 @@ import {ZkqesCertificate} from "../src/ZkqesCertificate.sol";
 ///             placeholder is wired in (mirrors the V5.1 §5-stub safety
 ///             pattern).
 ///
+///         For v2 civic-terminal dispatch (2026-05-04+): the Base Sepolia
+///         deploy uses `Groth16VerifierV5_2Stub.sol` (real-pairing stub)
+///         per spec §8.2 sequencing reorder. Run via the convenience
+///         wrapper `DeployV5_2WithStub.s.sol` which deploys the stub
+///         verifier first then chains into this script with
+///         GROTH16_VERIFIER_ADDR set. Post-ceremony swap is a separate
+///         deploy with the real ceremonied verifier address (the
+///         registry's `groth16Verifier` is `immutable`, so a fresh
+///         deploy is the canonical rotation path; no in-place setter
+///         exists). Target chain is Base Sepolia (chainId 84532),
+///         NOT L1 Sepolia.
+///
 /// @dev    Deploys, in order: Groth16VerifierV5_2 (or reuses an existing
 ///         deployed verifier), ZkqesRegistryV5_2 (which CREATE-deploys
 ///         PoseidonT3 + PoseidonT7 in its constructor), and

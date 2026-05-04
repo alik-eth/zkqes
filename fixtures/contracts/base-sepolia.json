@@ -1,0 +1,26 @@
+{
+  "chainId": 84532,
+  "chainName": "Base Sepolia",
+  "explorerBase": "https://sepolia.basescan.org",
+  "v5_2": {
+    "registry": "0xeE3bE208418DB51040e5983138C758C9eD154816",
+    "verifier": "0x5d63671653d9a047493386D494891fFDEc64007e",
+    "verifierKind": "stub",
+    "certificate": "0x1e6a264F760D80BBf9E6fb2700A69b93B46a1A63",
+    "deployedAt": "2026-05-04",
+    "deployBlock": 41073331,
+    "deployTx": "0x6a6a52d4debb8b58b75d77a27c899fb3e4d3e1d0f7f7687b6fc2e531cd9112ca",
+    "stubArtifactSha256": "e390af39d9530555e0b9894b7cf18390869bbe09e24e81b740288cf18bd823aa",
+    "verified": true,
+    "verifierFlipNote": "groth16Verifier is immutable; post-ceremony swap = fresh registry redeploy + new base-sepolia.json pump per spec §8.2",
+    "auxiliaryAddresses": {
+      "poseidonT3": "0x61FEA65D9f8924D23cFC5a8D36db9d81D34d1be5",
+      "poseidonT7": "0x3e3d445c612254Af8Ee53d7AE514851E68777baC"
+    },
+    "deployTxs": {
+      "verifier": "0x4193fc9398687a50345442c1ea5f6ec0f973e9f7a316931de719dd2379a44e75",
+      "registry": "0x6a6a52d4debb8b58b75d77a27c899fb3e4d3e1d0f7f7687b6fc2e531cd9112ca",
+      "certificate": "0xcbcbdb0b0cd54df626893543a91b282967454346b50825cfd6fc3e048a7e384f"
+    }
+  }
+}
