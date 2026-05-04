@@ -32,7 +32,7 @@ test.describe('/integrations', () => {
     await page.goto('/');
     await pushRoute(page, '/integrations');
     await expect(
-      page.getByRole('heading', { name: /Integrate QKB verification/i }),
+      page.getByRole('heading', { name: /Integrate zkqes verification/i }),
     ).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('heading', { name: /Solidity/i })).toBeVisible();
     await expect(
@@ -89,7 +89,7 @@ test.describe('/ua/use-desktop direct render', () => {
     // The bare URL is rendered in a mono block so users can copy it
     // by hand if the QR is unavailable.
     await expect(
-      page.getByText(/identityescrow\.org\/ua\/registerV5/),
+      page.getByText(/app\.zkqes\.org\/ua\/registerV5/),
     ).toBeVisible();
   });
 

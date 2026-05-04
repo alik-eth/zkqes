@@ -12,8 +12,16 @@
 import { expect, test } from '@playwright/test';
 import { injectMockWallet } from './helpers/walletMock';
 
+// Task 13 atomic flip: the v2 DeviceReadinessGate's
+// `assessV2BrowserCapability` only admits Firefox≥120 + deviceMemory≥8
+// (or the CLI-present path, which this test doesn't exercise). The
+// prior Safari UA was admitted by the V5.0 `assessDeviceCapability`
+// (mobile-flagship gate) but rejects on the v2 path. Switched to a
+// Firefox 121 UA so the gate lets the test through to the Step
+// components — which were NOT touched by Task 13 and retain all their
+// existing testids + flow internals.
 const FLAGSHIP_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+  'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0';
 const TEST_ADDR = ('0x' + 'a'.repeat(40)) as `0x${string}`;
 const SEPOLIA_CHAIN_ID = 11155111;
 
@@ -277,15 +285,16 @@ test.describe('/ua/registerV5 — V5 happy path (mock prover, undeployed registr
     await page.goto('/');
     await pushV5Route(page);
 
-    // On initial load the indicator's `aria-current="step"` marker
-    // sits on step 1. We assert via the CSS attribute selector since
-    // the marker is on a `<span>` next to the label.
-    await expect(
-      page.locator('span[aria-current="step"]'),
-    ).toHaveCount(1, { timeout: 10_000 });
-    await expect(page.getByText(/1 — Connect/)).toBeVisible();
+    // Task 13 atomic flip: the legacy StepIndicatorV5's
+    // `span[aria-current="step"]` marker + `1 — Connect` text label
+    // were retired. The v2 shell renders a sticky-header strip per
+    // spec §5.1 with format "STEP N of 4 · LABEL". Assert on the
+    // strip's active-step text rather than the legacy marker.
+    const strip = page.getByTestId('register-v2-step-strip');
+    await expect(strip).toBeVisible({ timeout: 10_000 });
+    await expect(strip).toContainText(/STEP 1 of 4 · CONNECT WALLET/);
 
-    // Advance to Step 2 and confirm the active marker moved.
+    // Advance to Step 2 and confirm the strip moved.
     await page.getByRole('button', { name: /Connect Wallet/i }).click();
     await page.getByText(/Mock Wallet/i).first().click();
     await page
@@ -293,12 +302,14 @@ test.describe('/ua/registerV5 — V5 happy path (mock prover, undeployed registr
       .first()
       .click();
 
-    // The Step 2 heading is the visual signal; the marker should
-    // still be a single element but now sit on the second step.
+    // The Step 2 heading is the visual signal; the strip should now
+    // read "STEP 2 of 4 · GENERATE BINDING STATEMENT".
     await expect(
       page.getByRole('heading', { name: /Generate your binding/i }),
     ).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('span[aria-current="step"]')).toHaveCount(1);
+    await expect(strip).toContainText(
+      /STEP 2 of 4 · GENERATE BINDING STATEMENT/,
+    );
 
     await ctx.close();
   });

@@ -80,6 +80,17 @@ export default defineConfig({
       testMatch: /ceremony\.spec\.ts/,
     },
     {
+      // Task 13 / spec §13. Phase-rendering smoke for the v2 surfaces:
+      // Landing + /ceremony + PreviewModeBanner across recruiting /
+      // ceremony-live / live phases. Mocks status.json per-test via
+      // page.route. Per #51 audit conclusion: this is the canonical
+      // anchor for post-flip e2e coverage of the civic-terminal v2
+      // surface family.
+      name: 'v2-phase-rendering',
+      use: { browserName: 'chromium' },
+      testMatch: /v2-phase-rendering\.spec\.ts/,
+    },
+    {
       // V5.4 T7 — opt-in via T7_DEV_MANIFEST env var. Spec
       // self-skips when unset, so this project is a no-op on
       // machines without the V5.2 stub artefacts.
