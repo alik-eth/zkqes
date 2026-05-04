@@ -1,7 +1,7 @@
 # zkqes civic-terminal rebrand — design spec
 
 **Date:** 2026-05-04
-**Status:** draft, marketer-review-pending, lead-review-pending
+**Status:** locked, awaiting `chore/civic-terminal-spec` merge to main; orchestration plan + per-worker plan + BRAND.md amendment commit dispatch follow merge
 **Wireframe bundle reference:** `/tmp/zkqes-design/zk-qes-3/` (Claude Design handoff, decompressed; the 326-line `civic-terminal.css` token layer + 15 wireframe artboards across 5 surfaces)
 **Founder direction reference:** 2026-05-04 thread — variant D selected; full rebrand · replace · amend
 **Prior visual baseline:** civic-monumental (`#60` LandingHero, `--bone` / `--ink` / `--sovereign` / `--seal`, EB Garamond + Inter Tight)
@@ -51,33 +51,29 @@ Current wireframe:
 
 Pre-launch adapted form:
 ```
-▣ ZKQES.ROUTER · round {N} of {TOTAL} · {STATE} · net: BASE-SEPOLIA · phase: {PHASE}
+▣ ZKQES.ROUTER · round {N} of {TOTAL} · {STATE} · net: BASE-SEPOLIA
 ```
 
 Bindings:
 - `{N}` ← `status.round` from `prove.zkqes.org/ceremony/status.json`. Defaults to `0` when feed is unreachable or pre-feed-publication.
 - `{TOTAL}` ← `status.totalRounds`. Phase B is currently scoped to **5–10 contributors** (per task `#8`, `circuits §11`); the canonical number is set when the ceremony coordinator publishes the first status JSON. Render literally what the feed says; do not hardcode.
-- `{STATE}` ← derived from `status` via `lib/ceremonyStatus.ts::deriveCeremonyState()`:
+- **Empty-state HN-screenshot guard** (marketer 2026-05-04): when both `{N}` and `{TOTAL}` are `0` (cold start, feed unreachable, or feed-published but pre-recruitment), render `round — of —` instead of `round 0 of 0`. The latter looks like a broken counter on a cold-reader screenshot; the em-dashes read as "not yet populated" without ambiguity.
+- `{STATE}` ← derived from `status` via `lib/ceremonyStatus.ts::deriveCeremonyState()` (3-state, per founder Q3 lock 2026-05-04):
   - `planned` → `recruiting` (yellow dot, `var(--ua-yellow)`)
-  - `in-progress` → `● live` (green dot, `var(--ok)`)
-  - `complete` → `complete` (green dot, `var(--ok)`)
+  - `in-progress` → `ceremony-live` (green dot, `var(--ok)`)
+  - `complete` (and Sepolia §9.4 green) → `live` (green dot, `var(--ok)`)
   - feed unreachable → `recruiting` (yellow dot)
-- `{PHASE}` ← static, two values:
-  - `pre-ceremony` (current): no contributors have completed a round
-  - `phase-b-live`: at least one contributor in chain
-  - `pre-launch` (post-ceremony, pre-§9.4): final zkey published but Sepolia E2E `#18` not yet green
-  - `live` (post-§9.4): register flow open
 
-The phase tag is derived in code: `pre-ceremony` if `status.contributors.length === 0`; `phase-b-live` if `> 0` and `status.finalZkeySha256 === null`; `pre-launch` if `finalZkeySha256 !== null` and §9.4 not green; `live` after §9.4. The §9.4-green check reads from a build-time env var (e.g., `VITE_SEPOLIA_E2E_GREEN=1`) or a runtime probe of the deployed `app.zkqes.org`; spec calls for build-time for simplicity.
+The 4-state form (`pre-ceremony` / `phase-b-live` / `pre-launch` / `live`) and the separate `phase: {PHASE}` segment from the spec's earlier draft are **dropped** per founder Q3 + marketer-review 2026-05-04. Reasoning: `pre-launch` undersold the ceremony milestone; `phase-b-live` was internal nomenclature; collapsing to 3 user-legible states (`recruiting` / `ceremony-live` / `live`) reads correctly to a cold visitor without project-internal context.
 
-The "gas: 0.04 gwei" segment from the wireframe is **dropped** — gas reads need an RPC subscription and add wallet-stack dependencies the landing build deliberately excludes. Replaced with `phase: {PHASE}`. If founder later wants gas-on-landing, that's a follow-up that brings in a server-side gas oracle (cheap; no wallet-stack import needed).
+The "gas: 0.04 gwei" segment from the wireframe is **dropped** — gas reads need an RPC subscription and add wallet-stack dependencies the landing build deliberately excludes. The `phase: {PHASE}` placeholder that previously substituted for gas is also dropped (per the state collapse above). If founder later wants gas-on-landing, that's a follow-up that brings in a server-side gas oracle (cheap; no wallet-stack import needed).
 
 ### 3.2. Three-column body
 
 | Column | Wireframe (post-launch) | Pre-launch adaptation |
 |---|---|---|
 | LEFT 260px | "YOU WILL NEED" + "PROVER MODE" radios | Same prereq list (Diia + EU QTSP + Base wallet + ≥38GB RAM); `PROVER MODE` radios deferred — radios imply choosing a prover for the active register flow, which is disabled. Replace with "CONTRIBUTE NOW" CTA panel (recruitment-shaped). |
-| MIDDLE 1fr | Tabs (Register / Rotate / Verify) active; BINDING STATEMENT field with editable wallet input + Sign-with-QES CTA | Tabs DISABLED (line-through, opacity 0.5, `cursor: not-allowed`, hover `title="Available after Phase B ceremony + Sepolia §9.4"`); BINDING STATEMENT shows preview copy ("Post-launch, holders will sign…") with PRE-LAUNCH `ct-tag--warn`; ASCII pipeline below. |
+| MIDDLE 1fr | Tabs (Register / Rotate / Verify) active; BINDING STATEMENT field with editable wallet input + Sign-with-QES CTA | Tabs DISABLED (line-through, opacity 0.5, `cursor: not-allowed`, hover `title="Available after trusted setup ceremony + Sepolia testnet deploy"`); BINDING STATEMENT shows active-voice preview copy ("Holders sign a binding statement that names a wallet, and prove the signature in zk — without disclosing it.") with PRE-LAUNCH `ct-tag--warn` as the state indicator; ASCII pipeline below. |
 | RIGHT 260px | "RECENT BINDINGS" log: timestamp / country / wallet / ✓ rows | "CEREMONY ATTESTATIONS" log: round / contributor / truncated attestation / ✓ rows. Source: `prove.zkqes.org/ceremony/status.json` `contributors[]`. Empty-state: "awaiting first contributor (10 needed · 32 GB RAM each)". |
 
 ### 3.3. CTAs
@@ -87,7 +83,7 @@ Pre-launch routes the user toward the only meaningful action available: ceremony
 | CTA | Pre-launch target | Post-launch target |
 |---|---|---|
 | Primary green button | `/ceremony` ("▶ Help with the ceremony") | (unchanged from wireframe) "Sign with QES ▸" → register flow |
-| Secondary | `https://docs.zkqes.org` ("Read the docs ▸") | `/verify` ("▶ Open verifier") |
+| Secondary | `https://docs.zkqes.org` ("Read the spec ▸") | `/verify` ("▶ Open verifier") |
 
 ### 3.4. Post-launch flip
 
@@ -96,9 +92,34 @@ When `#18` Sepolia E2E §9.4 clears + Phase B ceremony completes, **one follow-u
 - Re-enable Register / Rotate / Verify tabs (remove `DisabledTab` styling, point to actual route components)
 - Swap BINDING STATEMENT preview → live form (editable wallet input + Sign-with-QES CTA)
 - Rename right column "CEREMONY ATTESTATIONS" → "RECENT BINDINGS"; data source switches from status feed → on-chain event subscription (subscribed to `ZkqesRegistryV5_2.BindingRegistered` event via wagmi or viem)
-- Change marquee phase tag from `pre-launch` → `live`
+- Marquee state mapping: `complete` (final zkey published) → state derivation flips from `ceremony-live` → `live` once Sepolia §9.4 acceptance is confirmed at build time (`VITE_SEPOLIA_E2E_GREEN=1`). No copy-string change in the marquee itself; the change is in the derivation logic.
 
 The post-launch flip is itself a per-worker plan amendment that lands AFTER the rebrand spec is locked + implemented. It does not block the pre-launch shipping.
+
+### 3.5. Footer ribbon
+
+The wireframe's footer reads `FORM REVISION 04 · MAY 2026 · SUPERSEDES ALL PRIOR EDITIONS · PAGE 1 OF 1`. Per founder Q6 lock 2026-05-04, the production footer drops the bureaucratic-affectation framing and replaces it with the project-honest form: a 7-character truncated git SHA + ISO date, formatted as `<7-char-SHA> · YYYY-MM-DD`. Reads as a credibility move (zk-research audience expects build-pinning), not affectation. Bureaucratic-flavor is preserved through the rest of the chrome (civic stripe, .ct-field legends, certificate numbers); the footer specifically pivots from cosplay to provenance.
+
+Production footer template:
+
+```
+{BUILD_SHA_7} · {BUILD_DATE} · zkqes.org · ?variant retired post-merge
+```
+
+Bindings:
+- `{BUILD_SHA_7}` ← `import.meta.env.VITE_BUILD_SHA?.slice(0, 7)` populated at build time. The pages.yml workflow injects `VITE_BUILD_SHA` from `${{ github.sha }}` (already wired for prior surfaces; reuse). When env is unset (local `pnpm build` outside CI), fall back to literal `dev`.
+- `{BUILD_DATE}` ← `import.meta.env.VITE_BUILD_DATE` populated as `YYYY-MM-DD` at build time. Workflow injects from `$(date -u +%Y-%m-%d)`. Fall back to literal `dev`.
+- The trailing `?variant retired post-merge` segment is **prototype-only**, removed when `LandingHero` is replaced. Post-rebrand the footer is just `{BUILD_SHA_7} · {BUILD_DATE} · zkqes.org`.
+
+The implementation reuses the styling block from the prototype:
+
+```tsx
+<div style={{ borderTop: '1.5px solid var(--ct-ink)', padding: '6px 18px', display: 'flex', gap: 14, fontSize: 10.5, color: 'var(--ct-mute)' }}>
+  <span>{buildSha} · {buildDate}</span>
+  <span className="ct-spacer" />
+  <span>zkqes.org</span>
+</div>
+```
 
 ## 4. Token grammar
 
@@ -276,8 +297,9 @@ embossed seals). Pure monospace type. Heavy use of ASCII art.
 
 The aesthetic positions the project as bureaucratic-credible (this
 is a thing that interfaces with real-world legal trust services
-under eIDAS and Ukrainian DSP law) AND engineering-credible (this
-is a thing built by people who understand the substrate).
+under eIDAS and Ukrainian DSP law) AND engineering-credible: the
+system is built on Groth16/Circom against real eIDAS trust-service
+infrastructure.
 
 **Date locked:** 2026-05-04 (replaces the prior civic-monumental
 direction shipped 2026-05-03 in #60). Decision reference:
@@ -304,11 +326,31 @@ visual drift is a regression.
 | Display (h1, h2, h3, large numerics, brand mark) | VT323 | 400 only | `--display` |
 | Body (paragraphs, log lines, form input, button labels, code) | IBM Plex Mono | 400, 500, 600, 700 | `--mono` |
 
-Webfonts loaded via Google Fonts:
+Webfonts loaded via Google Fonts CDN with `font-display: swap`:
 
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap"
+  rel="stylesheet"
+  crossorigin
+/>
 ```
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap');
-```
+
+`crossorigin` is set on every `<link>` so the browser performs a CORS
+fetch (matches the server's `Access-Control-Allow-Origin: *` and
+deduplicates against later font-file CORS requests). `font-display:
+swap` is encoded in the URL query (`&display=swap`) and produces a
+brief fallback-font flash on first paint instead of a blocked-render
+window.
+
+`integrity` Subresource Integrity hashes are NOT used: Google Fonts
+does not publish stable hashes for the dynamically-generated CSS
+(content varies by user-agent). Self-hosting the fonts (which would
+let us pin SRI) is a follow-up polish pass post-adoption, not
+load-bearing for the v0.6.x recruitment window. Per founder Q1 lock
+2026-05-04.
 
 VT323 size band: 22-72px. Below 22px VT323 renders fuzzy; below 18px
 do not use VT323 — fall through to `--mono` 600-weight. Body copy
@@ -317,7 +359,8 @@ constrained to ≤65ch line length to mitigate monospace readability tax.
 The prior civic-monumental type stack (EB Garamond + Inter Tight +
 JetBrains Mono) is deprecated as of 2026-05-04. Existing references
 in `packages/web/index.html` `<link>` preconnects must be removed
-in lockstep with the landing implementation.
+**in the same commit that adds VT323 + Plex Mono** — atomic
+transition, no dead-preconnect window. Per lead Q2 lock 2026-05-04.
 ```
 
 ### 6.3. New section: "Component grammar"
@@ -331,10 +374,10 @@ strings; they are NOT React components by default. If a future
 broader adoption surfaces a need for component extraction, that's
 a follow-up.
 
-**Source of truth:** `packages/web/src/styles/civic-terminal.css`
-(326 lines, lifted verbatim from the founder's Claude Design bundle
-on 2026-05-04, reference at
-`docs/superpowers/specs/2026-05-04-zkqes-civic-terminal-rebrand-design.md`
+**Source of truth:** `packages/web/src/styles/civic-terminal.css`.
+The class namespace is stable; new primitives require a BRAND.md
+amendment + a corresponding entry in the rebrand spec
+(`docs/superpowers/specs/2026-05-04-zkqes-civic-terminal-rebrand-design.md`
 §4.3).
 
 **Token table:** see same spec §4.1 for the full CSS-variable
@@ -444,20 +487,36 @@ Per lead 2026-05-04: zkqes.org root DNS is live (#62 wave-1 done); rebrand work 
 
 ## 10. Open questions
 
-- **Q1.** Self-host webfonts vs Google Fonts CDN? Spec defaults to CDN (lower bundle weight, free CDN). Self-hosting is a follow-up if privacy/no-3rd-party-fetch is a brand requirement. **Lead/founder call.**
-- **Q2.** Drop EB Garamond + Inter Tight `<link>` preconnects from `packages/web/index.html` in the landing implementation commit, or in a separate cleanup commit? Spec proposes same-commit (atomic, lower diff scatter); revert simplicity favors same-commit too. **Lead call.**
-- **Q3.** Should the marquee phase tag (`pre-ceremony` / `phase-b-live` / `pre-launch` / `live`) be founder-chosen copy or my proposal? Spec proposes the four tags above; founder may want tighter copy. **Founder call before BRAND.md lands.**
-- **Q4.** Component-extraction trigger: at what surface count do the inline-JSX-with-className primitives get extracted to `components/civic-terminal/`? Spec proposes "after all three surfaces ship + a fourth surface (e.g., extension UI, marketing collateral) emerges." **Defer; revisit post-rebrand.**
-- **Q5.** Per `packages/web/CLAUDE.md` invariant #2, all user-visible strings live in `i18n/en.json` + `i18n/uk.json`. Variant D's marquee, legend labels, button labels, ASCII pipeline captions all become i18n keys. **Confirmed scope:** every user-visible string in the new component goes through i18n in the same commit; no English-only landing. Per-worker plan locks the key namespace (proposal: `landing.civicTerminal.*`).
-- **Q6.** The wireframe's "Form Revision 04 · May 2026" footer ribbon — keep verbatim, or replace with a project-honest equivalent (e.g., `BUILD SHA · DATE`)? Spec proposes the project-honest variant; bureaucratic-flavor is preserved. **Founder call.**
+All Q1-Q3 and Q6 were resolved 2026-05-04 (lead Q1+Q2; founder Q3+Q6 routed via marketer review). Q4 deferred per spec; Q5 locked at spec time.
+
+- **Q1. RESOLVED 2026-05-04 (lead).** Self-host webfonts vs Google Fonts CDN? **CDN with `font-display: swap` + `crossorigin` on every `<link>`. SRI integrity hashes deferred (Google Fonts doesn't publish stable hashes for dynamically-generated CSS).** Self-hosting is a follow-up polish pass post-adoption, NOT load-bearing for the v0.6.x recruitment window. Implementation reflected in §6.2 Type Stack and §4.2 type custom-property reference.
+- **Q2. RESOLVED 2026-05-04 (lead).** Drop EB Garamond + Inter Tight `<link>` preconnects from `packages/web/index.html` in the landing implementation commit, or in a separate cleanup commit? **Same commit. Atomic transition, no dead-preconnect window.** Implementation reflected in §6.2 Type Stack last paragraph.
+- **Q3. RESOLVED 2026-05-04 (founder, marketer-recommended).** Marquee state copy? **3-state form: `recruiting` / `ceremony-live` / `live`.** Drop `pre-ceremony` / `phase-b-live` / `pre-launch`. Marketer's reasoning: `pre-launch` undersells the ceremony milestone; `phase-b-live` is internal nomenclature; 3 states are user-legible without project-internal context. Implementation reflected in §3.1 (state mapping + 4-state-form-dropped paragraph). Empty-state HN-screenshot guard locked at `round — of —` when both `{N}` and `{TOTAL}` are 0 (also §3.1).
+- **Q4. DEFERRED.** Component-extraction trigger: at what surface count do the inline-JSX-with-className primitives get extracted to `components/civic-terminal/`? Spec proposes "after all three surfaces ship + a fourth surface (e.g., extension UI, marketing collateral) emerges." **Revisit post-rebrand.**
+- **Q5. LOCKED.** Per `packages/web/CLAUDE.md` invariant #2, all user-visible strings live in `i18n/en.json` + `i18n/uk.json`. Variant D's marquee, legend labels, button labels, ASCII pipeline captions all become i18n keys. Every user-visible string in the new component goes through i18n in the same commit; no English-only landing. Per-worker plan locks the key namespace (proposal: `landing.civicTerminal.*`).
+- **Q6. RESOLVED 2026-05-04 (founder, marketer-recommended).** Footer ribbon copy? **`{BUILD_SHA_7} · {BUILD_DATE} · zkqes.org`** (7-char truncated SHA + ISO date), via build-time `VITE_BUILD_SHA` + `VITE_BUILD_DATE` env. Drop the wireframe's `FORM REVISION 04 · MAY 2026 · SUPERSEDES ALL PRIOR EDITIONS · PAGE 1 OF 1` framing. Marketer's reasoning: SHA reads as credibility move for a ZK project; `Form Revision` reads as affectation post-reveal. Implementation reflected in §3.5 Footer Ribbon (new subsection).
+
+### 10b. Marketer review findings (YELLOW verdict, 7 copy findings, all addressed in this amendment commit)
+
+1. **§3.1 marquee phase tags** — addressed via Q3 lock (3-state collapse).
+2. **§3.2 disabled-tab tooltip** — addressed (`Available after trusted setup ceremony + Sepolia testnet deploy`; drops internal `§9.4` reference that's noise to a cold visitor).
+3. **§3.2 BINDING STATEMENT preview tense** — addressed (active voice: "Holders sign a binding statement that names a wallet, and prove the signature in zk — without disclosing it.").
+4. **§3.2 empty-state copy** — KEEP VERBATIM (`awaiting first contributor (10 needed · 32 GB RAM each)`); marketer flagged as screenshot-positive, RAM specificity reads as real infrastructure to a technical audience.
+5. **§3.3 secondary CTA** — addressed (`Read the docs ▸` → `Read the spec ▸`; ZK-research audience wants pointer to engineering depth).
+6. **§6.1 BRAND.md Visual Language** — addressed ("AND engineering-credible: the system is built on Groth16/Circom against real eIDAS trust-service infrastructure"; substrate-specific replacement for the prior informal "people who understand the substrate" line).
+7. **§6.3 BRAND.md Component Grammar** — addressed (drop "Claude Design bundle" tool-name reference; replace with stable namespace + amendment-required language).
+
+### 10c. HN-screenshot mitigation (marketer 2026-05-04)
+
+When marquee `{N}` and `{TOTAL}` are both `0` (cold start, feed unreachable, or feed-published pre-recruitment), render `round — of —` instead of `round 0 of 0`. The latter looks like a broken counter on a cold-reader screenshot. Implementation reflected in §3.1 marquee bindings.
 
 ---
 
 ## Acceptance gate (when this spec is "locked")
 
-- [ ] Marketer review pass complete (lead routes; ~30-60 min reviewer time)
-- [ ] Founder confirms Q3 + Q6 above (open questions tagged founder-call)
-- [ ] Lead confirms Q1 + Q2 (open questions tagged lead-call)
+- [x] Marketer review pass complete — 2026-05-04, YELLOW verdict, 7 findings + Q3/Q6 recommendations, all addressed in this amendment commit (§10b)
+- [x] Founder confirms Q3 + Q6 — 2026-05-04, locked per marketer recommendations
+- [x] Lead confirms Q1 + Q2 — 2026-05-04, locked (CDN with `font-display: swap` + `crossorigin`; same-commit preconnect cleanup)
 - [ ] Spec committed to main via `chore/civic-terminal-spec` merge
 
 After lock:
