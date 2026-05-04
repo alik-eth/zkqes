@@ -137,9 +137,70 @@ Below: FAQ accordion. 3–4 items: "what's a trusted setup", "why 32 GB RAM", "w
 
 App is always live (Sepolia testnet from day 1 of public). Pre-ceremony, the app uses a stub verifier (currently committed at `Groth16VerifierV5_2Stub.sol`); post-ceremony, the real verifier deploys and the app switches over via the contract address in `fixtures/contracts/sepolia.json`. No `<AppPreLaunchPanel>` — the routes work end-to-end from public-launch day.
 
+### 5.0 Device-readiness gate (precedes /register and /rotate)
+
+`<DeviceReadinessGate>` component renders BEFORE Step 01 of /register and /rotate. Acts as a hard gate: until the user satisfies one of the two acceptance paths, the rest of the form stays hidden behind a `.ct-tag--warn` block. Not used by /verify (chain verification only — no prover required).
+
+**Two acceptance paths** (either one unlocks the form):
+
+1. **Supported browser + sufficient RAM**: Firefox ≥120 (64-bit), `navigator.deviceMemory ≥ 8` (heuristic — Chrome's `deviceMemory` caps at 8 GB even on 64 GB machines, so 8 is the highest signal we get; we treat it as "this machine is plausibly large enough"). Chrome / Safari / mobile fail this check (Chrome OOMs on the 38 GB peak; Safari hasn't been tested; mobile is too small).
+2. **`zkqes serve` detected at `localhost:9080`**: existing `useCliPresence.ts` hook (per V5.4 work). 500 ms timeout on `GET /status`. If the CLI sidecar is running, this path always wins regardless of browser.
+
+**Component states:**
+
+```
+┌─ DEVICE READINESS ─────────────────────────────────┐
+│ ◐ checking your device …                            │   (loading, ~500 ms)
+└────────────────────────────────────────────────────┘
+
+┌─ DEVICE READY ─────────────────────────────────────┐
+│ ✓ Firefox 121 · 16 GB+ RAM detected                 │   (passed via path 1)
+│ proving will run in a Web Worker · ~90 s · ~38 GB peak│
+└────────────────────────────────────────────────────┘
+
+┌─ DEVICE READY · CLI DETECTED ──────────────────────┐
+│ ✓ zkqes serve detected at localhost:9080            │   (passed via path 2)
+│ proving will offload to native rapidsnark · ~14 s   │
+└────────────────────────────────────────────────────┘
+
+┌─ DEVICE NOT READY · .ct-tag--warn ─────────────────┐
+│ This device can't run the prover.                   │   (failed)
+│ You have two options:                               │
+│                                                     │
+│ ┌─ OPTION A · Firefox 64-bit ≥120 with 32 GB RAM ──┐│
+│ │ Open this page in Firefox 64-bit on a desktop    ││
+│ │ with 32 GB+ RAM. Proving runs in a Web Worker;   ││
+│ │ ~90 s wall time, ~38 GB peak memory.             ││
+│ │                                                  ││
+│ │ Detected: {browser} · {ram}                      ││
+│ └──────────────────────────────────────────────────┘│
+│                                                     │
+│ ┌─ OPTION B · Install zkqes CLI prover ────────────┐│
+│ │ Run native rapidsnark locally, browser auto-     ││
+│ │ detects it. ~14 s wall time, ~3.7 GB peak.       ││
+│ │ Works on any browser.                            ││
+│ │                                                  ││
+│ │ ▣ npm install -g @zkqes/cli                      ││
+│ │ ▣ zkqes serve                                    ││
+│ │                                                  ││
+│ │ → install instructions (full)                    ││
+│ └──────────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────┘
+```
+
+When in the failed state, the rest of the /register or /rotate form stays gone (don't render Step 01–06 at all — keep the page short). When the user installs `zkqes serve` and reloads, the CLI poll picks it up and the gate flips to the "ready · CLI detected" state. When the user opens the page in Firefox, the browser check passes.
+
+The gate runs once on mount; on `useCliPresence` change (CLI started while user was on the page), the gate re-evaluates and unlocks the form without a reload.
+
+**Copy locked**: the `Detected:` line is critical for debug — shows exactly what the browser reported (`Chrome 130 · 8 GB`, `Safari 17 · unknown`, `Firefox 121 · 16 GB+`). Power users know what to fix; lay users see the install paths.
+
+**i18n**: en + uk. The "Detected: …" technical line stays English (browser/RAM strings); option A/B headings + body translated.
+
+**Out of scope**: heuristic-improvement work — Chrome's `deviceMemory` cap at 8 is a known bug we're not fixing. If a user has 64 GB Chrome and is willing to try, they can install `zkqes serve` to bypass. We don't try to detect actual RAM beyond `deviceMemory`.
+
 ### 5.1 /register — single long form
 
-Single column, max-width 720px, centered. All 6 steps as numbered `.ct-panel` sections separated by `.ct-civic-stripe` rules. No 3-column shell.
+Single column, max-width 720px, centered. **Top of the column: `<DeviceReadinessGate>` from §5.0.** Until passed, no form steps render. **Below the gate (once passed)**: all 6 steps as numbered `.ct-panel` sections separated by `.ct-civic-stripe` rules. No 3-column shell.
 
 ```
 ┌─ Sticky header strip (on scroll) ──────────────────┐
@@ -179,7 +240,7 @@ State-machine: stored in `sessionStorage` (per existing pattern in `packages/web
 
 ### 5.2 /account/rotate — single long form (3 sections)
 
-Same shape as /register but with 3 sections instead of 6, matching the wallet-rotation flow's actual sigs:
+Same shape as /register: `<DeviceReadinessGate>` from §5.0 at top, gates the rest. Same prover requirement (rotation also requires a fresh proof). Below the gate, 3 sections instead of 6, matching the wallet-rotation flow's actual sigs:
 
 ```
 ──── 01. NEW WALLET HKDF ───────────────────────
