@@ -9,7 +9,7 @@
 
 ## 0. Goal
 
-Extend the civic-terminal rebrand from landing-only (v1 spec scope) to the full user-facing surface family. Lock the per-surface body shape, the cross-surface state machine, the pre-recruitment / ceremony-live / post-ceremony transitions, and the JSON schema that drives them. Reorder the critical path so recruitment doesn't fire until everything is live on Sepolia testnet.
+Extend the civic-terminal rebrand from landing-only (v1 spec scope) to the full user-facing surface family. Lock the per-surface body shape, the cross-surface state machine, the pre-recruitment / ceremony-live / post-ceremony transitions, and the JSON schema that drives them. Reorder the critical path so recruitment doesn't fire until everything is live on Base Sepolia testnet (chainId 84532).
 
 ## 1. Locked decisions (from brainstorm)
 
@@ -53,7 +53,7 @@ What v2 adds for landing: locked state-machine transitions for the marquee + bin
 | Marquee count | `round 0 of {TOTAL}` (or `round — of —` if total=0) | `round {N} of {TOTAL} · in progress` | `round {TOTAL} of {TOTAL} · complete · audit pending` (post-ceremony, pre-mainnet) or `mainnet live` (post-mainnet) |
 | Binding-statement block (middle column) | preview text + PRE-LAUNCH `.ct-tag--warn` (per v1 spec §3.2) | same as recruiting | LIVE link to /register; `.ct-tag--warn` removed |
 | Ceremony attestations (right sidebar) | "awaiting first contributor (10 needed · ≥32 GB RAM or cloud equivalent)" — v2 amends marketer's "32 GB each" to fix factual drift (Fly path is a 4-CPU VM, not local RAM) | last 7 attested rounds + current-round pulse | full chain + beacon panel |
-| Disabled tabs in middle | Register/Rotate/Verify with `Available after trusted setup ceremony + Sepolia testnet deploy` tooltip | same | tabs unlocked, link to /register/rotate/verify |
+| Disabled tabs in middle | Register/Rotate/Verify with `Available after trusted setup ceremony + Base Sepolia testnet deploy` tooltip | same | tabs unlocked, link to /register/rotate/verify |
 | Footer ribbon | `{BUILD_SHA_7} · {BUILD_DATE} · zkqes.org` (v1 spec §3.5) | same | same |
 
 The frontend doesn't need to know which phase it's in — it reads `status.json.phase` and renders the corresponding variant. Same component tree, content swaps.
@@ -141,7 +141,7 @@ Below: FAQ accordion. 3–4 items: "what's a trusted setup", "why 32 GB RAM", "w
 
 ## 5. App routes (`app.zkqes.org/{register, account/rotate, verify}`)
 
-App is always live (Sepolia testnet from day 1 of public). Pre-ceremony, the app uses a stub verifier (currently committed at `Groth16VerifierV5_2Stub.sol`); post-ceremony, the real verifier deploys and the app switches over via the contract address in `fixtures/contracts/sepolia.json`. No `<AppPreLaunchPanel>` — the routes work end-to-end from public-launch day.
+App is always live (Base Sepolia testnet, chainId 84532, from day 1 of public). Pre-ceremony, the app uses a stub verifier (currently committed at `Groth16VerifierV5_2Stub.sol`); post-ceremony, the real verifier deploys and the app switches over via the contract address in `fixtures/contracts/base-sepolia.json`. No `<AppPreLaunchPanel>` — the routes work end-to-end from public-launch day.
 
 ### 5.0 Device-readiness gate (precedes /register and /rotate)
 
@@ -288,7 +288,7 @@ When `status.json.phase` is not `live`, all three app routes render a thin top-o
 
 Uses `.ct-tag--warn` styling. Renders within the body, after the marquee, before the form / result panels. Removed entirely when phase = `live` (single React-conditional, ~5 lines). Banner copy is i18n'd (en + uk per existing pattern).
 
-Reason: the app being functional pre-ceremony means visitors CAN sign + prove + register on Sepolia, but the proof's soundness depends on the (not-yet-run) trusted setup. Preview-mode banner makes that explicit.
+Reason: the app being functional pre-ceremony means visitors CAN sign + prove + register on Base Sepolia, but the proof's soundness depends on the (not-yet-run) trusted setup. Preview-mode banner makes that explicit.
 
 ### 5.5 Mobile collapse for app routes
 
@@ -378,7 +378,7 @@ Phase transitions (one source-of-truth flow):
 - `round-zero.ts --commit` writes `phase: 'recruiting'` explicitly (round-zero is unique because it bootstraps `status.json` from scratch)
 - `publish-status.ts --round 1 --commit` (and onwards through round N): auto-writes `phase: 'ceremony-live'` (derived from round count > 0)
 - `publish-status.ts --beacon …` (post-final-round): keeps `phase: 'ceremony-live'` until finalize
-- `publish-status.ts --finalize --final-sha … --commit` (post-beacon, post-real-verifier-deploy): writes `phase: 'live'` explicitly. This is the manual flip the lead runs after the real verifier replaces the stub on Sepolia per §6.3.
+- `publish-status.ts --finalize --final-sha … --commit` (post-beacon, post-real-verifier-deploy): writes `phase: 'live'` explicitly. This is the manual flip the lead runs after the real verifier replaces the stub on Base Sepolia per §6.3.
 
 Frontend cache: 30s polling on the live URL; HEAD-then-GET via `If-Modified-Since` to avoid full transfers when unchanged.
 
@@ -386,12 +386,12 @@ Frontend cache: 30s polling on the live URL; HEAD-then-GET via `If-Modified-Sinc
 
 ### 8.1 Recruitment is gated on testnet-live
 
-Founder constraint (locked 2026-05-04 brainstorm): recruitment doesn't start until everything is live on Sepolia testnet. This means:
+Founder constraint (locked 2026-05-04 brainstorm): recruitment doesn't start until everything is live on Base Sepolia testnet. This means:
 
-1. Contracts deploy to Sepolia (with stub verifier).
-2. App goes live at `app.zkqes.org` pointing at Sepolia.
+1. Contracts deploy to Base Sepolia, chainId 84532 (with stub verifier).
+2. App goes live at `app.zkqes.org` pointing at Base Sepolia.
 3. /ceremony page goes live at `zkqes.org/ceremony` (already up but populated only post-round-zero).
-4. Sepolia E2E §9.4 acceptance gate clears.
+4. Base Sepolia E2E §9.4 acceptance gate clears.
 5. **Founder fires recruitment** (DMs go out).
 6. Round-zero seeds (writes `phase: 'recruiting'`); /ceremony populates with 10 placeholder rounds.
 7. Round 1 starts; phase auto-transitions to `ceremony-live`.
@@ -403,22 +403,22 @@ The pre-recruitment phase (today) has the site up but the founder hasn't fired D
 This re-prioritizes contracts-eng's #15 task. **It moves up the critical path.** New ordering:
 
 1. v2 implementation — web-eng builds landing + /ceremony + app surfaces from this spec
-2. **#15 contracts-eng — Sepolia deploy with stub verifier** (was gated on Phase B ceremony; now deploys with stub upfront, real verifier post-ceremony)
+2. **#15 contracts-eng — Base Sepolia deploy with stub verifier** (was gated on Phase B ceremony; now deploys with stub upfront, real verifier post-ceremony)
 3. Round-zero seeding — needs r1cs + ptau + admin entropy
-4. **#18 Sepolia E2E §9.4 acceptance gate** — verifies the full pipeline end-to-end including /register against stub
+4. **#18 Base Sepolia E2E §9.4 acceptance gate** — verifies the full pipeline end-to-end including /register against stub
 5. **Founder fires recruitment** (Phase A outreach DMs)
 6. Ceremony rounds 1–10 run; /ceremony populates; phase = `ceremony-live`
-7. Final-round beacon + real verifier deploys to Sepolia (replaces stub)
-8. Phase = `live`; /register switches to real verifier in `fixtures/contracts/sepolia.json`
-9. Mainnet deploy gated on audit + go-live decision
+7. Final-round beacon + real verifier deploys to Base Sepolia (replaces stub)
+8. Phase = `live`; /register switches to real verifier in `fixtures/contracts/base-sepolia.json`
+9. Base mainnet deploy gated on audit + go-live decision
 
 ### 8.3 Consequence for the existing task list
 
 - **#15 contracts-eng** — currently described as "Base Sepolia live deploy (GATED on circuits §11)". Update gating note: "deploy with stub verifier upfront; real verifier replaces stub post-ceremony per v2 spec §8.2"
-- **#8 Phase B real Phase 2 ceremony** — gated on contracts-eng Sepolia deploy + app deploy (was inverted in earlier sequencing)
+- **#8 Phase B real Phase 2 ceremony** — gated on contracts-eng Base Sepolia deploy + app deploy (was inverted in earlier sequencing)
 - **#17 GH Pages migration** — unchanged; still gated on §9.4
-- **#18 Sepolia E2E §9.4 acceptance gate** — moves up the critical path; runs against stub-deployed contract
-- **#58 Launch arc drafts** — re-creation gates on phase = `live` (mainnet pre-launch)
+- **#18 Base Sepolia E2E §9.4 acceptance gate** — moves up the critical path; runs against stub-deployed contract
+- **#58 Launch arc drafts** — re-creation gates on phase = `live` (Base mainnet pre-launch)
 
 Lead updates the task list note for #15 + #18 to reflect this sequencing.
 
@@ -447,7 +447,7 @@ This spec is locked when:
 - [ ] Spec merges to main via `chore/civic-terminal-v2-spec`
 
 After lock:
-1. **Orchestration plan** drafted at `docs/superpowers/plans/2026-05-04-zkqes-civic-terminal-v2-orchestration.md` — covers per-worker scope (web-eng owns implementation; lead owns BRAND.md amendment + status.json schema bump in ceremony-coord; contracts-eng owns Sepolia stub deploy)
+1. **Orchestration plan** drafted at `docs/superpowers/plans/2026-05-04-zkqes-civic-terminal-v2-orchestration.md` — covers per-worker scope (web-eng owns implementation; lead owns BRAND.md amendment + status.json schema bump in ceremony-coord; contracts-eng owns Base Sepolia stub deploy)
 2. **Per-worker plan** drafted for web-eng — bite-sized TDD tasks per surface
 3. **BRAND.md amendment** committed by lead (v1 spec §6 text + v2's surface-grammar additions)
 4. **Implementation branches** dispatched per orchestration plan
@@ -466,4 +466,4 @@ After lock:
 
 - **Q (defer)**: Should /ceremony's right-column verify widget run the actual `snarkjs zkey verify` in-browser (~5 min, ~30 GB peak — same constraint as ceremony itself), or just verify the attestation hash chain (cheaper, less proof of soundness)? My lean: **chain verification only** in v2 (full snarkjs verify is gated by the same memory constraints as ceremony participation; not viable for casual visitors). Full verify is offered as `zkqes verify-ceremony` CLI command instead. Confirm at implementation time.
 - **Q (defer)**: Pre-recruitment public visibility: should the site be discoverable today (passive recruitment via search/HN) or hidden until founder fires? Default: discoverable. Founder can flip a build-flag to hide if desired.
-- **Q (defer)**: Mainnet phase — does `live` phase split into `live-sepolia` vs `live-mainnet` for the period both chains are active? Probably yes; addable to the schema later without breaking compat.
+- **Q (defer)**: Multi-chain `live` — does `live` phase split into `live-base-sepolia` vs `live-base-mainnet` for the period both chains are active (Base Sepolia testnet + Base mainnet)? Probably yes; addable to the schema later without breaking compat.
