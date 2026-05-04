@@ -38,10 +38,12 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
 
-  // Google Fonts for the civic-monumental type stack — same fonts
-  // the SPA loads. EB Garamond (display headings + fine), Inter Tight
-  // (body), JetBrains Mono (code). Preconnect first for handshake
-  // savings; stylesheet second.
+  // Google Fonts for the civic-terminal v2 type stack (BRAND.md §Type
+  // stack). VT323 is the display face (h1–h3, brand mark); IBM Plex
+  // Mono is the body + code face. Atomic-transition note: the prior
+  // EB Garamond + Inter Tight + JetBrains Mono preconnects were
+  // removed in the same commit that adds the new pair (no dead-
+  // preconnect window, per BRAND.md v2 amendment).
   head: [
     [
       'link',
@@ -61,9 +63,8 @@ export default defineConfig({
         rel: 'stylesheet',
         href:
           'https://fonts.googleapis.com/css2' +
-          '?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400' +
-          '&family=Inter+Tight:wght@400;500;600' +
-          '&family=JetBrains+Mono:wght@400;500' +
+          '?family=IBM+Plex+Mono:wght@400;500;600;700' +
+          '&family=VT323' +
           '&display=swap',
       },
     ],
@@ -106,6 +107,15 @@ export default defineConfig({
     // backslash-escaping angle brackets, which is markdown-syntax
     // normalization rather than semantic editing.
     'superpowers/specs/2026-05-03-qkb-helper-design.md',
+    // v1 civic-terminal rebrand spec — superseded by the 2026-05-04 v2
+    // spec. Source-side has tag-shaped placeholders that trip Vue's
+    // SSR parser (build error: "Cannot read properties of undefined
+    // (reading 'sha')"). Same root cause as the qkb-helper spec above.
+    // The build was already failing on origin/main; excluded here as
+    // part of Task 12 (docs retheme) so the retheme commit can verify.
+    // Underlying markdown-normalization is on the punch list — see
+    // task #64. The spec stays in tree as design history.
+    'superpowers/specs/2026-05-04-zkqes-civic-terminal-rebrand-design.md',
     // Worker plans — kept on contributing surface but not exhaustive
     // index. C3 will curate the whitelist via `rewrites` + sidebar.
     'superpowers/plans/2026-04-17-qie-*.md',
