@@ -6,16 +6,36 @@
 // `snarkjs zkey contribute` (~30 GB RAM peak; V8 WASM-32 cap blocks);
 // the page is coordination + instructions only.
 //
-// Civic-monumental aesthetic: matches existing landing's tonal register
-// (declarative, sovereign, document-grade). Same primitives — EB Garamond
-// display, Inter Tight body, sovereign indigo / sienna seal markers,
-// no icons / cards / shadows.
+// Civic-monumental aesthetic for the legacy variant: matches existing
+// landing's tonal register (declarative, sovereign, document-grade).
+//
+// Civic-terminal v2 variant (gated behind `?variant=civic-terminal`): the
+// 3-col `<CeremonyShell>` per spec §4 + plan Task 6. Mirrors the
+// `routes/index.tsx` variant-flag pattern so the legacy surface (and all
+// of its Playwright e2e assertions) stays green during rollout. The plan's
+// final cutover (Task 13) flips this default.
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { DocumentFooter } from '../../components/DocumentFooter';
 import { PaperGrain } from '../../components/PaperGrain';
+import { CeremonyShell } from '../../components/ceremony/CeremonyShell';
 
 export function CeremonyIndex() {
+  // Civic-terminal v2 prototype gate. Same runtime URL-search pattern used
+  // for the home variant in `routes/index.tsx`. The civic-monumental body
+  // is extracted into `LegacyCeremonyIndex` so its `useTranslation` call
+  // isn't conditional — keeps the hooks rule statically satisfied.
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('variant') ===
+      'civic-terminal'
+  ) {
+    return <CeremonyShell />;
+  }
+  return <LegacyCeremonyIndex />;
+}
+
+function LegacyCeremonyIndex() {
   const { t } = useTranslation();
   return (
     <main className="relative min-h-screen">

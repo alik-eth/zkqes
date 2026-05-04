@@ -304,6 +304,8 @@
       "lede": "Drop the prover key file you downloaded. The browser computes a SHA-256 of every byte and compares against the hash committed in the on-chain verifier contract — published below once the ceremony is complete.",
       "publishedHeading": "Published final hash",
       "published.pending": "Ceremony is not yet complete. The final zkey hash is published here once the last contributor uploads and the public-randomness beacon is mixed in.",
+      "published.loading": "Loading ceremony status…",
+      "published.feedFailed": "Could not reach the ceremony status feed. The published hash will appear here once the feed is reachable; refresh the page to retry.",
       "uploadHeading": "Hash your downloaded zkey",
       "fileAriaNeutral": "Upload your downloaded zkey",
       "fileAriaStub": "Upload your downloaded zkqes-v5_2-stub.zkey",
@@ -311,7 +313,51 @@
       "progress": "Hashing",
       "matched": "Match. This file is the same prover key the verifier contract was deployed with.",
       "mismatch": "No match. Do not use this file. Re-download from the canonical source.",
-      "noPublished": "Computed"
+      "noPublished": "Computed",
+      "v2": {
+        "heading": "Verify",
+        "explainer": {
+          "heading": "WHAT THIS VERIFIES",
+          "body": "Looks up an attestation hash against the published ceremony chain, or a wallet against the on-chain registry once Base Sepolia is live."
+        },
+        "tab": {
+          "attestation": "by attestation",
+          "wallet": "by wallet"
+        },
+        "input": {
+          "attestation": "paste attestation sha-256 (with or without 0x)",
+          "wallet": "paste wallet address 0x…",
+          "format": "expected: 64 hex chars (sha-256), with or without 0x prefix"
+        },
+        "submit": "verify",
+        "result": {
+          "empty": "✗ empty input",
+          "feedDown": "✗ status feed unreachable; cannot determine.",
+          "unknown": "✗ not part of this ceremony",
+          "final": "✓ matches published final zkey",
+          "contributor": "✓ matches a published attestation",
+          "invalidAddress": "✗ not a valid 0x-prefixed wallet address",
+          "preLaunch": "◐ available after trusted setup ceremony + Base Sepolia testnet deploy",
+          "label": {
+            "hash": "hash",
+            "verdict": "verdict",
+            "round": "round",
+            "contributor": "contributor",
+            "address": "address"
+          }
+        },
+        "verdict": {
+          "final": "matches published final zkey",
+          "contributor": "round {{round}} · {{name}}",
+          "feedDown": "status feed unreachable",
+          "unknown": "not part of this ceremony",
+          "preLaunch": "available after trusted setup ceremony + Base Sepolia testnet deploy"
+        },
+        "recent": {
+          "heading": "RECENT",
+          "empty": "no lookups yet"
+        }
+      }
     }
   },
   "zkqes": {

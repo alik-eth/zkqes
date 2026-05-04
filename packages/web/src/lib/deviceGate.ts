@@ -100,3 +100,87 @@ export async function assessDeviceCapability(): Promise<DeviceCapability> {
 
   return { kind: 'ready', quotaBytes: quota, persistGranted: true };
 }
+
+// ---------------------------------------------------------------------------
+// V2 civic-terminal capability check (per spec §5.0 + plan Task 8).
+//
+// Two acceptance paths gate the v2 /register + /account/rotate surfaces:
+//   1. ready-browser — Firefox≥120 with `navigator.deviceMemory ≥ 8`
+//      (the only browser/RAM combo that survives a ~38 GB-peak full prove).
+//   2. ready-cli     — `zkqes serve` detected at localhost:9080 (offloads
+//      proving to native rapidsnark; ~14 s, ~3.7 GB peak; works on any
+//      browser including Chrome/Safari/in-app webviews).
+//
+// Replaces V5.0 mobile-flagship-acceptance for civic-terminal v2 surfaces.
+// The older `assessDeviceCapability` is intentionally kept exported above —
+// the legacy `/ua/use-desktop` flow still calls it during rollout.
+// ---------------------------------------------------------------------------
+
+// Note: `assessV2BrowserCapability` only emits `ready-browser` or `denied`.
+// The third acceptance path (`ready-cli`) is composed downstream by the
+// gate component from `useCliPresence().status === 'present'` — it's not a
+// browser-side judgement. Keeping the union here narrow lets the gate's
+// switch fall through cleanly without an unused-case branch.
+export type V2DeviceCapability =
+  | { kind: 'ready-browser'; browser: string; deviceMemory: number }
+  | {
+      kind: 'denied';
+      detected: { browser: string; deviceMemory: number | 'unknown' };
+    };
+
+const FIREFOX_RE = /Firefox\/(\d+)/;
+const FIREFOX_DERIV_RE = /Seamonkey|PaleMoon|Waterfox/;
+
+/**
+ * Synchronous browser-only capability check. Returns a `ready-browser`
+ * verdict iff the navigator looks like a real Firefox≥120 with declared
+ * `deviceMemory ≥ 8`. Otherwise returns `denied` with a `detected` line
+ * suitable for the user-facing fallback panel.
+ *
+ * The `ready-cli` verdict comes from the CLI presence hook; the gate
+ * component composes the two signals.
+ */
+export function assessV2BrowserCapability(): V2DeviceCapability {
+  if (typeof navigator === 'undefined') {
+    return {
+      kind: 'denied',
+      detected: { browser: 'unknown', deviceMemory: 'unknown' },
+    };
+  }
+  const ua = navigator.userAgent ?? '';
+  const ffMatch = ua.match(FIREFOX_RE);
+  const isFirefox = ffMatch !== null && !FIREFOX_DERIV_RE.test(ua);
+  const ffVersion = isFirefox ? Number(ffMatch?.[1] ?? 0) : 0;
+  const deviceMemory = (navigator as Navigator & { deviceMemory?: number })
+    .deviceMemory;
+
+  if (
+    isFirefox &&
+    ffVersion >= 120 &&
+    typeof deviceMemory === 'number' &&
+    deviceMemory >= 8
+  ) {
+    return {
+      kind: 'ready-browser',
+      browser: `Firefox ${ffVersion}`,
+      deviceMemory,
+    };
+  }
+
+  // Reject path. The browser label below is for the user-facing Detected
+  // line; we don't try to be exhaustive — Chrome/Safari/unknown is enough.
+  const browserLabel = isFirefox
+    ? `Firefox ${ffVersion}`
+    : ua.includes('Chrome/')
+      ? 'Chrome (Chromium)'
+      : ua.includes('Safari/')
+        ? 'Safari'
+        : 'unknown browser';
+  return {
+    kind: 'denied',
+    detected: {
+      browser: browserLabel,
+      deviceMemory: typeof deviceMemory === 'number' ? deviceMemory : 'unknown',
+    },
+  };
+}

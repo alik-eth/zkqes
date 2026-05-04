@@ -107,7 +107,7 @@ Production footer template:
 ```
 
 Bindings:
-- `{BUILD_SHA_7}` ← `import.meta.env.VITE_BUILD_SHA?.slice(0, 7)` populated at build time. The pages.yml workflow injects `VITE_BUILD_SHA` from `${{ github.sha }}` (already wired for prior surfaces; reuse). When env is unset (local `pnpm build` outside CI), fall back to literal `dev`.
+- `{BUILD_SHA_7}` ← `import.meta.env.VITE_BUILD_SHA?.slice(0, 7)` populated at build time. The pages.yml workflow injects `VITE_BUILD_SHA` from <span v-pre>`${{ github.sha }}`</span> (already wired for prior surfaces; reuse). When env is unset (local `pnpm build` outside CI), fall back to literal `dev`.
 - `{BUILD_DATE}` ← `import.meta.env.VITE_BUILD_DATE` populated as `YYYY-MM-DD` at build time. Workflow injects from `$(date -u +%Y-%m-%d)`. Fall back to literal `dev`.
 - The trailing `?variant retired post-merge` segment is **prototype-only**, removed when `LandingHero` is replaced. Post-rebrand the footer is just `{BUILD_SHA_7} · {BUILD_DATE} · zkqes.org`.
 

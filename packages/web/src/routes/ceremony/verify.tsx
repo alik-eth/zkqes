@@ -7,11 +7,17 @@
 // computes sha256 in a Web Worker (bounded peak heap via streaming),
 // and compares against the published `finalZkeySha256` in status.json.
 // ✓ if match, ✗ if not.
+//
+// Civic-terminal v2 variant (gated behind `?variant=civic-terminal`):
+// the 3-col `<VerifyShell>` per spec §5.3 + plan Task 11. Same variant-
+// gate strategy as /ceremony — legacy body stays default until Task 13's
+// atomic flip, preserving existing Playwright e2e during dev.
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DocumentFooter } from '../../components/DocumentFooter';
 import { PaperGrain } from '../../components/PaperGrain';
+import { VerifyShell } from '../../components/ceremony/VerifyShell';
 import {
   CEREMONY_STATUS_URL,
   fetchCeremonyStatus,
@@ -39,22 +45,51 @@ type VerifyState =
  * users to upload `qkb-v5_2-stub.zkey` when the live artefact is
  * actually `-final.zkey`.
  */
-type AriaPhase = 'loading' | 'stub' | 'final';
+// Four-way phase per task #53 — splits the prior 3-way (which lumped
+// fetch-failure with "still loading"). The published-hash section's
+// sighted-user copy now distinguishes:
+//   loading      — fetch still in flight (just-mounted)
+//   feed-failed  — fetch returned null OR threw; status feed unreachable
+//                  (R2 outage, transient network); user shouldn't read
+//                  this as "ceremony not started"
+//   stub         — fetch succeeded + finalZkeySha256 null (genuine pre-
+//                  Phase-B state)
+//   final        — fetch succeeded + finalZkeySha256 set
+//
+// Pre-#53, both `loading` and the network-failed case rendered the
+// same "Ceremony not yet complete" copy via the binary
+// `expectedHash === null` check at line ~177. That conflated the two
+// states for sighted users — confusing during R2 outages mid-ceremony.
+type AriaPhase = 'loading' | 'feed-failed' | 'stub' | 'final';
 
 export function CeremonyVerify() {
+  // Civic-terminal v2 prototype gate. Same runtime URL-search pattern used
+  // by the home variant in `routes/index.tsx` and the /ceremony route. The
+  // legacy body is extracted into `LegacyCeremonyVerify` so `useTranslation`
+  // (and the worker effects below) aren't called conditionally.
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('variant') ===
+      'civic-terminal'
+  ) {
+    return <VerifyShell />;
+  }
+  return <LegacyCeremonyVerify />;
+}
+
+function LegacyCeremonyVerify() {
   const { t } = useTranslation();
   const [expectedHash, setExpectedHash] = useState<string | null>(null);
   const [ariaPhase, setAriaPhase] = useState<AriaPhase>('loading');
   const [state, setState] = useState<VerifyState>({ kind: 'idle' });
   const workerRef = useRef<Worker | null>(null);
 
-  // Pull the published final hash from status.json. Three terminal
-  // states for the aria copy:
+  // Pull the published final hash from status.json. Four terminal
+  // states (see `AriaPhase` doc-comment above for the rationale):
+  //   - fetch threw / returned null               → 'feed-failed'
+  //   - fetch succeeded + finalZkeySha256 null    → 'stub'
   //   - fetch succeeded + finalZkeySha256 present → 'final'
-  //   - fetch succeeded + finalZkeySha256 null    → 'stub'  (genuine
-  //     pre-Phase-B state — we ARE in stub mode so stub filename is OK)
-  //   - fetch failed / threw                       → keep 'loading'
-  //     (we don't know; stay on neutral copy)
+  // Initial state (pre-resolution)                → 'loading'
   useEffect(() => {
     let cancelled = false;
     const ac = new AbortController();
@@ -62,9 +97,12 @@ export function CeremonyVerify() {
       if (cancelled) return;
       if (p === null) {
         // fetchCeremonyStatus returns null for both "incomplete" and
-        // "network/parse error" — treat null as "transient unknown" for
-        // aria, leaving the input on neutral copy. The published-hash
-        // section already shows its own pending message.
+        // "network/parse error" — but the helper's `try { ... } catch
+        // { return null; }` swallows the cause. Map both to
+        // 'feed-failed' so the user sees a "feed unreachable; retry"
+        // message rather than the conflated "ceremony not yet
+        // complete" copy.
+        setAriaPhase('feed-failed');
         return;
       }
       setExpectedHash(p.finalZkeySha256 ?? null);
@@ -174,7 +212,39 @@ export function CeremonyVerify() {
             >
               {t('ceremony.verify.publishedHeading', 'Published final hash')}
             </h2>
-            {expectedHash === null ? (
+            {/*
+              * Sighted-user copy parity with the aria tri-state per task
+              * #53. Four branches now — `loading` for in-flight,
+              * `feed-failed` for R2 / network outages (so contributors
+              * don't read a transient outage as "ceremony not started"),
+              * `stub` for the genuine pre-final state, `final` for the
+              * published hash.
+              */}
+            {ariaPhase === 'loading' && (
+              <p
+                className="text-base"
+                style={{ color: 'var(--ink)', opacity: 0.7 }}
+                data-testid="ceremony-verify-loading"
+              >
+                {t(
+                  'ceremony.verify.published.loading',
+                  'Loading ceremony status…',
+                )}
+              </p>
+            )}
+            {ariaPhase === 'feed-failed' && (
+              <p
+                className="text-base"
+                style={{ color: 'var(--ink)', opacity: 0.7 }}
+                data-testid="ceremony-verify-feed-failed"
+              >
+                {t(
+                  'ceremony.verify.published.feedFailed',
+                  'Could not reach the ceremony status feed. The published hash will appear here once the feed is reachable; refresh the page to retry.',
+                )}
+              </p>
+            )}
+            {ariaPhase === 'stub' && (
               <p
                 className="text-base"
                 style={{ color: 'var(--ink)', opacity: 0.7 }}
@@ -185,7 +255,8 @@ export function CeremonyVerify() {
                   'Ceremony is not yet complete. The final zkey hash is published here once the last contributor uploads and the public-randomness beacon is mixed in.',
                 )}
               </p>
-            ) : (
+            )}
+            {ariaPhase === 'final' && expectedHash !== null && (
               <p
                 className="text-mono text-sm break-all"
                 data-testid="ceremony-verify-expected"

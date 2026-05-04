@@ -38,10 +38,12 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
 
-  // Google Fonts for the civic-monumental type stack — same fonts
-  // the SPA loads. EB Garamond (display headings + fine), Inter Tight
-  // (body), JetBrains Mono (code). Preconnect first for handshake
-  // savings; stylesheet second.
+  // Google Fonts for the civic-terminal v2 type stack (BRAND.md §Type
+  // stack). VT323 is the display face (h1–h3, brand mark); IBM Plex
+  // Mono is the body + code face. Atomic-transition note: the prior
+  // EB Garamond + Inter Tight + JetBrains Mono preconnects were
+  // removed in the same commit that adds the new pair (no dead-
+  // preconnect window, per BRAND.md v2 amendment).
   head: [
     [
       'link',
@@ -61,9 +63,8 @@ export default defineConfig({
         rel: 'stylesheet',
         href:
           'https://fonts.googleapis.com/css2' +
-          '?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400' +
-          '&family=Inter+Tight:wght@400;500;600' +
-          '&family=JetBrains+Mono:wght@400;500' +
+          '?family=IBM+Plex+Mono:wght@400;500;600;700' +
+          '&family=VT323' +
           '&display=swap',
       },
     ],
@@ -95,17 +96,13 @@ export default defineConfig({
     'superpowers/specs/2026-04-27-prod-frontend.md',
     'superpowers/specs/2026-04-30-issuer-blind-nullifier-contract-review.md',
     'superpowers/specs/2026-05-01-keccak-on-chain-contract-review.md',
-    // Specs that need markdown normalization before VitePress can
-    // render them — bare `<word>` placeholders, ASCII-art outside
-    // code fences, etc. Vue's template parser interprets the angle
-    // brackets as HTML tags and the build aborts. Listed here as a
-    // punch-list for a content-normalization commit; the underlying
-    // spec content is sound, only the markdown framing needs to be
-    // VitePress-friendly. Lead's directive ("don't rewrite spec
-    // content") preserved — the fix is wrapping in code fences /
-    // backslash-escaping angle brackets, which is markdown-syntax
-    // normalization rather than semantic editing.
-    'superpowers/specs/2026-05-03-qkb-helper-design.md',
+    // (Punch-list note retired #64, 2026-05-04: the
+    // `qkb-helper-design.md` + v1 `civic-terminal-rebrand-design.md` +
+    // v1 `qkb-cli-design.md` markdown-normalization sweep is done; bare
+    // `<tag>` placeholders wrapped in backticks, multi-line inline code
+    // with angle-brackets promoted to fenced blocks, and one
+    // `${{ github.sha }}` mustache-trap escaped via `<span v-pre>`. The
+    // three specs render clean now; `srcExclude` entries dropped.)
     // Worker plans — kept on contributing surface but not exhaustive
     // index. C3 will curate the whitelist via `rewrites` + sidebar.
     'superpowers/plans/2026-04-17-qie-*.md',

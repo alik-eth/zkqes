@@ -1,48 +1,64 @@
 /*
- * docs.zkqes.org — civic-monumental theme override.
+ * docs.zkqes.org — civic-terminal v2 theme override.
  *
- * Lifts the civic-monumental palette + type stack from
- * `packages/web/src/styles.css`. The same warm-bone background, ink
- * text, sovereign indigo + sienna seal accents the SPA carries — so
- * the doc site reads as the same project, not a different one.
+ * Plan: docs/superpowers/plans/2026-05-04-zkqes-civic-terminal-v2-web.md Task 12.
+ * Spec: 2026-05-04-zkqes-civic-terminal-v2-design.md §6.1.
+ * BRAND.md: Visual language + v2 amendment (2026-05-04).
  *
- * Override strategy: VitePress's default theme uses CSS variables
- * (`--vp-c-*`, `--vp-font-family-*`, etc.) for all visual tokens.
- * We rebind those vars to our civic-monumental palette in
- * `:root[data-theme]` (light + dark via `[class~="dark"]` selector
- * VitePress applies to <html> in dark mode).
+ * Mechanical retheme — token rebind only, no layout redesign. Replaces the
+ * prior civic-monumental variant (EB Garamond + Inter Tight + sovereign
+ * indigo + sienna seal) with the civic-terminal token layer used by the SPA:
  *
- * Light mode is the default for the doc site (dark mode kept
- * functional — VitePress's toggle still works — but the civic-
- * monumental aesthetic is principally a light-mode design;
- * dark-mode just gets the inverted-palette VitePress gives by
- * default with a subtle override for the brand color).
+ *   - palette        → `--ct-paper` / `--ct-ink` / `--ua-blue` / `--ua-yellow`
+ *                      / `--eu-blue` / `--eu-gold` (from civic-terminal.css)
+ *   - display face   → VT323 (h1, h2, h3, hero, feature titles)
+ *   - body/mono face → IBM Plex Mono (everything else)
+ *   - footer accent  → 4-bar UA + EU civic stripe (decorative; matches the
+ *                      `.ct-civic-stripe` primitive on the SPA)
+ *
+ * VitePress's default theme uses CSS variables (`--vp-c-*`,
+ * `--vp-font-family-*`, etc.) for all visual tokens; rebinding them here
+ * cascades through every default-theme component without touching the
+ * markdown or component layout.
+ *
+ * Subdomain consistency invariant (BRAND.md v2): all three subdomains
+ * (`zkqes.org`, `docs.zkqes.org`, `app.zkqes.org`) consume the same
+ * civic-terminal token layer. Cross-subdomain visual drift is a
+ * regression — keep this stylesheet's palette in lock-step with
+ * `packages/web/src/styles/civic-terminal.css` if either changes.
+ *
+ * Light mode is the canonical view for docs (matches the SPA). Dark mode
+ * is kept functional via the prior VitePress default + a brand-color flip
+ * for link readability.
  */
 
 /* ---------------------------------------------------------------- */
-/* Civic-monumental tokens — duplicated from
- * `packages/web/src/styles.css`. Source-of-truth note in
- * `theme/index.ts`.                                                  */
+/* Civic-terminal source-of-truth tokens — duplicated from
+ * `packages/web/src/styles/civic-terminal.css` :root block.
+ * Subdomain-consistency invariant — keep in lock-step.              */
 /* ---------------------------------------------------------------- */
 :root {
-  --bone:      #F4EFE6;
-  --ink:       #14130E;
-  --sovereign: #1F2D5C;
-  --seal:      #8B3A1B;
-  --rule:      #C8BFA8;
-  --brick:     #A0392E;
-  --olive:     #5A7A45;
+  --ct-paper:   #d8d4c4;
+  --ct-paper-2: #e6e2d2;
+  --ct-paper-3: #c8c4b4;
+  --ct-ink:     #1a1a1a;
+  --ct-ink-2:   #3a352c;
+  --ct-mute:    #6b6558;
+  --ct-mute-2:  #8a8273;
+  --ct-rule:    #1a1a1a;
+  --ct-rule-soft: rgba(26, 26, 26, 0.35);
 
-  /* Type stack (lifted from styles.css). The fallback chain pulls
-   * EB Garamond from Google Fonts (loaded via `head` in
-   * `config.mts`); GT Sectra Display + Söhne are designer fonts the
-   * SPA loads when shipped to production but not redistributed in
-   * the docs build, so the public doc surface uses the open-source
-   * EB Garamond / Inter Tight pairing. Visually very close to the
-   * SPA on most viewport sizes. */
-  --font-display: "EB Garamond", "Tiempos Headline", Georgia, serif;
-  --font-body:    "Inter Tight", "Helvetica Neue", system-ui, sans-serif;
-  --font-mono:    "JetBrains Mono", "Söhne Mono", "Courier New", monospace;
+  --ua-blue:   #0057B7;
+  --ua-yellow: #FFD700;
+  --eu-blue:   #003399;
+  --eu-gold:   #FFCC00;
+
+  --ok:    #2e7d32;
+  --warn:  #b8860b;
+  --err:   #b00020;
+
+  --display: 'VT323', 'IBM Plex Mono', monospace;
+  --mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 /* ---------------------------------------------------------------- */
@@ -50,134 +66,156 @@
 /* ---------------------------------------------------------------- */
 :root {
   /* Surface + text */
-  --vp-c-bg:           var(--bone);
-  --vp-c-bg-soft:      var(--bone);
-  --vp-c-bg-mute:      #E9E1D2;       /* slightly darker bone */
-  --vp-c-bg-alt:       var(--bone);
-  --vp-c-text-1:       var(--ink);
-  --vp-c-text-2:       #3a382f;       /* ink with reduced contrast */
-  --vp-c-text-3:       #6a675c;
-  --vp-c-divider:      var(--rule);
-  --vp-c-gutter:       var(--rule);
+  --vp-c-bg:           var(--ct-paper);
+  --vp-c-bg-soft:      var(--ct-paper);
+  --vp-c-bg-mute:      var(--ct-paper-2);
+  --vp-c-bg-alt:       var(--ct-paper);
+  --vp-c-bg-elv:       var(--ct-paper-3);
+  --vp-c-text-1:       var(--ct-ink);
+  --vp-c-text-2:       var(--ct-ink-2);
+  --vp-c-text-3:       var(--ct-mute);
+  --vp-c-divider:      var(--ct-rule-soft);
+  --vp-c-gutter:       var(--ct-rule-soft);
 
-  /* Brand → sovereign indigo (for links, brand color in nav, etc.) */
-  --vp-c-brand-1:      var(--sovereign);
-  --vp-c-brand-2:      #2A3D74;       /* lighter sovereign for hover */
-  --vp-c-brand-3:      var(--seal);   /* tertiary brand → sienna */
-  --vp-c-brand-soft:   rgba(31, 45, 92, 0.14);
+  /* Brand → UA blue (links / nav). Tertiary → EU blue. */
+  --vp-c-brand-1:      var(--ua-blue);
+  --vp-c-brand-2:      var(--eu-blue);
+  --vp-c-brand-3:      var(--ua-yellow);
+  --vp-c-brand-soft:   rgba(0, 87, 183, 0.14);
 
   /* Type families */
-  --vp-font-family-base: var(--font-body);
-  --vp-font-family-mono: var(--font-mono);
+  --vp-font-family-base: var(--mono);
+  --vp-font-family-mono: var(--mono);
 
-  /* Home hero — flatten the gradient name + use civic palette.
-     Default theme paints the hero name in a multicolor gradient;
-     civic-monumental is anti-gradient + anti-ornament, so we flatten
-     to ink + EB Garamond display. */
-  --vp-home-hero-name-color:       var(--ink);
+  /* Home hero — flatten the gradient name + use civic palette. */
+  --vp-home-hero-name-color:       var(--ct-ink);
   --vp-home-hero-name-background:  none;
   --vp-home-hero-image-background-image: none;
   --vp-home-hero-image-filter:     none;
 
   /* Custom block accents — info / tip / warning / danger panels */
-  --vp-custom-block-info-bg:    rgba(31, 45, 92, 0.06);
-  --vp-custom-block-info-text:  var(--ink);
-  --vp-custom-block-tip-bg:     rgba(90, 122, 69, 0.10);   /* olive */
-  --vp-custom-block-tip-text:   var(--ink);
-  --vp-custom-block-warning-bg: rgba(139, 58, 27, 0.08);    /* seal */
-  --vp-custom-block-warning-text: var(--ink);
-  --vp-custom-block-danger-bg:  rgba(160, 57, 46, 0.10);    /* brick */
-  --vp-custom-block-danger-text: var(--ink);
+  --vp-custom-block-info-bg:    rgba(0, 87, 183, 0.08);
+  --vp-custom-block-info-text:  var(--ct-ink);
+  --vp-custom-block-tip-bg:     rgba(46, 125, 50, 0.10);
+  --vp-custom-block-tip-text:   var(--ct-ink);
+  --vp-custom-block-warning-bg: rgba(184, 134, 11, 0.12);
+  --vp-custom-block-warning-text: var(--ct-ink);
+  --vp-custom-block-danger-bg:  rgba(176, 0, 32, 0.10);
+  --vp-custom-block-danger-text: var(--ct-ink);
 
-  /* Buttons — flatten + civic */
-  --vp-button-brand-bg:           var(--sovereign);
-  --vp-button-brand-hover-bg:     var(--seal);
-  --vp-button-brand-active-bg:    var(--seal);
-  --vp-button-brand-border:       var(--sovereign);
-  --vp-button-brand-hover-border: var(--seal);
-  --vp-button-brand-active-border: var(--seal);
-  --vp-button-brand-text:         var(--bone);
-  --vp-button-brand-hover-text:   var(--bone);
-  --vp-button-brand-active-text:  var(--bone);
+  /* Buttons — flat civic-terminal flavour */
+  --vp-button-brand-bg:           var(--ua-blue);
+  --vp-button-brand-hover-bg:     var(--eu-blue);
+  --vp-button-brand-active-bg:    var(--eu-blue);
+  --vp-button-brand-border:       var(--ua-blue);
+  --vp-button-brand-hover-border: var(--eu-blue);
+  --vp-button-brand-active-border: var(--eu-blue);
+  --vp-button-brand-text:         var(--ct-paper);
+  --vp-button-brand-hover-text:   var(--ct-paper);
+  --vp-button-brand-active-text:  var(--ct-paper);
 
   --vp-button-alt-bg:             transparent;
   --vp-button-alt-hover-bg:       var(--vp-c-bg-mute);
-  --vp-button-alt-border:         var(--rule);
-  --vp-button-alt-hover-border:   var(--sovereign);
-  --vp-button-alt-text:           var(--ink);
+  --vp-button-alt-border:         var(--ct-rule-soft);
+  --vp-button-alt-hover-border:   var(--ua-blue);
+  --vp-button-alt-text:           var(--ct-ink);
 }
 
-/* Dark mode — keep VitePress's default-theme dark palette but flip
- * the brand color to a brighter sovereign so links remain readable.
- * Civic-monumental is principally a light-mode design; dark mode
- * is functional but not the canonical view. */
+/* Dark mode — keep VitePress default-theme dark palette but flip the
+ * brand colour to a lighter UA blue for link readability. The civic-
+ * terminal aesthetic is principally a light-mode design; dark mode is
+ * functional but not the canonical view. */
 .dark {
   --vp-c-brand-1:    #6c80c2;
   --vp-c-brand-2:    #8395d0;
-  --vp-c-brand-3:    #c6824f;  /* lighter seal for dark surface */
+  --vp-c-brand-3:    var(--ua-yellow);
   --vp-c-brand-soft: rgba(108, 128, 194, 0.20);
 
   --vp-home-hero-name-color: var(--vp-c-text-1);
 }
 
 /* ---------------------------------------------------------------- */
-/* Heading typography — display font on h1-h3, tight letter spacing. */
+/* Heading typography — VT323 on h1-h3 / hero / feature titles.      */
+/* VT323 size band per BRAND.md: 22–72px. Heading sizes are large    */
+/* enough that the rendering stays crisp.                            */
 /* ---------------------------------------------------------------- */
 .vp-doc h1,
 .vp-doc h2,
 .vp-doc h3,
 .VPHero .name,
 .VPHero .text,
+.VPNavBar .title,
+.VPSidebar h1,
+.VPSidebar h2,
 .VPFeature .title {
-  font-family: var(--font-display) !important;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: var(--display) !important;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
-/* Hero name is the most prominent surface — pull weight up. */
+/* Hero name — bump size to keep VT323 visually dominant. */
 .VPHero .name {
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: clamp(48px, 6vw, 72px);
+  line-height: 1.05;
 }
 
 /* ---------------------------------------------------------------- */
-/* Civic-monumental polish.                                          */
+/* Civic-terminal polish.                                            */
 /* ---------------------------------------------------------------- */
 
-/* Underline links by default — anti-frictionless-modern, pro-document. */
+/* Underline links — anti-frictionless-modern, pro-document. */
 .vp-doc a:not(.header-anchor) {
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: var(--rule);
+  text-decoration-color: var(--ct-rule-soft);
   transition: text-decoration-color 0.12s ease;
 }
 .vp-doc a:not(.header-anchor):hover {
-  text-decoration-color: var(--seal);
-  color: var(--seal);
+  text-decoration-color: var(--ua-blue);
+  color: var(--eu-blue);
 }
 
-/* hr.rule from the SPA — VitePress's <hr> renders too thin / muted.
- * Bump to a thin sovereign rule matching the SPA. */
+/* hr — bump to a sovereign rule matching SPA divider density. */
 .vp-doc hr {
   border: 0;
-  border-top: 1px solid var(--sovereign);
+  border-top: 1px solid var(--ct-rule-soft);
   margin: 2.5rem 0;
 }
 
-/* No shadows on feature cards (they're not ours; civic-monumental
- * is anti-shadow). Replace with a flat rule + bone-soft fill. */
+/* Feature cards — flat panels, no shadow (anti-shadow per civic-terminal). */
 .VPFeature {
-  border: 1px solid var(--rule);
+  border: 1px solid var(--ct-rule-soft);
   box-shadow: none;
-  background-color: transparent;
+  background-color: var(--ct-paper-2);
 }
 .VPFeature:hover {
-  border-color: var(--sovereign);
+  border-color: var(--ua-blue);
   box-shadow: none;
 }
 
-/* Selection color — sovereign on bone. Matches the SPA. */
+/* Selection — UA blue on paper. */
 ::selection {
-  background-color: var(--sovereign);
-  color: var(--bone);
+  background-color: var(--ua-blue);
+  color: var(--ct-paper);
+}
+
+/* 4-bar UA + EU civic stripe at the end of every doc page. Mirrors the
+ * `.ct-civic-stripe` primitive on the SPA. Decorative; aria-hidden by
+ * virtue of being a ::after pseudo-element. */
+.VPDoc::after {
+  content: '';
+  display: block;
+  margin-top: 48px;
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    var(--ua-blue) 0%,
+    var(--ua-blue) 25%,
+    var(--ua-yellow) 25%,
+    var(--ua-yellow) 50%,
+    var(--eu-blue) 50%,
+    var(--eu-blue) 75%,
+    var(--eu-gold) 75%,
+    var(--eu-gold) 100%
+  );
 }

@@ -62,8 +62,10 @@ Both backends produce identical output shape so callers don't branch.
 
 Only one ships in v1; the `qkb <subcommand>` shape leaves room for more:
 
-- `qkb prove <witness.json> [--out <dir>] [--backend snarkjs|rapidsnark]
-  [--rapidsnark-bin <path>] [--cache-dir <path>]`
+- ```
+  qkb prove <witness.json> [--out <dir>] [--backend snarkjs|rapidsnark]
+    [--rapidsnark-bin <path>] [--cache-dir <path>]
+  ```
 
 Input `witness.json` is a single file with shape:
 
