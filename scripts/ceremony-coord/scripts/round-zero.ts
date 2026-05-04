@@ -158,6 +158,9 @@ async function main(): Promise<void> {
     finalZkeySha256: null,
     beaconBlockHeight: null,
     beaconHash: null,
+    // v2 spec §6.3: round-zero seeds 'recruiting'. publish-status.ts
+    // auto-promotes to 'ceremony-live' on first --round 1 commit.
+    phase: 'recruiting',
   };
   try {
     await client.send(

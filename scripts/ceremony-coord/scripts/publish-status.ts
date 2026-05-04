@@ -9,7 +9,17 @@
 // Final mode (after zkqes-v5-final.zkey is uploaded):
 //   pnpm tsx scripts/publish-status.ts --finalize --commit
 //
+// Phase override (rare — auto-derive is right by default):
+//   pnpm tsx scripts/publish-status.ts --round 4 --phase ceremony-live --commit
+//   pnpm tsx scripts/publish-status.ts --finalize --final-sha 0x… --phase live --commit
+//
 // Without --commit: dry-run prints the diff and exits.
+//
+// Phase auto-derivation (v2 spec §7.2): after the round/beacon/finalize
+// transform, `phase` is set to `derivePhase(next)` unless `--phase` is
+// passed explicitly. derivePhase: finalZkey populated → 'live'; round ≥ 1
+// → 'ceremony-live'; else 'recruiting' (only round-zero.ts writes the
+// initial 'recruiting' state directly).
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,13 +37,18 @@ import {
   validateStatusPayload,
   type CeremonyStatusPayload,
   type CeremonyContributor,
+  type CeremonyPhase,
+  derivePhase,
 } from '../src/types.ts';
+
+const KNOWN_PHASES: readonly CeremonyPhase[] = ['recruiting', 'ceremony-live', 'live'];
 
 interface Args {
   round?: number;
   beacon?: { height: number; hash: string };
   finalize?: boolean;
   finalSha?: string;
+  phase?: CeremonyPhase;
   commit: boolean;
 }
 
@@ -45,6 +60,7 @@ function parseCliArgs(): Args {
       beacon: { type: 'boolean' },
       finalize: { type: 'boolean' },
       'final-sha': { type: 'string' },
+      phase: { type: 'string' },
       commit: { type: 'boolean', default: false },
     },
   });
@@ -65,6 +81,11 @@ function parseCliArgs(): Args {
     args.finalize = true;
     if (!values['final-sha']) throw new Error('--finalize requires --final-sha');
     args.finalSha = values['final-sha'];
+  }
+  if (typeof values.phase === 'string') {
+    if (!KNOWN_PHASES.includes(values.phase as CeremonyPhase))
+      throw new Error(`--phase must be one of ${KNOWN_PHASES.join('|')}; got ${values.phase}`);
+    args.phase = values.phase as CeremonyPhase;
   }
   const modes = [args.round, args.beacon, args.finalize].filter(Boolean).length;
   if (modes !== 1) throw new Error('exactly one of --round / --beacon / --finalize required');
@@ -139,6 +160,13 @@ async function main(): Promise<void> {
   else if (args.finalize) next = applyFinalize(current, args.finalSha!);
   else throw new Error('unreachable');
 
+  // v2 spec §7.2: explicit --phase override wins; otherwise auto-derive
+  // from post-update fields. Beacon-applied with finalZkey populated → live;
+  // round >= 1 → ceremony-live; else recruiting (only round-zero seeds the
+  // initial 'recruiting' write directly).
+  const nextPhase: CeremonyPhase = args.phase ?? derivePhase(next);
+  next = { ...next, phase: nextPhase };
+
   console.log('--- DIFF ---');
   console.log(
     JSON.stringify(
@@ -147,6 +175,7 @@ async function main(): Promise<void> {
         contributors: { from: current.contributors.length, to: next.contributors.length },
         beaconBlockHeight: { from: current.beaconBlockHeight, to: next.beaconBlockHeight },
         finalZkeySha256: { from: current.finalZkeySha256, to: next.finalZkeySha256 },
+        phase: { from: current.phase, to: next.phase },
       },
       null,
       2,
