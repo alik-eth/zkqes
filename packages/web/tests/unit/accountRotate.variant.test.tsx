@@ -1,5 +1,10 @@
-// /account/rotate variant gate.
-// Plan: docs/superpowers/plans/2026-05-04-zkqes-civic-terminal-v2-web.md Task 10.
+// /account/rotate — civic-terminal v2 shell tests (post-Task-13).
+//
+// Variant-gate retired in Task 13's atomic flip; the v2 shell wrap is now
+// the only renderer at `/account/rotate`. RotateWalletFlow's 965-line
+// internals + V5.1 byte-locks are still preserved verbatim — this test
+// just pins the chrome composition (banner + gate + footer wrapping the
+// existing flow).
 
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
@@ -28,28 +33,21 @@ afterEach(() => {
   window.history.pushState({}, '', '/');
 });
 
-describe('AccountRotateScreen variant gate', () => {
-  it('renders the v2 shell when variant=civic-terminal', () => {
-    window.history.pushState({}, '', '/account/rotate?variant=civic-terminal');
+describe('AccountRotateScreen v2 shell', () => {
+  it('wraps RotateWalletFlow in the v2 chrome at default /account/rotate', () => {
+    window.history.pushState({}, '', '/account/rotate');
     render(<AccountRotateScreen />);
     expect(screen.getByTestId('account-rotate-v2-shell')).toBeInTheDocument();
     expect(screen.getByTestId('preview-mode-banner')).toBeInTheDocument();
     expect(screen.getByTestId('device-readiness-gate')).toBeInTheDocument();
     expect(screen.getByTestId('footer-ribbon')).toBeInTheDocument();
-    // Inner flow renders inside the gate (per the order of nested children).
     expect(screen.getByTestId('rotate-flow-stub')).toBeInTheDocument();
   });
 
-  it('renders RotateWalletFlow directly when variant flag absent (legacy)', () => {
-    window.history.pushState({}, '', '/account/rotate');
+  it('also renders the v2 chrome when ?variant=civic-terminal is present (no-op gate retired)', () => {
+    window.history.pushState({}, '', '/account/rotate?variant=civic-terminal');
     render(<AccountRotateScreen />);
-    expect(
-      screen.queryByTestId('account-rotate-v2-shell'),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByTestId('preview-mode-banner')).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId('device-readiness-gate'),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('account-rotate-v2-shell')).toBeInTheDocument();
     expect(screen.getByTestId('rotate-flow-stub')).toBeInTheDocument();
   });
 });

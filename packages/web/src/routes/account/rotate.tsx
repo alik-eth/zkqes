@@ -1,26 +1,15 @@
 // /account/rotate — wallet-rotation flow entry point.
 //
-// Civic-monumental flow (the legacy default) renders RotateWalletFlow
-// directly — it ships its own civic-monumental chrome + step indicator.
+// V2 atomic flip (Task 13, 2026-05-04): the `?variant=civic-terminal`
+// URL gate was deleted in this commit. The civic-terminal v2 chrome
+// (PreviewModeBanner + DeviceReadinessGate + 720px column +
+// FooterRibbon) wraps RotateWalletFlow at every visit. Founder Q1
+// ACCEPT (2026-05-04) approved the v2 shells as canonical.
 //
-// Civic-terminal v2 variant (gated behind `?variant=civic-terminal` per
-// plan Task 10 + spec §5.2) wraps the same RotateWalletFlow internals in
-// the v2 chrome:
-//
-//   <PreviewModeBanner />      — emits when phase != live
-//   <DeviceReadinessGate>      — Firefox≥120 + RAM OR `zkqes serve` CLI
-//     <RotateWalletFlow />     — UNCHANGED; preserves the 3-sig flow per
-//                                packages/web/CLAUDE.md invariant 10
-//                                (newWalletAddress is LOCKED at connect step)
-//   <FooterRibbon />
-//
-// Plan-deviation per Task 9 → Task 10: like /register, the RotateWalletFlow
-// component (965 lines) is preserved verbatim rather than refactored to a
-// stacked single-long-form layout. Lead's "DON'T refactor the steps'
-// internals" applies here too — the rotation auth payload byte-locks
-// (V5.1 invariant + qkb-rotate-auth-v1 frozen tag) make any internal
-// restructure risky. The load-bearing v2 deliverables (gate + banner)
-// ship; the stacked layout is a follow-up.
+// IMPORTANT: RotateWalletFlow's 965-line internals + V5.1
+// `qkb-rotate-auth-v1` byte-lock + walletSecret derivation are
+// PRESERVED VERBATIM per packages/web/CLAUDE.md invariant 10. The
+// shell is composition only.
 
 import { RotateWalletFlow } from '../../components/ua/v5/RotateWalletFlow';
 import { DeviceReadinessGate } from '../../components/app/DeviceReadinessGate';
@@ -33,17 +22,6 @@ const BUILD_DATE =
   new Date().toISOString().slice(0, 10);
 
 export function AccountRotateScreen() {
-  if (
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('variant') ===
-      'civic-terminal'
-  ) {
-    return <AccountRotateCivicTerminal />;
-  }
-  return <RotateWalletFlow />;
-}
-
-function AccountRotateCivicTerminal() {
   return (
     <main
       style={{
