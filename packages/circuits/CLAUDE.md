@@ -932,3 +932,104 @@ V5.2 supersession pattern.
 If a future amendment grows constraints another ~120K (lands above
 4.05M ≈ 96.6% of pot22 cap), spec amendment + ceremony pot22 → pot23
 step-up is required.
+
+### V5.35 — QES cert lifecycle vs wallet rotation (orthogonal flows)
+
+QES (Qualified Electronic Signature) certificates have a finite
+validity period (ETSI / eIDAS qualified certs typically ~2-3 years
+NotBefore → NotAfter).  Cert reissuance and wallet rotation are two
+**orthogonal** flows in the V5 protocol; conflating them is a common
+source of misunderstanding for new contributors.
+
+**The two flows:**
+
+1. **Wallet rotation** (V5's `rotateWallet` flow, V5.1 amendment) —
+   for a compromised wallet, lost device, or voluntary key rotation.
+   The natural-person identity (`identityFingerprint`) STAYS THE
+   SAME; only the `identityCommitment` changes (new `walletSecret`
+   ↔ new wallet binding).  Proves possession of the OLD `walletSecret`
+   + binds the NEW wallet via the same QES proof pathway.  Requires
+   a valid QES at proof time (cert chain still verifies).
+
+2. **QES cert reissuance** (cert end-of-life or QTSP-driven rotation)
+   — when a holder's QES cert hits NotAfter and they get a fresh
+   cert from their QTSP.  **No on-chain action required.**  The
+   existing registration (identityFingerprint + identityCommitment +
+   wallet binding) persists indefinitely; cert expiry does NOT
+   invalidate prior storage.
+
+**Why cert reissuance is invisible to the protocol:**
+
+V5.1's `subjectPack = Poseidon(subjectSerialLimbs, len)` hashes over
+the bytes of the **subject.serialNumber RDN** value, V5.3's F1
+OID-anchor pinning that to OID 2.5.4.5.  Per ETSI EN 319 412-1
+§5.1.3, this is the **natural-person semantics identifier** —
+prefixed with `TINUA-…` (Ukrainian taxpayer number), `PNOUA-…`
+(Ukrainian national ID), `IDC??-…` (ID card), `PAS??-…` (passport),
+`CPI…` (commercial), etc.  These prefixes encode **durable
+government-issued identifiers** that are stable across cert
+reissues.  A holder's TIN doesn't change when their cert expires;
+the new cert from the QTSP carries the same `TINUA-…` value.
+
+So `subjectPack` → `identityFingerprint` is **stable across cert
+reissues**.  Any future `register()` against the new cert collides
+with the existing fingerprint slot (the `identityWallets[fp]`
+storage gate from V5.14 fires — that's the wallet-uniqueness
+invariant doing its job).  Any future `rotateWallet()` proof
+generated against the new cert produces the SAME `identityFingerprint`
+and the rotate gate matches up against the on-chain slot.
+
+**What DOES NOT survive cert reissuance** (and is fine, per design):
+
+- `leafSpkiCommit` / `intSpkiCommit` — different per cert (new SPKI
+  bytes).  These are per-proof public signals, not stored long-term.
+- Cert NotBefore / NotAfter — V5 does NOT enforce cert
+  validity-window in-circuit.  The cert chain (leaf → intermediate)
+  is verified via SPKI commits + P256Verify, but the validity
+  window is an **SDK-layer concern**, not a circuit-layer one.
+- The QTSP's signature, the cert's full DER bytes, etc. — all
+  per-proof artifacts.
+
+**What DOES survive (the durable identity anchor):**
+
+- `identityFingerprint` (stored per-fp at registration)
+- `identityCommitment` (stored per-fp; updated by rotateWallet)
+- The wallet binding (`identityWallets[fp]`)
+
+**Edge cases worth flagging:**
+
+- **QTSP rotates their intermediate cert**: leaf chain changes;
+  new `leafSpkiCommit` / `intSpkiCommit` per proof, but those are
+  per-proof not stored — fine.
+- **Natural-person serial actually changes** (rare — e.g., the
+  person changes citizenship and gets a new TIN, or a passport-
+  prefixed identity migrates to a national-ID-prefixed identity):
+  produces a different `subjectPack` → different `identityFingerprint`.
+  Not "rotation" in V5's sense — that's a NEW identity at a fresh
+  fp slot.  V5 takes the stance that ETSI namespace identifiers
+  are canonically distinct (current spec position; reconsider only
+  if a real identity-continuity use-case surfaces).
+- **Holder whose cert just expired AND wants to rotate wallet**:
+  must acquire a new valid cert from their QTSP first, THEN run
+  `rotateWallet()` against the new cert.  The rotateWallet proof
+  requires a chain-verifying QES at proof time.
+- **Holder whose cert expired but doesn't need to do anything**:
+  no action.  Their existing registration is fine indefinitely.
+  The protocol has no "renew" or "refresh" concept; once registered,
+  the wallet→identity binding is permanent absent rotation.
+
+**SDK-layer responsibility** (where this lands UX-side, packages/sdk
++ packages/web): detect cert expiry, prompt the holder to acquire
+a new cert from their QTSP, then proceed with the proof flow.  No
+new SDK API surface needed for "cert rotation" — the existing
+register / rotateWallet flows handle the new cert transparently
+because subject.serialNumber is stable.
+
+**Why this is documented HERE (circuits CLAUDE.md) and not just
+in the SDK doc:** the orthogonality only makes sense if you
+understand WHY `identityFingerprint` is invariant across cert
+reissues, which requires knowing that V5.1's `subjectPack` hashes
+the natural-person serial-number (V5.3 OID-anchored) and NOT the
+cert serial-number / SPKI / signature.  That's a circuit-layer
+fact.  The SDK CLAUDE.md should reference this V5.35 entry rather
+than restate it.
