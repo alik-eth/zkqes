@@ -52,7 +52,7 @@ What v2 adds for landing: locked state-machine transitions for the marquee + bin
 | Marquee LED | yellow ● recruiting | green ● ceremony-live | blue ● live |
 | Marquee count | `round 0 of {TOTAL}` (or `round — of —` if total=0) | `round {N} of {TOTAL} · in progress` | `round {TOTAL} of {TOTAL} · complete · audit pending` (post-ceremony, pre-mainnet) or `mainnet live` (post-mainnet) |
 | Binding-statement block (middle column) | preview text + PRE-LAUNCH `.ct-tag--warn` (per v1 spec §3.2) | same as recruiting | LIVE link to /register; `.ct-tag--warn` removed |
-| Ceremony attestations (right sidebar) | "awaiting first contributor (10 needed · 32 GB RAM each)" — keep verbatim per marketer review | last 7 attested rounds + current-round pulse | full chain + beacon panel |
+| Ceremony attestations (right sidebar) | "awaiting first contributor (10 needed · ≥32 GB RAM or cloud equivalent)" — v2 amends marketer's "32 GB each" to fix factual drift (Fly path is a 4-CPU VM, not local RAM) | last 7 attested rounds + current-round pulse | full chain + beacon panel |
 | Disabled tabs in middle | Register/Rotate/Verify with `Available after trusted setup ceremony + Sepolia testnet deploy` tooltip | same | tabs unlocked, link to /register/rotate/verify |
 | Footer ribbon | `{BUILD_SHA_7} · {BUILD_DATE} · zkqes.org` (v1 spec §3.5) | same | same |
 
@@ -95,14 +95,16 @@ The frontend doesn't need to know which phase it's in — it reads `status.json.
 Three contribution-path cards stacked, tightly:
 
 ```
-.ct-tag · LOCAL  ─→ 32 GB RAM · ~20 min · $0
-.ct-tag · CLOUD  ─→ Fly.io · ~20 min · ~$0.30
-.ct-tag · HETZNER ─→ CCX33 · ~20 min · ~€0.06
+.ct-tag · LOCAL   ─→ ≥32 GB RAM · ~20 min · $0
+.ct-tag · CLOUD   ─→ Fly.io · ~20 min · ~$0.30
+.ct-tag · HETZNER ─→ CCX33 · self-driven · see README
 ```
 
-Each links to its cookbook (Fly link → `scripts/ceremony-coord/cookbooks/fly/README.md`; Hetzner link → README's "Help with the ceremony" section; Local link → opens an inline modal with the 4-command snarkjs flow).
+Each links to its target. Fly link → `scripts/ceremony-coord/cookbooks/fly/README.md` (full cookbook). Local link → opens an inline modal with the 4-command snarkjs flow. Hetzner link → README's "Help with the ceremony" section; the card's `self-driven · see README` copy makes explicit that there's no Hetzner-specific cookbook (a contributor-built cookbook is welcome but not on the project's critical path).
 
-Below the cards: `COORD: alik.eth · DM for round assignment` — civic-document-style attribution. Persistent across all phases (recruitment, ceremony-live, post-ceremony) so the page never feels orphaned.
+Below the cards: `COORD: alik.eth · DM for round assignment` — civic-document-style attribution. Persistent across all phases (recruiting, ceremony-live, live) so the page never feels orphaned.
+
+**Fallback behavior**: when `status.json` is unreachable and §4.3's middle column promotes the recruitment-cards grid, the left column collapses to just the `COORD:` attribution line (the path cards would otherwise duplicate the middle's promoted grid). On `live` phase, the path cards optionally collapse to a single "ceremony complete · attestation chain below" line — no longer the page's primary CTA.
 
 ### 4.3 Middle column — round-by-round chain (state-driven)
 
@@ -113,17 +115,21 @@ Primary content. JSON-driven render: each entry in `status.json.rounds[]` become
 - **In progress (current round)**: same heading, `.ct-tag--warn` pulse, contributor name (if known), `ETA: ~{Xm}` from feed, no attestation hash yet
 - **Pending (future round)**: outlined placeholder cell, `awaiting contributor` label, no contributor name
 
-Pre-recruitment phase (round 0, total 0): the chain section shows just the recruitment-cards grid (3 paths, large, prominent) instead of placeholder rounds. Once round-zero seeds (round 0 done, total = 10), 10 outlined placeholders render with a `ROUND-ZERO SEED` panel at the top showing the admin-seed contribution.
+Fallback render (when `status.json` is unreachable OR the schema returns `totalRounds=0` from a dev/seed bootstrap): the chain section shows the recruitment-cards grid (3 paths, large, prominent) instead of placeholder rounds. This is the empty-data fallback — not a separate phase. The 3-phase model in §6.3 (`recruiting` / `ceremony-live` / `live`) is the only canonical state machine; once `round-zero.ts --commit` runs successfully, `totalRounds=10` and 10 outlined placeholders render with a `ROUND-ZERO SEED` panel at the top showing the admin-seed contribution. See §4.5 for the full unreachable/null-state contract.
 
 Post-ceremony phase: chain shows all 10 rounds + a `BEACON APPLIED` panel below with the random-beacon hash and the `verifier deployed at 0x…` link.
 
 ### 4.4 Right column — inspect & verify
 
-Top: paste-attestation widget. User pastes a SHA-256 attestation hash; widget verifies the chain by checking that the attestation hashes match the published values in `status.json.contributors[]` and that each round's `attestationSha256` chains correctly into the next. Shows ✓ / ✗ result + which round the attestation belongs to.
+Top: paste-attestation widget. User pastes a SHA-256 attestation hash; widget verifies *membership and ordering* by:
+1. Looking up the hash in `status.json.contributors[].attestationSha256` — if no match, ✗ "not part of this ceremony";
+2. Confirming the contributor entry's `round` field is consecutive with the prior round (no gaps in the published sequence).
 
-**This is chain verification only, not full `snarkjs zkey verify`.** Full verify requires downloading ~2 GB and ~30 GB peak memory — same constraints as ceremony participation, not viable for casual visitors. Visitors who want full proof-of-soundness verification install the `zkqes verify-ceremony` CLI command (deferred to V1.1; the chain verify covers the common-case "is this attestation legitimate" question). Per §12 Q1 below.
+Shows ✓ / ✗ result + which round the attestation belongs to + that round's contributor name.
 
-Below: cumulative trust budget calc. Renders as a single line: `1 of N honest = sound · current contributors: alik.eth, …`. The math is the n-of-N independence guarantee; the line is just the cardinality + names.
+This is **a published-list membership check**, not a cryptographic-chain verify. snarkjs Phase-2 contributions ARE chained (each round's attestation is the hash of (prev-zkey || this-contribution)), but verifying that link requires the actual zkey artifacts (~2 GB each) and `snarkjs zkey verify` (~30 GB peak memory — same constraints as ceremony participation). The widget covers the common-case "is this attestation legitimate" question; full proof-of-soundness verification is offered as `zkqes verify-ceremony` CLI (deferred to V1.1; per §12 Q1).
+
+Below: cumulative trust budget calc. Renders as a single line: `1 of N honest = sound · completed contributors: alik.eth, …`. The math is the n-of-N independence guarantee; the line is just the cardinality + names of contributors whose rounds are `done`.
 
 Below: FAQ accordion. 3–4 items: "what's a trusted setup", "why 32 GB RAM", "what does verify do here", "how do I know my entropy was independent". Each accordion item is a `.ct-panel` with a `[+]` toggle.
 
@@ -143,8 +149,10 @@ App is always live (Sepolia testnet from day 1 of public). Pre-ceremony, the app
 
 **Two acceptance paths** (either one unlocks the form):
 
-1. **Supported browser + sufficient RAM**: Firefox ≥120 (64-bit), `navigator.deviceMemory ≥ 8` (heuristic — Chrome's `deviceMemory` caps at 8 GB even on 64 GB machines, so 8 is the highest signal we get; we treat it as "this machine is plausibly large enough"). Chrome / Safari / mobile fail this check (Chrome OOMs on the 38 GB peak; Safari hasn't been tested; mobile is too small).
-2. **`zkqes serve` detected at `localhost:9080`**: existing `useCliPresence.ts` hook (per V5.4 work). 500 ms timeout on `GET /status`. If the CLI sidecar is running, this path always wins regardless of browser.
+1. **Supported browser + sufficient RAM**: Firefox ≥120 on a desktop OS (Windows / macOS / Linux), `navigator.deviceMemory ≥ 8` (heuristic — Chrome's `deviceMemory` caps at 8 GB even on 64 GB machines, so 8 is the highest signal we get; Firefox uses the same cap. We treat 8 as "this machine is plausibly large enough"). Browser detection uses a `navigator.userAgent` regex (no third-party UA-parser dep needed — checking `/Firefox\/(\d+)/` AND `!/Seamonkey|PaleMoon|Waterfox/` is sufficient for the happy path); we don't attempt to detect 32-bit vs 64-bit (no reliable browser API — modern desktop Firefox builds are 64-bit by default, and a user running 32-bit Firefox on a 32 GB machine is far enough off the happy path that the install-CLI option B is the right escape hatch). All Chromium-family browsers (Chrome, Edge, Brave, Opera, Arc, Vivaldi), Safari, and any mobile browser fail this check — Chromium OOMs on the 38 GB peak (V8 4 GB heap cap), Safari hasn't been tested for 38 GB Web Worker memory pressure, mobile is too small.
+2. **`zkqes serve` detected at `localhost:9080`**: existing `useCliPresence.ts` hook (per V5.4 work, `packages/web/src/hooks/useCliPresence.ts`). 500 ms timeout on `GET /status`. If the CLI sidecar is running, this path always wins regardless of browser.
+
+**Relationship to existing `deviceGate.ts`**: `packages/web/src/lib/deviceGate.ts` ships an older `assessDeviceCapability()` from V5.0 that targets flagship 2024+ phones (Pixel 9, iPhone 15) with `navigator.storage.persist()` + a 3 GB-quota check + a `deviceMemory ≥ 4` floor. That module's mobile-acceptance branch is **superseded by V5.4 reality** — the in-browser prover's 38 GB peak rules out mobile and rules out Chromium entirely; only desktop Firefox with the higher (≥8 GB) `deviceMemory` floor passes. v2 implementation should replace `assessDeviceCapability()` with a new check matching the two paths above. The `isInAppWebView()` helper + the `WEBVIEW_PATTERNS` regex set in that module remain useful and should be reused as the early-reject filter on the browser path.
 
 **Component states:**
 
@@ -360,14 +368,17 @@ interface CeremonyStatusPayload {
 
 The `phase` field is the single user-visible state. Backwards compatibility: frontends that don't know about `phase` derive from `(round === totalRounds && beacon.applied)` → `live`, `(round > 0)` → `ceremony-live`, else `recruiting`. New frontends prefer the explicit field.
 
-### 7.2 `publish-status.ts` updates
+### 7.2 ceremony-coord script updates
 
-Add `--phase {recruiting,ceremony-live,live}` flag. When flag absent, derive from round count + beacon (backwards-compat). When present, override + atomic write.
+The existing scripts at `scripts/ceremony-coord/scripts/` (`round-zero.ts`, `publish-status.ts`, `verify-contribution.ts`, `mint-signed-url.ts`) gain a single new field — `phase` — written by the existing entrypoints. There is **no new `finalize.ts`** — finalization is `publish-status.ts --finalize`, which the existing CLI already implements (see `--finalize --final-sha …` flag in the script header).
 
-Phase transitions:
-- `round-zero.ts --commit` writes `phase: 'recruiting'` explicitly
-- `publish-status.ts --round 1 --commit` (and onwards) writes `phase: 'ceremony-live'` (auto, by round count)
-- `finalize.ts --commit` (post-beacon-applied) writes `phase: 'live'` explicitly
+Add to `publish-status.ts`: optional `--phase {recruiting,ceremony-live,live}` flag. When absent, derive automatically from round count + beacon-applied state (backwards-compat with frontends that don't read `phase`). When present, override + atomic write.
+
+Phase transitions (one source-of-truth flow):
+- `round-zero.ts --commit` writes `phase: 'recruiting'` explicitly (round-zero is unique because it bootstraps `status.json` from scratch)
+- `publish-status.ts --round 1 --commit` (and onwards through round N): auto-writes `phase: 'ceremony-live'` (derived from round count > 0)
+- `publish-status.ts --beacon …` (post-final-round): keeps `phase: 'ceremony-live'` until finalize
+- `publish-status.ts --finalize --final-sha … --commit` (post-beacon, post-real-verifier-deploy): writes `phase: 'live'` explicitly. This is the manual flip the lead runs after the real verifier replaces the stub on Sepolia per §6.3.
 
 Frontend cache: 30s polling on the live URL; HEAD-then-GET via `If-Modified-Since` to avoid full transfers when unchanged.
 
