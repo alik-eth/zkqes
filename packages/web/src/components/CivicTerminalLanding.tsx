@@ -36,17 +36,29 @@
 //     amend (this prototype downscoped to landing-only per lead)
 //   - Lead dispatch: 2026-05-04, `feat/v5_3-zkqes-d-prototype`
 
-import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import {
-  CEREMONY_POLL_MS,
-  CEREMONY_STATUS_URL,
-  type CeremonyContributor,
-  type CeremonyStatusPayload,
-  deriveCeremonyState,
-  fetchCeremonyStatus,
-} from '../lib/ceremonyStatus';
+import { type CeremonyContributor, type CeremonyPhase } from '../lib/ceremonyStatus';
+import { useCeremonyPhase } from '../hooks/useCeremonyPhase';
+import { Marquee } from './civic-terminal/Marquee';
 import '../styles/civic-terminal.css';
+
+// Frozen marketer-locked copy from plan §0.1 / BRAND.md v2 amendment §Frozen
+// marketer-locked copy. Keep verbatim; rephrasing breaks the marketer review trail.
+const DISABLED_TAB_TOOLTIP =
+  'Available after trusted setup ceremony + Base Sepolia testnet deploy';
+const BINDING_STATEMENT_PREVIEW =
+  'Holders sign a binding statement that names a wallet, and prove the signature in zk — without disclosing it.';
+
+/** Per-phase right-sidebar text for the Marquee. */
+function sidebarTextForPhase(phase: CeremonyPhase): string {
+  if (phase === 'recruiting') {
+    return 'awaiting first contributor (10 needed · ≥32 GB RAM or cloud equivalent)';
+  }
+  if (phase === 'ceremony-live') {
+    return 'last 7 attested rounds + current-round pulse';
+  }
+  return 'full chain + beacon panel';
+}
 
 // ---------------------------------------------------------------- //
 // Inline ASCII art — original schematic per wireframe bundle.       //
@@ -181,57 +193,14 @@ function SiteHeader() {
 }
 
 // ---------------------------------------------------------------- //
-// Marquee status bar — top of the panel. Reads ceremony state and  //
-// renders pre-launch / recruiting / live copy accordingly.         //
+// Marquee status bar.                                              //
+//                                                                   //
+// v2 swap (2026-05-04): the prior `MarqueeBar` (a one-line strip)  //
+// was replaced by the shared `<Marquee>` raised-panel chrome that  //
+// /ceremony also uses. Phase comes from `useCeremonyPhase`; the    //
+// per-phase right-column sidebar text comes from                   //
+// `sidebarTextForPhase` above.                                     //
 // ---------------------------------------------------------------- //
-
-function MarqueeBar({ status }: { status: CeremonyStatusPayload | null }) {
-  // Pre-launch defaults — survive `status === null` (feed unreachable).
-  let roundLabel = 'round 0 of 10';
-  let stateLabel = 'recruiting';
-  let liveDot = 'var(--ua-yellow)';
-
-  if (status) {
-    const state = deriveCeremonyState(status);
-    roundLabel = `round ${status.round} of ${status.totalRounds}`;
-    if (state === 'planned') {
-      stateLabel = 'recruiting';
-      liveDot = 'var(--ua-yellow)';
-    } else if (state === 'in-progress') {
-      stateLabel = '● live';
-      liveDot = 'var(--ok)';
-    } else {
-      stateLabel = 'complete';
-      liveDot = 'var(--ok)';
-    }
-  }
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        background: 'var(--hilite)',
-        color: 'var(--hilite-text)',
-        padding: '6px 12px',
-        borderBottom: '1.5px solid var(--ct-ink)',
-        fontSize: 11.5,
-        letterSpacing: '.05em',
-      }}
-    >
-      <span>▣ ZKQES.ROUTER</span>
-      <span style={{ opacity: 0.6 }}>·</span>
-      <span>{roundLabel}</span>
-      <span style={{ opacity: 0.6 }}>·</span>
-      <span style={{ color: liveDot }}>{stateLabel}</span>
-      <span className="ct-spacer" />
-      <span>net: BASE-SEPOLIA</span>
-      <span style={{ opacity: 0.6 }}>·</span>
-      <span>phase: pre-ceremony</span>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------- //
 // Ceremony attestations — lifted from the contributor chain in     //
@@ -293,16 +262,21 @@ function CeremonyAttestations({
 }
 
 // ---------------------------------------------------------------- //
-// Disabled tab — register / rotate / verify aren't deployable      //
-// pre-§9.4 (no Sepolia E2E acceptance yet). Show as visibly        //
-// disabled rather than hidden so visitors see what's coming.       //
+// Tab variants — register / rotate / verify.                       //
+//                                                                   //
+// v2 phase-driven swap: when phase === 'live' the tabs render as   //
+// active TanStack `<Link>`s pointing into app.zkqes.org; otherwise //
+// they render as visibly disabled `<span>`s with the FROZEN        //
+// tooltip from plan §0.1 ("Available after trusted setup ceremony //
+// + Base Sepolia testnet deploy"). The tooltip is asserted in unit //
+// tests and locked by the marketer review trail — do not rephrase.//
 // ---------------------------------------------------------------- //
 
 function DisabledTab({ children }: { children: React.ReactNode }) {
   return (
     <span
       className="ct-tab ct-tab--off"
-      title="Available after Phase B ceremony + Sepolia §9.4"
+      title={DISABLED_TAB_TOOLTIP}
       style={{
         opacity: 0.5,
         cursor: 'not-allowed',
@@ -314,30 +288,47 @@ function DisabledTab({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ActiveTab({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a className="ct-tab" href={href}>
+      {children}
+    </a>
+  );
+}
+
+function PhaseAwareTabs({ phase }: { phase: CeremonyPhase }) {
+  if (phase === 'live') {
+    return (
+      <>
+        <ActiveTab href="https://app.zkqes.org/ua/registerV5">Register</ActiveTab>
+        <ActiveTab href="https://app.zkqes.org/account/rotate">Rotate wallet</ActiveTab>
+        <ActiveTab href="https://app.zkqes.org/ceremony/verify">
+          Verify a binding
+        </ActiveTab>
+      </>
+    );
+  }
+  return (
+    <>
+      <DisabledTab>Register</DisabledTab>
+      <DisabledTab>Rotate wallet</DisabledTab>
+      <DisabledTab>Verify a binding</DisabledTab>
+    </>
+  );
+}
+
 // ---------------------------------------------------------------- //
 // Main component                                                    //
 // ---------------------------------------------------------------- //
 
 export function CivicTerminalLanding() {
-  const [status, setStatus] = useState<CeremonyStatusPayload | null>(null);
-
-  // Fetch on mount + poll. Same cadence as the existing /ceremony
-  // page (30s). AbortController to avoid setState-after-unmount.
-  useEffect(() => {
-    const ac = new AbortController();
-    let cancelled = false;
-    const tick = async () => {
-      const next = await fetchCeremonyStatus(CEREMONY_STATUS_URL, ac.signal);
-      if (!cancelled) setStatus(next);
-    };
-    tick();
-    const id = setInterval(tick, CEREMONY_POLL_MS);
-    return () => {
-      cancelled = true;
-      ac.abort();
-      clearInterval(id);
-    };
-  }, []);
+  // Read phase + status from the single-source-of-truth hook. When the feed
+  // is unreachable (network, 404, parse error), `phase` is null and we fall
+  // back to recruiting per spec §4.5.
+  const { phase, status } = useCeremonyPhase();
+  const effectivePhase: CeremonyPhase = phase ?? 'recruiting';
+  const effectiveTotal = status?.totalRounds ?? 0;
+  const effectiveRound = status?.round ?? 0;
 
   return (
     <div
@@ -347,7 +338,12 @@ export function CivicTerminalLanding() {
       <SiteHeader />
       <div style={{ padding: 18 }}>
         <div className="ct-panel" style={{ padding: 0 }}>
-          <MarqueeBar status={status} />
+          <Marquee
+            phase={effectivePhase}
+            round={effectiveRound}
+            totalRounds={effectiveTotal}
+            sidebarText={sidebarTextForPhase(effectivePhase)}
+          />
 
           <div
             style={{
@@ -398,42 +394,47 @@ export function CivicTerminalLanding() {
               </div>
             </div>
 
-            {/* MIDDLE — the act (disabled pre-launch) */}
+            {/* MIDDLE — the act. Tabs phase-aware (active when live, otherwise disabled with frozen tooltip). */}
             <div className="ct-stack">
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-                <DisabledTab>Register</DisabledTab>
-                <DisabledTab>Rotate wallet</DisabledTab>
-                <DisabledTab>Verify a binding</DisabledTab>
+                <PhaseAwareTabs phase={effectivePhase} />
                 <span className="ct-spacer" />
-                <CertNo>ZK·2026·PENDING</CertNo>
+                <CertNo>
+                  {effectivePhase === 'live'
+                    ? 'ZK·2026·LIVE'
+                    : 'ZK·2026·PENDING'}
+                </CertNo>
               </div>
               <div className="ct-field" style={{ paddingTop: 22 }}>
                 <span className="ct-legend">BINDING STATEMENT · PREVIEW</span>
                 <div style={{ fontSize: 13, lineHeight: 1.55 }}>
-                  Post-launch, holders will sign:{' '}
-                  <span
-                    className="ct-input ct-input--paper"
-                    style={{
-                      display: 'inline-block',
-                      margin: '4px 6px',
-                      padding: '2px 8px',
-                      width: 'auto',
-                    }}
-                  >
-                    I bind 0x… to my qualified electronic identity, without
-                    disclosing it.
-                  </span>{' '}
-                  via Diia.Sign or another QTSP&nbsp;tool, then prove the
-                  signature in&nbsp;zk.
+                  {/* Frozen marketer copy from plan §0.1 — verbatim. */}
+                  {BINDING_STATEMENT_PREVIEW}
                 </div>
                 <div className="ct-divider--dashed" style={{ margin: '10px 0' }} />
                 <div className="ct-row-h">
-                  <span style={{ fontSize: 11, color: 'var(--ct-mute)' }}>
-                    Wallet binding flow opens after Phase B ceremony +
-                    Sepolia §9.4 acceptance.
-                  </span>
-                  <span className="ct-spacer" />
-                  <Tag kind="warn">PRE-LAUNCH</Tag>
+                  {effectivePhase === 'live' ? (
+                    <>
+                      <a
+                        href="https://app.zkqes.org/ua/registerV5"
+                        className="ct-link"
+                        style={{ fontSize: 11, color: 'var(--ct-ink)' }}
+                      >
+                        Sign in →
+                      </a>
+                      <span className="ct-spacer" />
+                      <Tag kind="ok">LIVE</Tag>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 11, color: 'var(--ct-mute)' }}>
+                        Wallet binding flow opens after the trusted setup
+                        ceremony + Base Sepolia testnet deploy.
+                      </span>
+                      <span className="ct-spacer" />
+                      <Tag kind="warn">PRE-LAUNCH</Tag>
+                    </>
+                  )}
                 </div>
               </div>
               <pre className="ct-ascii ct-ascii--dense">{ASCII_PIPELINE}</pre>
