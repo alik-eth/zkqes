@@ -1,6 +1,27 @@
 import { test, expect, type Response, type Page } from '@playwright/test';
 
-const PROD = 'https://identityescrow.org';
+// Task 13 / rename-sweep cleanup: the bare `https://identityescrow.org`
+// constant was retired post-rename. Per BRAND.md §Domains (locked
+// 2026-05-03), production now splits across three subdomains:
+//
+//   PROD_LANDING — https://zkqes.org
+//     Landing-only build (`VITE_TARGET=landing`); pre-ceremony hero +
+//     recruitment CTA. App-only routes (/ua/registerV5, /ua/submit,
+//     /integrations, etc.) are stripped from this bundle and 404 here.
+//
+//   PROD_APP     — https://app.zkqes.org
+//     Full SPA (`VITE_TARGET=app`); register / rotate / verify /
+//     mint / submit. Gated on the Sepolia E2E §9.4 acceptance gate
+//     (#18 still pending) and DNS migration (#62 still pending —
+//     only zkqes.org root has DNS today).
+//
+// Until app.zkqes.org is live, the per-route prod-smoke tests
+// against the app surface can't resolve. They're `test.fixme()`-
+// skipped here with the gating task referenced; flip back to active
+// once #18 and #62 close. The landing-route test (single `/` against
+// PROD_LANDING) stays active and covers the live production surface.
+const PROD_LANDING = 'https://zkqes.org';
+const PROD_APP = 'https://app.zkqes.org';
 const SCREENSHOT_DIR = 'tests/e2e/screenshots/prod-baseline';
 
 interface Captured {
@@ -72,6 +93,9 @@ interface RouteSpec {
   slug: string;
   path: string;
   heading: RegExp;
+  /** Production target — landing or app. Skipped until app.zkqes.org
+   *  deploys (per the file-header note). */
+  target: 'landing' | 'app';
   /** further per-viewport per-route assertions; lead-defined contract */
   extraAssert?: (page: Page) => Promise<void>;
 }
@@ -80,6 +104,7 @@ const ROUTES: RouteSpec[] = [
   {
     slug: 'landing',
     path: '/',
+    target: 'landing',
     heading: /Verified Identity|Підтверджена особа/,
     extraAssert: async (page) => {
       await expect(
@@ -93,22 +118,29 @@ const ROUTES: RouteSpec[] = [
   {
     slug: 'ua-cli',
     path: '/ua/cli',
-    heading: /install the cli|встановіть cli/i,
+    target: 'app',
+    // Post-V5.4 the heading is "Install zkqes CLI for native proof
+    // generation."; pre-V5.4 it was "Install the CLI". Match either.
+    heading: /install (the |zkqes )cli|встановіть/i,
   },
   {
     slug: 'ua-submit',
     path: '/ua/submit',
+    target: 'app',
     heading: /submit your proof|надіслати доказ/i,
   },
   {
     slug: 'ua-mint',
     path: '/ua/mint',
+    target: 'app',
     heading: /mint your certificate|випустіть сертифікат/i,
   },
   {
     slug: 'integrations',
     path: '/integrations',
-    heading: /integrate qkb verification/i,
+    target: 'app',
+    // Post-rename heading is "Integrate zkqes verification" (was QKB).
+    heading: /integrate zkqes verification/i,
   },
 ];
 
@@ -117,9 +149,14 @@ for (const viewport of VIEWPORTS) {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
     for (const route of ROUTES) {
-      test(`prod — ${route.slug} on ${viewport.name}`, async ({ page }) => {
+      // App-target routes don't resolve until app.zkqes.org deploys
+      // (gated on #18 + #62). Skip with `test.fixme()` — restore when
+      // both close.
+      const declare = route.target === 'app' ? test.fixme : test;
+      declare(`prod — ${route.slug} on ${viewport.name}`, async ({ page }) => {
         const monitor = await captureNetwork(page);
-        await page.goto(`${PROD}${route.path}`, {
+        const base = route.target === 'landing' ? PROD_LANDING : PROD_APP;
+        await page.goto(`${base}${route.path}`, {
           waitUntil: 'networkidle',
           timeout: 30_000,
         });
@@ -153,7 +190,7 @@ test.describe('viewport=desktop-audit (1440x900)', () => {
     page,
   }) => {
     const monitor = await captureNetwork(page);
-    await page.goto(`${PROD}/`, { waitUntil: 'networkidle', timeout: 30_000 });
+    await page.goto(`${PROD_LANDING}/`, { waitUntil: 'networkidle', timeout: 30_000 });
     await expect(page.getByRole('heading', { name: /Verified Identity/i })).toBeVisible({
       timeout: 15_000,
     });
