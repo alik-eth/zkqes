@@ -30,6 +30,15 @@ async function stubDeviceGate(page: import('@playwright/test').Page) {
       configurable: true,
       value: 8,
     });
+    // Task 13 atomic flip: the v2 `assessV2BrowserCapability` admits
+    // only Firefox≥120 + deviceMemory≥8 (or the CLI-present path).
+    // The default Playwright UA is Chromium → denied. Stub the UA so
+    // the gate lets us through to Step 1.
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value:
+        'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    });
   });
 }
 
@@ -50,15 +59,18 @@ test.describe('/ua/registerV5', () => {
     ).toBeVisible();
   });
 
-  test('renders the 4-step indicator on initial load', async ({ page }) => {
+  test('renders the v2 STEP-N-of-4 sticky-header strip on initial load', async ({ page }) => {
     await gotoV5Route(page);
-    // The step indicator labels: 1 — Connect, 2 — Generate, 3 — Sign,
-    // 4 — Prove + register. All 4 should be present even before the
-    // user advances.
-    await expect(page.getByText(/1 — Connect/i)).toBeVisible();
-    await expect(page.getByText(/2 — Generate/i)).toBeVisible();
-    await expect(page.getByText(/3 — Sign/i)).toBeVisible();
-    await expect(page.getByText(/4 — Prove \+ register/i)).toBeVisible();
+    // Task 13 atomic flip: the legacy `1 — Connect` / `2 — Generate` /
+    // etc. step-indicator labels (rendered by StepIndicatorV5 in the
+    // civic-monumental body) were retired with the legacy body. The v2
+    // shell renders a "STEP N of 4 · LABEL" sticky-header strip per
+    // spec §5.1 instead. Tightened per #51 audit MEDIUM finding: assert
+    // on the strip's actual active-step content, not on indicator
+    // labels that render regardless of which step is active.
+    const strip = page.getByTestId('register-v2-step-strip');
+    await expect(strip).toBeVisible({ timeout: 5_000 });
+    await expect(strip).toContainText(/STEP 1 of 4 · CONNECT WALLET/);
   });
 
   test('does not throw uncaught JS errors on initial load', async ({ page }) => {

@@ -61,7 +61,11 @@ test('landing — ceremony footer link is visible and routes to /ceremony', asyn
   await expect(link).toHaveAttribute('href', '/ceremony');
   await link.click();
   await expect(page).toHaveURL(/\/ceremony$/);
-  await expect(
-    page.getByRole('heading', { name: /A trusted setup\. In public\./i }),
-  ).toBeVisible({ timeout: 5_000 });
+  // Task 13 atomic flip: legacy `/A trusted setup. In public./` heading
+  // retired with `LegacyCeremonyIndex`. The /ceremony route now renders
+  // the v2 `<CeremonyShell />`. Assert on the Marquee LED (always
+  // present, robust to feed-down).
+  await expect(page.getByLabel(/phase: /).first()).toBeVisible({
+    timeout: 5_000,
+  });
 });
