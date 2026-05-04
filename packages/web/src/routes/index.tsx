@@ -1,12 +1,21 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { CivicTerminalLanding } from '../components/CivicTerminalLanding';
 import { MintButton } from '../components/MintButton';
 import { DocumentFooter } from '../components/DocumentFooter';
 import { LandingHero } from '../components/LandingHero';
 import { PaperGrain } from '../components/PaperGrain';
 
 /**
- * Root `/` route — surface depends on the SPA's build target.
+ * Root `/` route — surface depends on a runtime variant flag, then on
+ * the SPA's build target.
+ *
+ * Variant flag (prototype gate, lead dispatch 2026-05-04):
+ *   `?variant=civic-terminal` → render `CivicTerminalLanding`
+ *   (variant D Curve-router shell, pre-launch empty-states). Opt-in
+ *   review surface; default `/` behavior unchanged. Removing the gate
+ *   is the merge-to-adopt path: replace this whole switch with a
+ *   direct `<CivicTerminalLanding />` once founder + lead approve.
  *
  * `VITE_TARGET=landing` (zkqes.org root) — pre-ceremony hero +
  * recruitment CTA. `LandingHero` carries the BRAND.md descriptor lead
@@ -16,10 +25,13 @@ import { PaperGrain } from '../components/PaperGrain';
  * register-flow landing: identity-escrow privacy framing + MintButton
  * + ceremony help link (`AppRegisterLanding`).
  *
- * The branch is on a compile-time constant, so terser/esbuild
- * eliminates the dead branch at build time. The landing build doesn't
- * pay for `MintButton` (which pulls in the wallet stack); the app
- * build doesn't pay for `LandingHero`.
+ * The VITE_TARGET branch is on a compile-time constant, so
+ * terser/esbuild eliminates the dead branch at build time. The
+ * landing build doesn't pay for `MintButton` (which pulls in the
+ * wallet stack); the app build doesn't pay for `LandingHero`. The
+ * variant-flag branch IS bundled into both builds (small cost,
+ * ~6 KB component + 326-line CSS) — when the prototype is decided,
+ * either delete the file (revert) or remove the gate (adopt).
  *
  * `AppRegisterLanding` is extracted into its own component so the
  * hooks it uses (`useTranslation`) stay inside a branch the React
@@ -28,6 +40,17 @@ import { PaperGrain } from '../components/PaperGrain';
  * `react-hooks/rules-of-hooks` rule statically.
  */
 export function IndexScreen() {
+  // Variant flag — runtime URL check. `window` is always defined in
+  // the SPA runtime; the `typeof` guard is defensive against any
+  // future SSR / pre-render path.
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('variant') ===
+      'civic-terminal'
+  ) {
+    return <CivicTerminalLanding />;
+  }
+
   // Direct env-var comparison rather than the `IS_LANDING_TARGET`
   // indirection — same reason as the comment in `router.tsx`: Vite's
   // `define` plugin substitutes the literal string at source-text
