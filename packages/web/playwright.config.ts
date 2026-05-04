@@ -50,7 +50,25 @@ export default defineConfig({
   projects: [
     {
       name: 'smoke',
-      testMatch: /smoke\.spec\.ts/,
+      // Anchored to the leaf filename. The original `/smoke\.spec\.ts/`
+      // regex was a substring match and accidentally pulled in
+      // `prod-smoke.spec.ts`, dragging production-against-live-
+      // zkqes.org assertions into the per-PR smoke tier.
+      // prod-smoke now has its own project below.
+      testMatch: /\/smoke\.spec\.ts$/,
+    },
+    {
+      // prod-smoke hits actual production (zkqes.org / app.zkqes.org)
+      // and pins post-deploy state. NOT triggered by the per-PR CI
+      // gate (production drift is not a per-PR signal); intended for
+      // manual `workflow_dispatch` invocations OR a separate scheduled
+      // monitor workflow. Stays out of `smoke` per the regex tightening
+      // above. The CI workflow at `.github/workflows/playwright.yml`
+      // does NOT include this project in either its per-PR or nightly
+      // job lists.
+      name: 'prod-smoke',
+      use: { browserName: 'chromium' },
+      testMatch: /prod-smoke\.spec\.ts/,
     },
     {
       name: 'ua',
