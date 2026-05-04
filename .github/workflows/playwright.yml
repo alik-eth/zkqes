@@ -1,0 +1,189 @@
+# Playwright e2e CI gate.
+#
+# Per task #77 + the V5.1 silent-pass postmortem
+# (`docs/handoffs/2026-05-03-v5-e2e-silent-pass-postmortem.md`): the
+# repo's prior Playwright suite was CI-untested ("tests that nobody
+# runs == tests that nobody fail"), which let the V5.1 length-guard
+# regression sit green for ~3 days before V5.2 T2 caught it. This
+# workflow closes that gap with a tiered run.
+#
+# Tiering (per the #51 audit doc + lead's spec):
+#
+#   Per-PR (every `pull_request`): smoke + chromium + ceremony +
+#     v2-phase-rendering projects. ~5 min total, covers happy-path
+#     surfaces + the post-flip civic-terminal v2 anchor.
+#
+#   Nightly (cron `0 3 * * *` UTC, ~3am Kyiv): v5 family
+#     (v5-flow / v5-mint / v5-register-route / v5-device-gating).
+#     ~60s aggregate but exercises the multi-step register flow with
+#     mock prover + injected wallet, which is heavier than the per-PR
+#     tier wants per build. Bounded drift to a 24-hour window.
+#
+#   Opt-in (NOT triggered by this workflow): cli-flow + cli-fallback.
+#     Both gate on `T7_DEV_MANIFEST` env var pointing at a dev manifest
+#     + zkqes-cli runner-environment provisioning that this workflow
+#     doesn't have. They self-skip when the env is unset, but providing
+#     a useful run requires runner setup outside #77's scope. Add a
+#     follow-up `playwright-cli.yml` workflow when the runner side is
+#     provisioned.
+#
+# Workflow YAML changes are sensitive — touched only with explicit
+# founder + lead sign-off (granted 2026-05-04 per the founder Q1/Q2
+# + #77 batch reply). Do NOT modify pages.yml or release-cli.yml in
+# this workflow's commit; those are separate concerns.
+
+name: Playwright e2e
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # 03:00 UTC nightly. Covers the v5 family without contending with
+    # the per-PR runs during typical working hours.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: 'Tier to run on demand'
+        required: true
+        default: 'pr'
+        type: choice
+        options: [pr, nightly, all]
+
+# Cancel superseded runs on the same PR / branch — keeps the queue
+# short on rapid iteration. Doesn't touch nightly cron runs (different
+# `github.workflow` group key per cron trigger).
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ------------------------------------------------------------------
+  # Per-PR tier — runs on every pull_request, plus on workflow_dispatch
+  # when tier=pr or tier=all.
+  # ------------------------------------------------------------------
+  per-pr:
+    name: Per-PR projects (smoke + chromium + ceremony + v2-phase-rendering)
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.tier == 'pr' || github.event.inputs.tier == 'all'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # Pin pnpm to the version used elsewhere in the repo
+          # (cf. pages.yml). Auto-resolves from `packageManager` in
+          # package.json when set.
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.x
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build @zkqes/sdk
+        # The web package's vite import-analysis pulls @zkqes/sdk from
+        # `dist/` via the workspace alias. A stale or missing dist
+        # surfaces as 27/40 vite "Failed to resolve import '@zkqes/sdk'"
+        # failures (discovered the hard way in the v2-web-civic-terminal
+        # session start, 2026-05-04). Always rebuild the SDK before
+        # invoking Playwright; ~3s and immune to lockfile drift.
+        run: pnpm -F @zkqes/sdk build
+
+      - name: Cache Playwright browsers
+        # Cache key includes the @playwright/test version baked into
+        # pnpm-lock.yaml. When the version bumps, the cache key changes
+        # and we re-download — the right behaviour vs. running with
+        # mismatched browser binaries.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+
+      - name: Install Playwright Chromium + system deps
+        # `--with-deps` brings in libnss3 / libatk1.0-0 / etc. on Ubuntu
+        # runners. We only need Chromium since every per-PR project
+        # specifies `browserName: 'chromium'`.
+        run: pnpm -F @zkqes/web exec playwright install --with-deps chromium
+
+      - name: Run Playwright (per-PR tier)
+        run: |
+          pnpm -F @zkqes/web exec playwright test \
+            --project=smoke \
+            --project=chromium \
+            --project=ceremony \
+            --project=v2-phase-rendering
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-per-pr
+          path: |
+            packages/web/playwright-report
+            packages/web/test-results
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # Nightly tier — runs on cron, plus workflow_dispatch with tier=
+  # nightly|all.
+  # ------------------------------------------------------------------
+  nightly:
+    name: Nightly v5 family
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.tier == 'nightly' || github.event.inputs.tier == 'all'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.x
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm -F @zkqes/sdk build
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+
+      - run: pnpm -F @zkqes/web exec playwright install --with-deps chromium
+
+      - name: Run Playwright (nightly v5 tier)
+        # The v5 project bundle covers v5-flow / v5-mint /
+        # v5-register-route / v5-device-gating. Mock prover; Sepolia
+        # chain-ID pinned; injected wallet — no real network.
+        run: pnpm -F @zkqes/web exec playwright test --project=v5
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-nightly
+          path: |
+            packages/web/playwright-report
+            packages/web/test-results
+          retention-days: 14
