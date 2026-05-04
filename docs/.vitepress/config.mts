@@ -96,26 +96,13 @@ export default defineConfig({
     'superpowers/specs/2026-04-27-prod-frontend.md',
     'superpowers/specs/2026-04-30-issuer-blind-nullifier-contract-review.md',
     'superpowers/specs/2026-05-01-keccak-on-chain-contract-review.md',
-    // Specs that need markdown normalization before VitePress can
-    // render them — bare `<word>` placeholders, ASCII-art outside
-    // code fences, etc. Vue's template parser interprets the angle
-    // brackets as HTML tags and the build aborts. Listed here as a
-    // punch-list for a content-normalization commit; the underlying
-    // spec content is sound, only the markdown framing needs to be
-    // VitePress-friendly. Lead's directive ("don't rewrite spec
-    // content") preserved — the fix is wrapping in code fences /
-    // backslash-escaping angle brackets, which is markdown-syntax
-    // normalization rather than semantic editing.
-    'superpowers/specs/2026-05-03-qkb-helper-design.md',
-    // v1 civic-terminal rebrand spec — superseded by the 2026-05-04 v2
-    // spec. Source-side has tag-shaped placeholders that trip Vue's
-    // SSR parser (build error: "Cannot read properties of undefined
-    // (reading 'sha')"). Same root cause as the qkb-helper spec above.
-    // The build was already failing on origin/main; excluded here as
-    // part of Task 12 (docs retheme) so the retheme commit can verify.
-    // Underlying markdown-normalization is on the punch list — see
-    // task #64. The spec stays in tree as design history.
-    'superpowers/specs/2026-05-04-zkqes-civic-terminal-rebrand-design.md',
+    // (Punch-list note retired #64, 2026-05-04: the
+    // `qkb-helper-design.md` + v1 `civic-terminal-rebrand-design.md` +
+    // v1 `qkb-cli-design.md` markdown-normalization sweep is done; bare
+    // `<tag>` placeholders wrapped in backticks, multi-line inline code
+    // with angle-brackets promoted to fenced blocks, and one
+    // `${{ github.sha }}` mustache-trap escaped via `<span v-pre>`. The
+    // three specs render clean now; `srcExclude` entries dropped.)
     // Worker plans — kept on contributing surface but not exhaustive
     // index. C3 will curate the whitelist via `rewrites` + sidebar.
     'superpowers/plans/2026-04-17-qie-*.md',

@@ -277,10 +277,10 @@ If the helper is unreachable AFTER the deep-link launch attempt, browser falls b
 | State | UI |
 |---|---|
 | Helper detected, zkey ready | Green badge "Fast prover available (~14 s)". Prove button labeled "Generate proof". |
-| Helper detected, zkey downloading | Yellow badge "Initializing fast prover… <progress>". Prove button labeled "Generate proof (using browser prover)" with subtle "Will switch to fast prover when ready" tooltip. |
+| Helper detected, zkey downloading | Yellow badge "Initializing fast prover… `<progress>`". Prove button labeled "Generate proof (using browser prover)" with subtle "Will switch to fast prover when ready" tooltip. |
 | Helper not installed | Gray badge "Slower browser prover (~90 s, Firefox 64-bit / 32 GB only)". Inline CTA "Install zkqes Helper" linking to `/download`. |
 | Helper installed but not running | Same as detected; deep-link fires automatically on prove click. |
-| Deep-link failed (browser blocked / no handler) | Surface "Could not reach helper. Install or restart it from <link>." |
+| Deep-link failed (browser blocked / no handler) | Surface "Could not reach helper. Install or restart it from `<link>`." |
 | Helper crashed mid-prove | 5xx response → fall back to browser prove with a "Helper failed; using browser prover" toast. |
 
 ## Security model
@@ -451,7 +451,7 @@ When the real V5.2 production ceremony lands (Phase B, separate plan), lead pump
 | Helper running, zkey ready, no prove in flight | "🟢 Fast prover available (~14 s)" | Running, zkeyLoaded: true, busy: false |
 | Helper running, prove in flight | "Generating proof… (~14 s)" with progress | Running, busy: true |
 | Helper running, prove succeeded | "Proof generated in 13.8 s" + on-chain submit step | Running, busy: false, provesCompleted++ |
-| Helper running, prove failed (witness invalid) | "Proof generation failed: <error>" + retry button | Running, busy: false |
+| Helper running, prove failed (witness invalid) | "Proof generation failed: `<error>`" + retry button | Running, busy: false |
 | Helper running, prove failed (rapidsnark crash / OOM) | Surface as helper error + automatic fallback to browser prove | Running |
 | Helper unreachable mid-flow | Auto-retry once with deep-link, then fall back to browser prove | Possibly crashed |
 
