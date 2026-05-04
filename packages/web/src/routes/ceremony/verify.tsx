@@ -7,11 +7,17 @@
 // computes sha256 in a Web Worker (bounded peak heap via streaming),
 // and compares against the published `finalZkeySha256` in status.json.
 // ✓ if match, ✗ if not.
+//
+// Civic-terminal v2 variant (gated behind `?variant=civic-terminal`):
+// the 3-col `<VerifyShell>` per spec §5.3 + plan Task 11. Same variant-
+// gate strategy as /ceremony — legacy body stays default until Task 13's
+// atomic flip, preserving existing Playwright e2e during dev.
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DocumentFooter } from '../../components/DocumentFooter';
 import { PaperGrain } from '../../components/PaperGrain';
+import { VerifyShell } from '../../components/ceremony/VerifyShell';
 import {
   CEREMONY_STATUS_URL,
   fetchCeremonyStatus,
@@ -57,6 +63,21 @@ type VerifyState =
 type AriaPhase = 'loading' | 'feed-failed' | 'stub' | 'final';
 
 export function CeremonyVerify() {
+  // Civic-terminal v2 prototype gate. Same runtime URL-search pattern used
+  // by the home variant in `routes/index.tsx` and the /ceremony route. The
+  // legacy body is extracted into `LegacyCeremonyVerify` so `useTranslation`
+  // (and the worker effects below) aren't called conditionally.
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('variant') ===
+      'civic-terminal'
+  ) {
+    return <VerifyShell />;
+  }
+  return <LegacyCeremonyVerify />;
+}
+
+function LegacyCeremonyVerify() {
   const { t } = useTranslation();
   const [expectedHash, setExpectedHash] = useState<string | null>(null);
   const [ariaPhase, setAriaPhase] = useState<AriaPhase>('loading');
