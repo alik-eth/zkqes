@@ -304,6 +304,8 @@
       "lede": "Drop the prover key file you downloaded. The browser computes a SHA-256 of every byte and compares against the hash committed in the on-chain verifier contract — published below once the ceremony is complete.",
       "publishedHeading": "Published final hash",
       "published.pending": "Ceremony is not yet complete. The final zkey hash is published here once the last contributor uploads and the public-randomness beacon is mixed in.",
+      "published.loading": "Loading ceremony status…",
+      "published.feedFailed": "Could not reach the ceremony status feed. The published hash will appear here once the feed is reachable; refresh the page to retry.",
       "uploadHeading": "Hash your downloaded zkey",
       "fileAriaNeutral": "Upload your downloaded zkey",
       "fileAriaStub": "Upload your downloaded zkqes-v5_2-stub.zkey",
