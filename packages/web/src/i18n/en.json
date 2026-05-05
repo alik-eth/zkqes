@@ -110,6 +110,80 @@
     "dismiss": "Dismiss"
   },
   "registerV5": {
+    "v3": {
+      "letterhead": {
+        "office": "OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR",
+        "formTitle": "BINDING OF WALLET TO QUALIFIED IDENTITY",
+        "draft": "DRAFT"
+      },
+      "art1": {
+        "title": "Declarant",
+        "body": "The undersigned, holder of a qualified electronic signature certificate issued by a Trust Service Provider listed on the EU LOTL or the Ukrainian TL, identified as",
+        "tagVerified": "verified",
+        "tagAwaiting": "awaiting",
+        "tagRedacted": "redacted",
+        "nameLabel": "NAME",
+        "nameAwaiting": "awaiting QES upload — name is read locally from the .p7s in Article 3",
+        "redactedAria": "Redacted holder name. The name is read locally from the QES certificate, never transmitted, never proven on-chain.",
+        "annotation": "Read locally from the QES certificate. Never transmitted, never proven on-chain."
+      },
+      "art2": {
+        "title": "Wallet hereby bound",
+        "walletLabel": "WALLET",
+        "walletAwaiting": "awaiting wallet connection — see Step 1 below",
+        "networkLabel": "NETWORK",
+        "chainIdLabel": "CHAIN ID"
+      },
+      "art3": {
+        "title": "Qualified Trust Service Provider",
+        "recital1": "The Declarant asserts that the certificate referred to in Article 1 was issued by a QTSP currently maintained on a Member-State Trusted List under Reg. (EU) 910/2014 Art. 22, or on the Ukrainian Trusted List under Law of Ukraine 2155-VIII Art. 32.",
+        "recital2": "The Declarant does not disclose which Trust Service Provider issued the certificate. The proof asserts membership only.",
+        "qtspLabel": "QTSP",
+        "qtspWithheld": "— withheld by zero-knowledge —"
+      },
+      "art4": {
+        "title": "Statement of binding",
+        "recital1": "I hereby bind the wallet identified in Article 2 to my qualified electronic identity referenced in Article 1.",
+        "recital2": "I confirm that the binding does not constitute disclosure of my identity to any third party, including the Office of the Registrar, the network operator, or any node of the chain.",
+        "recital3": "The proof shall be generated locally on my device. The qualified signature shall not leave the device under any circumstance.",
+        "recital4": "I retain the right to bind further wallets under the same nullifier and to revoke any wallet at any time without revealing prior bindings."
+      },
+      "art5": {
+        "title": "Execution",
+        "qesLegend": "QUALIFIED ELECTRONIC SIGNATURE",
+        "qesProtocol": "Diia.Sign · CAdES-X",
+        "qesAwaiting": "awaiting…",
+        "qesUploaded": "✓ uploaded",
+        "qesPlaceholder": "the .p7s you produce in Article 3 attaches here",
+        "qesSigAria": "Stylised QES signature placeholder shown after the .p7s is uploaded.",
+        "walletLegend": "WALLET COUNTER-SIGNATURE",
+        "walletProtocol": "EIP-191",
+        "walletAwaiting": "awaiting…",
+        "walletReady": "✓ ready",
+        "walletAuto": "auto via window.ethereum",
+        "walletPlaceholder": "the connected wallet counter-signs here"
+      },
+      "marginalia": {
+        "notaryLegend": "NOTARY",
+        "notaryBody": "This is a self-notarised filing. The Office never sees which certificate was used — only that some qualified one was.",
+        "annotation1Legend": "ANNOTATION · ART. 01",
+        "annotation1Body": "Your name is read by the browser solely to render this preview. It is replaced by ████ before the proof is generated.",
+        "annotation4Legend": "ANNOTATION · ART. 04",
+        "annotation4Body": "The «nullifier» is a one-way hash of your QES public key. It cannot be reversed; it cannot be linked to your name.",
+        "fileStateLegend": "FILE STATE",
+        "articlePrefix": "Art.",
+        "state": {
+          "complete": "complete",
+          "pending": "pending",
+          "read": "read",
+          "awaiting": "awaiting"
+        }
+      },
+      "footer": {
+        "page": "PAGE 1 OF 1 · SUPERSEDES NONE",
+        "progress": "{{done}} of {{total}} articles complete"
+      }
+    },
     "title": "Register your identity",
     "lede": "Four steps. Your private credentials never leave this browser — only a zero-knowledge proof reaches the chain.",
     "indicator": {
