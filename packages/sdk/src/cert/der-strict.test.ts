@@ -64,4 +64,46 @@ describe('isStrictDER', () => {
     );
     expect(isStrictDER(h(spkiHex.spki))).toEqual({ ok: true });
   });
+
+  // ---------------------------------------------------------------------
+  // T3.1 — defense-in-depth reject cases. The 4 checks below are
+  // implemented in `der-strict.ts` but weren't surfaced in the original
+  // T3 test sweep. Per lead's T3 ack: BOOLEAN / BIT STRING / NULL / OID
+  // are content that real X.509 carries everywhere (basicConstraints,
+  // signatureValue, KeyUsage, every AlgorithmIdentifier + Attribute +
+  // Extension), so a regression in any reject path bites real fast.
+  // ---------------------------------------------------------------------
+
+  it('rejects BOOLEAN with content !== 0x00 or 0xFF (T3.1)', () => {
+    expect(isStrictDER(h('010101'))).toMatchObject({
+      ok: false,
+      reason: 'non-canonical-boolean',
+    });
+    // Sanity: canonical TRUE encoding (0xFF) must pass.
+    expect(isStrictDER(h('0101ff'))).toEqual({ ok: true });
+  });
+
+  it('rejects BIT STRING with unused-bits > 7 (T3.1)', () => {
+    expect(isStrictDER(h('030208ff'))).toMatchObject({
+      ok: false,
+      reason: 'non-canonical-bit-string',
+    });
+  });
+
+  it('rejects NULL with non-zero length (T3.1)', () => {
+    expect(isStrictDER(h('050100'))).toMatchObject({
+      ok: false,
+      reason: 'non-canonical-null',
+    });
+  });
+
+  it('rejects OID with leading 0x80 padding byte (T3.1)', () => {
+    // Subid `0x80 0x01` would encode value 1 with a redundant
+    // continuation byte — DER §10 requires the minimum-byte base-128
+    // encoding for every subidentifier.
+    expect(isStrictDER(h('06028001'))).toMatchObject({
+      ok: false,
+      reason: 'non-canonical-oid',
+    });
+  });
 });
