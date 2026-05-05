@@ -1,0 +1,17 @@
+{
+  "country": "UA",
+  "qtspSlug": "diia",
+  "displayName": "Diia",
+  "qtspUrl": "https://diia.gov.ua/",
+  "tslEntry": null,
+  "signingTool": {
+    "name": "Diia mobile app",
+    "url": "https://diia.gov.ua/",
+    "minVersion": null
+  },
+  "state": "live",
+  "addedAt": "2026-05-05",
+  "promotedAt": "2026-05-05",
+  "lastVerified": "2026-05-05",
+  "notes": "Ukrainian Ministry of Digital Transformation; ECDSA-P256 leaves with subjectSerialNumber TIN/PNO prefix per ETSI EN 319 412-1."
+}
