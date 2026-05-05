@@ -12,9 +12,10 @@ The team operates in dedicated worktrees per worker, never sharing CWD. Concrete
 - `circuits-eng` — `packages/circuits`
 - `contracts-eng` — `packages/contracts`
 - `web-eng` — `packages/web` + `packages/sdk`
-- `qie-eng` — `packages/qie-{core,agent,cli}` (Phase 2)
 
 Lead operates in the main checkout. See `CLAUDE.md` at the repo root for the full orchestration playbook.
+
+(A `qie-eng` worker existed in the V1 Phase-2 era, owning `packages/qie-{core,agent,cli}`. Phase-2 was parked in the v0.6.0 zkqes rename and the packages were deleted; the role does not currently exist in the active team. Restore from git history if Phase 2 ever resumes.)
 
 ## Plan-driven execution
 
@@ -33,8 +34,8 @@ The plans tree is comprehensive but not curated; consult these as patterns when 
 - V5 architecture (Phase 1 baseline)
 - V5.1 wallet-bound nullifier amendment
 - V5.2 keccak-on-chain amendment
-- V5.3 OID-anchor amendment (in flight at time of writing)
-- V5.4 zkqes CLI-server (zkqes serve)
+- V5.3 OID-anchor amendment
+- V5.4 zkqes CLI-server (`zkqes serve`)
 
 Each amendment ships in 3-7 days end-to-end across spec → plan → dispatch → ceremony. The cadence is preserved by codex VERDICT in every commit footer + per-task verification gates.
 
