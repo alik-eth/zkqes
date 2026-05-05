@@ -114,15 +114,27 @@ type FlowStep =
 
 interface ProveAgeFlowProps {
   /**
-   * Swappable IProver — `MockProver` in tests, SnarkjsProver+Worker in
+   * Swappable IProver — `MockProver` in tests, SnarkjsWorkerProver in
    * prod. Default is a MockProver that resolves to canned output;
-   * routes/accountProveAge.tsx wires the real prover in T4.
+   * routes/accountProveAge.tsx wires the real Worker-hosted snarkjs
+   * prover in T5.3.
    */
   readonly prover?: IProver;
+  /**
+   * AgeDiiaUA wasm URL. Defaults to `'about:blank'` so the MockProver
+   * test path doesn't try to fetch (the mock ignores URLs). Real
+   * wiring at T5.3+ passes the sha256-pinned URL from
+   * `fixtures/circuits/age-ua-v5_4/urls.json`.
+   */
+  readonly wasmUrl?: string;
+  /** AgeDiiaUA zkey URL. Same default-vs-real treatment as `wasmUrl`. */
+  readonly zkeyUrl?: string;
 }
 
 export function ProveAgeFlow({
   prover = new MockProver(),
+  wasmUrl = 'about:blank',
+  zkeyUrl = 'about:blank',
 }: ProveAgeFlowProps = {}) {
   const { t } = useTranslation();
   const { phase, status } = useCeremonyPhase();
@@ -211,17 +223,17 @@ export function ProveAgeFlow({
         nullifierCtxKeccak,
       });
 
-      // Drive the IProver — Phase A uses MockProver default; T5 will
-      // wire the real Worker-hosted snarkjs prover here. The witness
-      // shape is what the AgeDiiaUA circuit consumes. Phase A
-      // placeholder URLs (about:blank); Phase C swaps to the real
-      // R2-hosted .wasm + .zkey from the ceremony output. ProveOptions
-      // is flat in @zkqes/sdk's shape — wasmUrl + zkeyUrl at root, not
-      // wrapped under `artifacts`.
+      // Drive the IProver — MockProver default in tests, Worker-hosted
+      // SnarkjsWorkerProver in prod (wired from `routes/account/
+      // proveAge.tsx` at T5.3). ProveOptions is flat in @zkqes/sdk's
+      // shape — `wasmUrl + zkeyUrl + side?` at root, not wrapped under
+      // `artifacts`. The route layer threads sha256-pinned URLs from
+      // `lib/v5_4AgeArtifacts.ts`; tests default to `'about:blank'`
+      // because MockProver ignores URLs.
       await prover.prove(witnessOut.witness, {
         side: 'v5',
-        wasmUrl: 'about:blank',
-        zkeyUrl: 'about:blank',
+        wasmUrl,
+        zkeyUrl,
       });
 
       setPublicSignals(witnessOut.publicSignals);
