@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:bundle-size": "RUN_BUNDLE_SIZE=1 vitest run tests/build/landing-bundle-size.test.ts",
     "compute-policy-root": "node scripts/compute-policy-root.mjs",
     "generate-qtsp-index": "node scripts/generate-qtsp-index.mjs",
     "generate-diia-evidence": "node scripts/generate-diia-evidence.mjs",

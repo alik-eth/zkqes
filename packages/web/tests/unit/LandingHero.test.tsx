@@ -68,12 +68,13 @@ describe('LandingHero — T12 coverage section', () => {
     expect(coverageIdx).toBeLessThan(pathCardsIdx);
   });
 
-  it('CountryGrid mounts inside the coverage section (renders the live UA tile)', () => {
+  it('CountryGrid mounts inside the coverage section (renders the live UA tile)', async () => {
     // The real `QTSP_INDEX` includes UA/diia today. The grid renders
-    // the displayName "Diia" inside a tile button. This is the
-    // tightest way to confirm CountryGrid actually mounted (vs being
-    // imported but not rendered).
+    // the displayName "Diia" inside a tile button. CountryGrid is
+    // lazy-loaded (T15 chunk-budget; LandingHero imports via React.
+    // lazy with a Suspense fallback) so we need findByText to await
+    // the dynamic-import resolution before the assertion.
     render(<LandingHero />);
-    expect(screen.getByText('Diia')).toBeInTheDocument();
+    expect(await screen.findByText('Diia')).toBeInTheDocument();
   });
 });

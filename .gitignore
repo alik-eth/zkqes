@@ -2,6 +2,11 @@ node_modules/
 dist/
 dist-binaries/
 build/
+# T15 multi-QTSP facade: bundle-size test lives at
+# `packages/web/tests/build/`. The generic `build/` pattern above
+# matches it; opt the directory back in so the test ships.
+!packages/web/tests/build/
+!packages/web/tests/build/**
 out/
 .turbo/
 .cache/
