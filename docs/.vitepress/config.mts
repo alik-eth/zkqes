@@ -153,6 +153,7 @@ export default defineConfig({
       { text: 'Specs', link: '/specs/v5-architecture' },
       { text: 'Ceremony', link: '/ceremony/' },
       { text: 'Reference', link: '/reference/integrations' },
+      { text: 'FAQ', link: '/faq' },
       { text: 'Brand', link: '/brand' },
       { text: 'Contributing', link: '/contributing/' },
       // Cross-link to the project landing — same brand, different
