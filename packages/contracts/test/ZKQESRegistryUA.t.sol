@@ -8,6 +8,7 @@ import {Groth16VerifierV5_2Placeholder} from "../src/Groth16VerifierV5_2Placehol
 import {Groth16AgeVerifierUAStub} from "../src/Groth16AgeVerifierUAStub.sol";
 import {P256Verify} from "../src/libs/P256Verify.sol";
 import {Poseidon} from "../src/libs/Poseidon.sol";
+import {PoseidonBytecode} from "../src/libs/PoseidonBytecode.sol";
 
 /// @notice V5.4 ZKQESRegistryUA tests. Scope (per plan §Task 3 +
 ///         lead-confirmed scope narrowing): V5.4-NEW gates only.
@@ -80,12 +81,19 @@ contract ZKQESRegistryUATest is Test {
 
         idVerifier = new Groth16VerifierV5_2Placeholder();
         ageStub    = new Groth16AgeVerifierUAStub();
+        // V5.4: pre-deploy PoseidonT3 + T7 externally (vs V5.2's
+        // CREATE-in-constructor pattern) — see ZKQESRegistryUA constructor
+        // NatSpec for the EIP-3860 / Base Sepolia bytecode-size rationale.
+        address poseidonT3 = Poseidon.deploy(PoseidonBytecode.t3Initcode());
+        address poseidonT7 = Poseidon.deploy(PoseidonBytecode.t7Initcode());
         registry = new ZKQESRegistryUA(
             initialTrustRoot,
             initialPolicyRoot,
             address(idVerifier),
             address(ageStub),
-            admin
+            admin,
+            poseidonT3,
+            poseidonT7
         );
 
         holder = _addrFromLimbs(BASELINE_PKX_HI, BASELINE_PKX_LO, BASELINE_PKY_HI, BASELINE_PKY_LO);
@@ -245,27 +253,58 @@ contract ZKQESRegistryUATest is Test {
 
     /* ================ Constructor ================ */
 
+    /// @dev Pre-deploy a fresh PoseidonT3+T7 for each negative-path
+    ///      constructor test (constructor expects non-zero addresses
+    ///      for both; the 5 negative tests below each zero-out exactly
+    ///      one of the 5 zero-able args). Reusing setUp's poseidons
+    ///      would work but obscures the "fresh state per test" intent.
+    function _freshPoseidons() internal returns (address t3, address t7) {
+        t3 = Poseidon.deploy(PoseidonBytecode.t3Initcode());
+        t7 = Poseidon.deploy(PoseidonBytecode.t7Initcode());
+    }
+
     function test_constructor_reverts_onZeroIdentityVerifier() public {
+        (address t3, address t7) = _freshPoseidons();
         vm.expectRevert(ZKQESRegistryUA.ZeroAddress.selector);
         new ZKQESRegistryUA(
             initialTrustRoot, initialPolicyRoot,
-            address(0), address(ageStub), admin
+            address(0), address(ageStub), admin, t3, t7
         );
     }
 
     function test_constructor_reverts_onZeroAgeVerifier() public {
+        (address t3, address t7) = _freshPoseidons();
         vm.expectRevert(ZKQESRegistryUA.ZeroAddress.selector);
         new ZKQESRegistryUA(
             initialTrustRoot, initialPolicyRoot,
-            address(idVerifier), address(0), admin
+            address(idVerifier), address(0), admin, t3, t7
         );
     }
 
     function test_constructor_reverts_onZeroAdmin() public {
+        (address t3, address t7) = _freshPoseidons();
         vm.expectRevert(ZKQESRegistryUA.ZeroAddress.selector);
         new ZKQESRegistryUA(
             initialTrustRoot, initialPolicyRoot,
-            address(idVerifier), address(ageStub), address(0)
+            address(idVerifier), address(ageStub), address(0), t3, t7
+        );
+    }
+
+    function test_constructor_reverts_onZeroPoseidonT3() public {
+        (, address t7) = _freshPoseidons();
+        vm.expectRevert(ZKQESRegistryUA.ZeroAddress.selector);
+        new ZKQESRegistryUA(
+            initialTrustRoot, initialPolicyRoot,
+            address(idVerifier), address(ageStub), admin, address(0), t7
+        );
+    }
+
+    function test_constructor_reverts_onZeroPoseidonT7() public {
+        (address t3, ) = _freshPoseidons();
+        vm.expectRevert(ZKQESRegistryUA.ZeroAddress.selector);
+        new ZKQESRegistryUA(
+            initialTrustRoot, initialPolicyRoot,
+            address(idVerifier), address(ageStub), admin, t3, address(0)
         );
     }
 

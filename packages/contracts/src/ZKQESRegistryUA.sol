@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {IZKQESRegistry} from "./IZKQESRegistry.sol";
 import {IGroth16AgeVerifier} from "./Groth16AgeVerifierUAStub.sol";
 import {Poseidon} from "./libs/Poseidon.sol";
-import {PoseidonBytecode} from "./libs/PoseidonBytecode.sol";
 import {P256Verify} from "./libs/P256Verify.sol";
 import {PoseidonMerkle} from "./libs/PoseidonMerkle.sol";
 
@@ -107,8 +106,19 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     IGroth16VerifierV5_3 public immutable identityVerifierImpl;
     IGroth16AgeVerifier  public immutable ageVerifierImpl;
 
-    /// @notice Deployed Poseidon contract addresses (CREATE-deployed
-    ///         in the constructor, mirroring `ZkqesRegistryV5_2`).
+    /// @notice Pre-deployed Poseidon contract addresses, passed to the
+    ///         constructor. V5.4 deviation from V5.2: V5.2 CREATE-deployed
+    ///         T3 + T7 inside its constructor by inlining their initcodes
+    ///         as `PoseidonBytecode` library constants. That added ~33 KB
+    ///         to the registry's own initcode and tipped V5.4 over Base
+    ///         Sepolia's effective `MAX_INITCODE_SIZE` ceiling at deploy
+    ///         time (V5.2 squeaked under at 40,157 bytes; V5.4's +1.5 KB
+    ///         of new surface-area pushed it to 41,630 bytes which the
+    ///         public Base Sepolia RPC rejected with
+    ///         `error code -32000: max initcode size exceeded`).
+    ///         Pre-deploy + pass-as-args keeps the registry's own
+    ///         initcode under ~9 KB and is the canonical Solidity
+    ///         library-deploy pattern.
     address public immutable poseidonT3;
     address public immutable poseidonT7;
 
@@ -187,27 +197,33 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     /// @param _identityVerifier  V5.3 22-input identity verifier address.
     /// @param _ageVerifier       V5.4 UA age verifier address.
     /// @param _admin             Initial admin (rotateRoots + setRevoked + transferAdmin).
+    /// @param _poseidonT3        Pre-deployed circomlibjs PoseidonT3 contract.
+    ///                            Caller (deploy script) deploys via
+    ///                            `Poseidon.deploy(PoseidonBytecode.t3Initcode())`
+    ///                            BEFORE invoking this constructor.
+    /// @param _poseidonT7        Pre-deployed circomlibjs PoseidonT7 contract.
     constructor(
         bytes32 _trustedRoot,
         bytes32 _policyRoot,
         address _identityVerifier,
         address _ageVerifier,
-        address _admin
+        address _admin,
+        address _poseidonT3,
+        address _poseidonT7
     ) {
         if (_identityVerifier == address(0)) revert ZeroAddress();
         if (_ageVerifier      == address(0)) revert ZeroAddress();
         if (_admin            == address(0)) revert ZeroAddress();
+        if (_poseidonT3       == address(0)) revert ZeroAddress();
+        if (_poseidonT7       == address(0)) revert ZeroAddress();
 
         trustedRoot = _trustedRoot;
         policyRoot  = _policyRoot;
         identityVerifierImpl = IGroth16VerifierV5_3(_identityVerifier);
         ageVerifierImpl      = IGroth16AgeVerifier(_ageVerifier);
         admin = _admin;
-
-        // CREATE-deploy PoseidonT3 + PoseidonT7 (mirrors V5.2 / V5.3).
-        // Used for SpkiCommit + Merkle climb staticcalls inside register().
-        poseidonT3 = Poseidon.deploy(PoseidonBytecode.t3Initcode());
-        poseidonT7 = Poseidon.deploy(PoseidonBytecode.t7Initcode());
+        poseidonT3 = _poseidonT3;
+        poseidonT7 = _poseidonT7;
     }
 
     /* ---------- IZKQESRegistry view fns ---------- */
