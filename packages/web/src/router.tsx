@@ -84,6 +84,16 @@ const integrationsRoute = createRoute({
   component: IntegrationsScreen,
 });
 
+// Multi-QTSP facade T10: per-QTSP detail surface at
+// `/qtsp/$country/$qtsp`. Lazy-loaded via `lazyRouteComponent` so the
+// page (and its `QTSP_INDEX` import) stays out of the landing entry
+// chunk per CLAUDE.md invariant 21. Reach-tested by T15.
+const qtspPageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'qtsp/$country/$qtsp',
+  component: lazyRouteComponent(() => import('./routes/qtspPage')),
+});
+
 const sharedRoutes: AnyRoute[] = [
   indexRoute,
   ceremonyRoute,
@@ -91,6 +101,7 @@ const sharedRoutes: AnyRoute[] = [
   ceremonyStatusRoute,
   ceremonyVerifyRoute,
   integrationsRoute,
+  qtspPageRoute,
 ];
 
 // ---------------------------------------------------------------- //

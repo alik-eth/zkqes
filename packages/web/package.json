@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/generate-qtsp-index.mjs",
     "build": "tsc -b && vite build",
+    "pretypecheck": "node scripts/generate-qtsp-index.mjs",
     "preview": "vite preview --port 4173 --strictPort --host 127.0.0.1",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "compute-policy-root": "node scripts/compute-policy-root.mjs",
+    "generate-qtsp-index": "node scripts/generate-qtsp-index.mjs",
     "package": "pnpm run build && node scripts/pack.mjs",
     "typecheck": "tsc -b --noEmit"
   },

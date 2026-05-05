@@ -29,6 +29,12 @@ const bufferShimDir = `${polyfillRoot}/shims/buffer`;
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../..');
 const qtspIndexOut = resolve(here, 'src/generated/qtsp-index.ts');
+// Multi-QTSP facade T10: per-QTSP runtime data files (`samples.json`,
+// `intermediates/*.pem`) get mirrored from `fixtures/trust/<cc>/<slug>/`
+// into `public/qtsp-data/<cc>/<slug>/` so Vite serves them as static
+// assets at `/qtsp-data/<cc>/<slug>/...`. Empty for QTSPs without
+// these files (UA/diia today).
+const qtspPublicData = resolve(here, 'public/qtsp-data');
 
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
@@ -40,7 +46,11 @@ export default defineConfig({
   plugins: [
     // qtspIndexPlugin first via `enforce: 'pre'` so the generated index
     // is on disk before any consumer plugin reads it.
-    qtspIndexPlugin({ root: repoRoot, outFile: qtspIndexOut }),
+    qtspIndexPlugin({
+      root: repoRoot,
+      outFile: qtspIndexOut,
+      publicDataDir: qtspPublicData,
+    }),
     react(),
     tailwindcss(),
     nodePolyfills({ include: ['buffer'], globals: { Buffer: true } }),

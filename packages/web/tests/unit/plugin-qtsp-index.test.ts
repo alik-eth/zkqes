@@ -176,6 +176,81 @@ describe('qtspIndexPlugin', () => {
     expect(out).toMatch(/QTSP_INDEX[^=]*=\s*Object\.freeze\(\[\s*\]\)/);
   });
 
+  // ────────── T10 publicDataDir extension ──────────
+
+  it('mirrors samples.json into publicDataDir/<cc>/<slug>/ when the source file exists', async () => {
+    write('fixtures/trust/ua/diia/meta.json', JSON.stringify(VALID_DIIA));
+    write(
+      'fixtures/trust/ua/diia/samples.json',
+      JSON.stringify({ samples: [] }),
+    );
+    const plugin = qtspIndexPlugin({
+      root: tmp,
+      outFile: join(tmp, 'out/qtsp-index.ts'),
+      publicDataDir: join(tmp, 'public/qtsp-data'),
+    });
+    await runBuildStart(plugin, ctx());
+    const dest = join(tmp, 'public/qtsp-data/UA/diia/samples.json');
+    expect(existsSync(dest)).toBe(true);
+    expect(readFileSync(dest, 'utf8')).toBe('{"samples":[]}');
+  });
+
+  it('mirrors intermediates/*.pem files (only .pem extension)', async () => {
+    write('fixtures/trust/ua/diia/meta.json', JSON.stringify(VALID_DIIA));
+    write('fixtures/trust/ua/diia/intermediates/a.pem', 'PEM-A');
+    write('fixtures/trust/ua/diia/intermediates/b.pem', 'PEM-B');
+    write('fixtures/trust/ua/diia/intermediates/README.md', 'not-a-pem');
+    const plugin = qtspIndexPlugin({
+      root: tmp,
+      outFile: join(tmp, 'out/qtsp-index.ts'),
+      publicDataDir: join(tmp, 'public/qtsp-data'),
+    });
+    await runBuildStart(plugin, ctx());
+    const intermediatesDest = join(tmp, 'public/qtsp-data/UA/diia/intermediates');
+    expect(existsSync(join(intermediatesDest, 'a.pem'))).toBe(true);
+    expect(existsSync(join(intermediatesDest, 'b.pem'))).toBe(true);
+    // Non-pem files are NOT copied — the page only consumes .pem.
+    expect(existsSync(join(intermediatesDest, 'README.md'))).toBe(false);
+  });
+
+  it('skips silently when samples.json + intermediates/ are absent (UA/diia case today)', async () => {
+    // Source dir has only meta.json — same shape as the real
+    // fixtures/trust/ua/diia/ today. Plugin must NOT throw and must
+    // still create the destination dir so the QtspPage's fetch
+    // gets a clean 404 from Vite's static handler rather than an
+    // upstream-network-style error.
+    write('fixtures/trust/ua/diia/meta.json', JSON.stringify(VALID_DIIA));
+    const plugin = qtspIndexPlugin({
+      root: tmp,
+      outFile: join(tmp, 'out/qtsp-index.ts'),
+      publicDataDir: join(tmp, 'public/qtsp-data'),
+    });
+    await expect(runBuildStart(plugin, ctx())).resolves.toBeUndefined();
+    // Destination dir created.
+    expect(existsSync(join(tmp, 'public/qtsp-data/UA/diia'))).toBe(true);
+    // Neither optional file present.
+    expect(
+      existsSync(join(tmp, 'public/qtsp-data/UA/diia/samples.json')),
+    ).toBe(false);
+    expect(
+      existsSync(join(tmp, 'public/qtsp-data/UA/diia/intermediates')),
+    ).toBe(false);
+  });
+
+  it('does NOT copy runtime data when publicDataDir is omitted', async () => {
+    // Tests + minimal-config consumers can opt out of the copy step
+    // by leaving `publicDataDir` undefined.
+    write('fixtures/trust/ua/diia/meta.json', JSON.stringify(VALID_DIIA));
+    write('fixtures/trust/ua/diia/samples.json', '{"samples":[]}');
+    const plugin = qtspIndexPlugin({
+      root: tmp,
+      outFile: join(tmp, 'out/qtsp-index.ts'),
+      // no publicDataDir
+    });
+    await runBuildStart(plugin, ctx());
+    expect(existsSync(join(tmp, 'public/qtsp-data'))).toBe(false);
+  });
+
   it('declares enforce: "pre" so it runs before consumer plugins', () => {
     const plugin = qtspIndexPlugin({
       root: tmp,
