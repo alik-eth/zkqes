@@ -84,41 +84,41 @@ export function MintButton() {
     if (state.action === 'viewCertificate')   navigate({ to: '/ua/mintNft' });
   };
 
+  // Civic-terminal v2 (task #84) — primary CTA uses .ct-btn--ua
+  // (UA-yellow on UA-blue) for the call-to-action emphasis;
+  // secondary navigation uses .ct-link (UA-blue underline).
   return (
-    <div className="space-y-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <button
         type="button"
         onClick={handleClick}
         disabled={state.disabled}
-        className="px-8 py-4 text-lg disabled:opacity-50"
+        className="ct-btn ct-btn--lg ct-btn--ua"
         style={{
-          background: 'var(--sovereign)',
-          color: 'var(--bone)',
-          fontFamily: 'var(--font-body)',
-          border: 0,
-          borderRadius: 2,
-          letterSpacing: '0.04em',
+          opacity: state.disabled ? 0.5 : 1,
+          cursor: state.disabled ? 'not-allowed' : 'pointer',
+          alignSelf: 'flex-start',
         }}
       >
         {state.label}
       </button>
       {(secondary.showCliLink || secondary.showViewCertificate) && (
-        <div className="flex flex-wrap gap-4 text-mono text-sm">
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '16px',
+            fontFamily: 'var(--mono)',
+            fontSize: '13px',
+          }}
+        >
           {secondary.showCliLink && (
-            <Link
-              to="/ua/cli"
-              className="underline"
-              style={{ color: 'var(--ink)', opacity: 0.7 }}
-            >
+            <Link to="/ua/cli" className="ct-link">
               Use the CLI instead →
             </Link>
           )}
           {secondary.showViewCertificate && (
-            <Link
-              to="/ua/mintNft"
-              className="underline"
-              style={{ color: 'var(--ink)', opacity: 0.7 }}
-            >
+            <Link to="/ua/mintNft" className="ct-link">
               View your certificate →
             </Link>
           )}
