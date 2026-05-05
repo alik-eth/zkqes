@@ -18,12 +18,13 @@
 // pull components for unregistered routes; tree-shaking does the rest).
 //
 // Why a single shared source tree (instead of two repos / two SPAs):
-// the civic-monumental theme primitives (PaperGrain, doc-grid, hr.rule,
-// EB Garamond + Inter Tight) and the ceremony pages (status, contribute,
-// verify) are reused unchanged on both surfaces. A separate landing repo
-// would either duplicate the theme + ceremony components or ship a thin
-// shell that re-imports from `packages/web` — neither pays for itself
-// at this scale. One source tree, two filtered builds, one component
+// the civic-terminal theme primitives (`--ct-*` tokens + `.ct-*`
+// classes in `src/styles/civic-terminal.css`, VT323 + IBM Plex Mono)
+// and the ceremony pages (status, contribute, verify) are reused
+// unchanged on both surfaces. A separate landing repo would either
+// duplicate the theme + ceremony components or ship a thin shell
+// that re-imports from `packages/web` — neither pays for itself at
+// this scale. One source tree, two filtered builds, one component
 // library.
 
 export type BuildTarget = 'landing' | 'app';
