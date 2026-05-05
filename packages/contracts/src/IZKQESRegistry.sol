@@ -50,19 +50,32 @@ interface IZKQESRegistry {
 
     /* ---------- proof tuples ---------- */
 
-    /// @dev Output of the chain (intermediate-cert) Groth16 verifier.
-    ///      `rTL` = trusted-list root the chain was anchored against.
-    ///      `algorithmTag` = leaf algorithm discriminant (per LeafProof
-    ///      country-agnostic V5.3 design). `leafSpkiCommit` ties this
-    ///      chain proof to the matching leaf proof (must equal
-    ///      `LeafProof.leafSpkiCommit`).
+    /// @dev Chain-level public-signal commitments. **NOT a Groth16 proof.**
+    ///      V5.4 preserves the V5.2 architecture: chain (intermediate-
+    ///      cert) verification happens ON-CHAIN inside `register()` via
+    ///      P256 verify (intermediate signs leafTbsHash) + Poseidon
+    ///      Merkle climb (`intSpkiCommit ∈ trustedRoot`); there is no
+    ///      separate chain Groth16 circuit. The fields below are the
+    ///      caller's claimed bind-values that `register()` cross-checks
+    ///      against on-chain state + `LeafProof`'s public signals:
+    ///
+    ///        - `rTL`            must equal the registry's current
+    ///                           `trustedRoot()` (snapshot binding,
+    ///                           closes a TOCTOU race when admin
+    ///                           rotates the root mid-tx).
+    ///        - `algorithmTag`   leaf P-256 algorithm discriminant —
+    ///                           identifies the leaf signature
+    ///                           algorithm version (forward-compat
+    ///                           with V5.5+ when leaf algorithm
+    ///                           pluggability lands).
+    ///        - `leafSpkiCommit` MUST equal `LeafProof.leafSpkiCommit`
+    ///                           (slot 11) — cross-binds this chain
+    ///                           assertion to the matching leaf proof's
+    ///                           Groth16-committed leaf SPKI.
     struct ChainProof {
-        uint256[2]    a;
-        uint256[2][2] b;
-        uint256[2]    c;
-        uint256       rTL;
-        uint256       algorithmTag;
-        uint256       leafSpkiCommit;
+        uint256 rTL;
+        uint256 algorithmTag;
+        uint256 leafSpkiCommit;
     }
 
     /// @dev Output of the leaf-cert Groth16 verifier (V5.3 frozen
@@ -148,12 +161,71 @@ interface IZKQESRegistry {
 
     /// @notice Verify the chain+leaf identity tuple, write a new
     ///         binding, return its id (= keccak of the canonical
-    ///         per-binding fields, computed by the implementation).
+    ///         per-binding fields, computed by the implementation —
+    ///         e.g. UA uses `keccak256(abi.encode("UA",
+    ///         leafProof.identityFingerprint))` so the same QES
+    ///         holder maps to the same binding across rotations).
+    ///
+    /// @dev    `register()` performs the V5.2-architecture work:
+    ///         (1) one Groth16 verify on the leaf 22-signal proof
+    ///         via `identityVerifier()`; (2) on-chain P-256 verify of
+    ///         the intermediate cert's signature over `leafTbsHash`;
+    ///         (3) on-chain Poseidon Merkle climb proving
+    ///         `intSpkiCommit ∈ trustedRoot`; (4) on-chain Poseidon
+    ///         Merkle climb proving `policyLeafHash ∈ policyRoot`.
+    ///         There is NO separate chain Groth16 proof — `ChainProof`
+    ///         carries only the bind-values needed by gates 2-4.
+    ///
     /// @dev    For DOB-aware countries (e.g. UA) implementations set
     ///         `Binding.dobSupported = 1`; for non-DOB countries
-    ///         (V5.5+ placeholder), `dobSupported = 0`.
-    function register(ChainProof calldata, LeafProof calldata)
-        external returns (bytes32 bindingId);
+    ///         (V5.5+ placeholder), `dobSupported = 0`. `Binding.dobCommit`
+    ///         is `0` in V5.4 across all countries (default-private
+    ///         posture per spec §3.4).
+    ///
+    /// @dev    Calldata layout below is V5.2-port-equivalent — see
+    ///         `ZkqesRegistryV5_2.sol::register` for the gate-by-gate
+    ///         reference implementation. The first 2 args (proof
+    ///         tuples) are V5.4-shape; the remaining 9 are calldata
+    ///         extras V5.2 already used for the on-chain chain
+    ///         verification path.
+    ///
+    /// @param  chainProof              chain-level public-signal binds
+    ///                                 (no Groth16 — see ChainProof docs)
+    /// @param  leafProof               leaf Groth16 proof + 22 public
+    ///                                 signals (V5.3 layout)
+    /// @param  leafSpki                raw 91-byte leaf cert SPKI;
+    ///                                 SpkiCommit must match
+    ///                                 `leafProof.leafSpkiCommit`
+    /// @param  intSpki                 raw 91-byte intermediate cert
+    ///                                 SPKI; SpkiCommit must match
+    ///                                 `leafProof.intSpkiCommit`
+    /// @param  signedAttrs             CMS SignedAttrs whose sha256
+    ///                                 must match `leafProof.signedAttrsHashHi/Lo`
+    /// @param  leafSig                 leaf P-256 signature over
+    ///                                 sha256(signedAttrs)
+    /// @param  intSig                  intermediate P-256 signature
+    ///                                 over `leafProof.leafTbsHashHi/Lo`
+    /// @param  trustMerklePath         16-deep Poseidon path proving
+    ///                                 `leafProof.intSpkiCommit` is a
+    ///                                 leaf of `trustedRoot()`
+    /// @param  trustMerklePathBits     left/right bitmap for the path
+    /// @param  policyMerklePath        16-deep Poseidon path proving
+    ///                                 `leafProof.policyLeafHash` is a
+    ///                                 leaf of `policyRoot()`
+    /// @param  policyMerklePathBits    left/right bitmap for the path
+    function register(
+        ChainProof  calldata chainProof,
+        LeafProof   calldata leafProof,
+        bytes       calldata leafSpki,
+        bytes       calldata intSpki,
+        bytes       calldata signedAttrs,
+        bytes32[2]  calldata leafSig,
+        bytes32[2]  calldata intSig,
+        bytes32[16] calldata trustMerklePath,
+        uint256              trustMerklePathBits,
+        bytes32[16] calldata policyMerklePath,
+        uint256              policyMerklePathBits
+    ) external returns (bytes32 bindingId);
 
     /// @notice Atomically rotate the wallet pubkey of an existing
     ///         binding. `sig` is the rotation auth signature from the
