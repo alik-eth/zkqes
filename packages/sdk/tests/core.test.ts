@@ -17,7 +17,7 @@ import {
   subjectSerialToLimbs,
   zeroPadTo,
 } from '../src/core/index.js';
-import { QkbError } from '../src/errors/index.js';
+import { ZkqesError } from '../src/errors/index.js';
 
 describe('core constants', () => {
   it('matches the circuit-side compile-time caps', () => {
@@ -56,7 +56,7 @@ describe('zeroPadTo', () => {
   });
 
   it('throws witness.fieldTooLong when input exceeds the cap', () => {
-    expect(() => zeroPadTo(new Uint8Array(10), 4)).toThrow(QkbError);
+    expect(() => zeroPadTo(new Uint8Array(10), 4)).toThrow(ZkqesError);
   });
 });
 
@@ -72,7 +72,7 @@ describe('pkCoordToLimbs', () => {
   });
 
   it('rejects non-32-byte inputs', () => {
-    expect(() => pkCoordToLimbs(new Uint8Array(16))).toThrow(QkbError);
+    expect(() => pkCoordToLimbs(new Uint8Array(16))).toThrow(ZkqesError);
   });
 });
 
@@ -106,12 +106,12 @@ describe('findJcsKeyValueOffset', () => {
 
   it('throws on duplicate keys', () => {
     const dup = new TextEncoder().encode('{"a":1,"a":2}');
-    expect(() => findJcsKeyValueOffset(dup, 'a')).toThrow(QkbError);
+    expect(() => findJcsKeyValueOffset(dup, 'a')).toThrow(ZkqesError);
   });
 
   it('throws when the key is missing', () => {
     const json = new TextEncoder().encode('{"a":1}');
-    expect(() => findJcsKeyValueOffset(json, 'missing')).toThrow(QkbError);
+    expect(() => findJcsKeyValueOffset(json, 'missing')).toThrow(ZkqesError);
   });
 });
 
@@ -126,8 +126,8 @@ describe('subjectSerialToLimbs', () => {
   });
 
   it('rejects empty or oversized inputs', () => {
-    expect(() => subjectSerialToLimbs(new Uint8Array(0))).toThrow(QkbError);
-    expect(() => subjectSerialToLimbs(new Uint8Array(33))).toThrow(QkbError);
+    expect(() => subjectSerialToLimbs(new Uint8Array(0))).toThrow(ZkqesError);
+    expect(() => subjectSerialToLimbs(new Uint8Array(33))).toThrow(ZkqesError);
   });
 });
 
