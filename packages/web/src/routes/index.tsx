@@ -4,7 +4,7 @@ import { CivicTerminalLanding } from '../components/CivicTerminalLanding';
 import { MintButton } from '../components/MintButton';
 import { DocumentFooter } from '../components/DocumentFooter';
 import { LandingHero } from '../components/LandingHero';
-import { PaperGrain } from '../components/PaperGrain';
+import '../styles/civic-terminal.css';
 
 /**
  * Root `/` route — surface depends on a runtime variant flag, then on
@@ -43,6 +43,12 @@ export function IndexScreen() {
   // Variant flag — runtime URL check. `window` is always defined in
   // the SPA runtime; the `typeof` guard is defensive against any
   // future SSR / pre-render path.
+  //
+  // The T9 `?variant=qtsp-grid` preview surface auto-removed here
+  // (per its plan footer): T12 lands `<CountryGrid />` directly into
+  // `LandingHero` between the hero and path cards, so the synthetic
+  // four-state preview fixtures + their gating branch are no longer
+  // needed.
   if (
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('variant') ===
@@ -65,160 +71,190 @@ export function IndexScreen() {
   return <AppRegisterLanding />;
 }
 
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). Pre-v2
+// PaperGrain + doc-grid + EB Garamond/Inter Tight tokens retired
+// per founder direction 2026-05-05 (task #84). Same content +
+// translation keys + testid (`landing-ceremony-link`) — only chrome
+// migrates to civic-terminal primitives + VT323 / IBM Plex Mono.
+const KICKER: React.CSSProperties = {
+  fontFamily: 'var(--mono)',
+  fontSize: '11px',
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
+  color: 'var(--ct-mute)',
+  margin: 0,
+};
+
+const BODY: React.CSSProperties = {
+  fontFamily: 'var(--mono)',
+  fontSize: '15px',
+  lineHeight: 1.5,
+  maxWidth: '52ch',
+  color: 'var(--ct-ink)',
+};
+
 function AppRegisterLanding() {
   const { t } = useTranslation();
   return (
-    <main className="relative min-h-screen">
-      <PaperGrain />
-      <div className="doc-grid pt-24 relative z-10">
-        <div />
-        <div className="min-w-0 max-w-3xl">
+    <main
+      className="ct"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '96px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '48px',
+        }}
+      >
+        <header style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <p style={KICKER}>
+            <span aria-hidden="true" style={{ marginRight: '0.5em' }}>·</span>
+            {t('landing.eyebrow', 'Verified Ukrainian certificate')}
+          </p>
           <h1
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-none mb-8"
-            style={{ color: 'var(--ink)' }}
+            style={{
+              fontFamily: 'var(--display)',
+              fontSize: '64px',
+              lineHeight: 1,
+              letterSpacing: '0.02em',
+              margin: 0,
+            }}
           >
             {t('landing.title', 'Verified Identity. On-chain.')}
           </h1>
-          <p className="text-xl mb-12 max-w-2xl" style={{ color: 'var(--ink)' }}>
+          <p style={BODY}>
             {t(
               'landing.lede',
               'Mint your Verified Ukrainian certificate. Your identity stays on your machine — only the proof reaches the chain.',
             )}
           </p>
-          <hr className="rule" />
+        </header>
+
+        <hr className="ct-divider" />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <MintButton />
-          <p className="mt-6 text-sm" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+          <p
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '13px',
+              lineHeight: 1.5,
+              maxWidth: '52ch',
+              color: 'var(--ct-mute)',
+            }}
+          >
             {t(
               'landing.subline',
               'Powered by Diia QES + Groth16. Your identity bytes never enter this browser.',
             )}
           </p>
+        </div>
 
-          <hr
-            className="rule"
+        <hr className="ct-divider" />
+
+        <section
+          aria-labelledby="privacy-heading"
+          style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}
+        >
+          <h2
+            id="privacy-heading"
             style={{
-              marginTop: '6rem',
-              marginBottom: '4rem',
-              borderTopColor: 'var(--seal)',
+              fontFamily: 'var(--display)',
+              fontSize: '44px',
+              lineHeight: 1,
+              margin: 0,
             }}
-          />
+          >
+            {t('landing.privacy.heading', 'Identity, escrowed.')}
+          </h2>
 
-          <section aria-labelledby="privacy-heading">
-            <h2
-              id="privacy-heading"
-              className="text-4xl sm:text-5xl md:text-6xl leading-none mb-12"
-              style={{ color: 'var(--ink)' }}
-            >
-              {t('landing.privacy.heading', 'Identity, escrowed.')}
-            </h2>
+          <dl style={{ display: 'flex', flexDirection: 'column', gap: '24px', margin: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <dt style={KICKER}>
+                <span aria-hidden="true" style={{ marginRight: '0.5em' }}>·</span>
+                {t('landing.privacy.onLedgerLabel', 'What is on the ledger')}
+              </dt>
+              <dd style={{ ...BODY, margin: 0 }}>
+                {t(
+                  'landing.privacy.onLedgerBody',
+                  'a nullifier — context-bound, one-way, unlinkable across applications.',
+                )}
+              </dd>
+            </div>
 
-            <dl className="space-y-10">
-              <div>
-                <dt
-                  className="text-fine text-sm mb-2"
-                  style={{
-                    color: 'var(--sovereign)',
-                    fontVariant: 'small-caps',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{ color: 'var(--seal)', marginRight: '0.5em' }}
-                  >
-                    ·
-                  </span>
-                  {t('landing.privacy.onLedgerLabel', 'What is on the ledger')}
-                </dt>
-                <dd className="text-xl" style={{ color: 'var(--ink)' }}>
-                  {t(
-                    'landing.privacy.onLedgerBody',
-                    'a nullifier — context-bound, one-way, unlinkable across applications.',
-                  )}
-                </dd>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <dt style={KICKER}>
+                <span aria-hidden="true" style={{ marginRight: '0.5em' }}>·</span>
+                {t('landing.privacy.notOnLedgerLabel', 'What is not on the ledger')}
+              </dt>
+              <dd style={{ ...BODY, margin: 0 }}>
+                {t(
+                  'landing.privacy.notOnLedgerBody',
+                  'name, address, document numbers, signature, certificate contents.',
+                )}
+              </dd>
+            </div>
 
-              <div>
-                <dt
-                  className="text-fine text-sm mb-2"
-                  style={{
-                    color: 'var(--sovereign)',
-                    fontVariant: 'small-caps',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{ color: 'var(--seal)', marginRight: '0.5em' }}
-                  >
-                    ·
-                  </span>
-                  {t('landing.privacy.notOnLedgerLabel', 'What is not on the ledger')}
-                </dt>
-                <dd className="text-xl" style={{ color: 'var(--ink)' }}>
-                  {t(
-                    'landing.privacy.notOnLedgerBody',
-                    'name, address, document numbers, signature, certificate contents.',
-                  )}
-                </dd>
-              </div>
-
-              <div>
-                <dt
-                  className="text-fine text-sm mb-2"
-                  style={{
-                    color: 'var(--sovereign)',
-                    fontVariant: 'small-caps',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{ color: 'var(--seal)', marginRight: '0.5em' }}
-                  >
-                    ·
-                  </span>
-                  {t(
-                    'landing.privacy.recoveryLabel',
-                    'What can be recovered, by whom, under what process',
-                  )}
-                </dt>
-                <dd className="text-xl" style={{ color: 'var(--ink)' }}>
-                  {t(
-                    'landing.privacy.recoveryBody',
-                    'by the issuing authority, under lawful order, at meaningful compute cost. Not by third parties.',
-                  )}
-                </dd>
-              </div>
-            </dl>
-
-            <p
-              className="text-fine text-2xl mt-12 italic max-w-2xl"
-              style={{ color: 'var(--ink)', lineHeight: 1.45 }}
-            >
-              {t(
-                'landing.privacy.closing',
-                'zkqes. Every-day pseudonymity for the holder; recoverable accountability for the state. The same trust structure as the qualified electronic signature itself — preserved on-chain.',
-              )}
-            </p>
-          </section>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <dt style={KICKER}>
+                <span aria-hidden="true" style={{ marginRight: '0.5em' }}>·</span>
+                {t(
+                  'landing.privacy.recoveryLabel',
+                  'What can be recovered, by whom, under what process',
+                )}
+              </dt>
+              <dd style={{ ...BODY, margin: 0 }}>
+                {t(
+                  'landing.privacy.recoveryBody',
+                  'by the issuing authority, under lawful order, at meaningful compute cost. Not by third parties.',
+                )}
+              </dd>
+            </div>
+          </dl>
 
           <p
-            className="text-fine italic text-base mt-16"
-            style={{ color: 'var(--ink)' }}
-            data-testid="landing-ceremony-link"
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '14px',
+              fontStyle: 'italic',
+              lineHeight: 1.5,
+              maxWidth: '60ch',
+              color: 'var(--ct-ink-2)',
+            }}
           >
-            <span aria-hidden="true" style={{ color: 'var(--seal)', marginRight: '0.5em' }}>
-              ·
-            </span>
-            <Link to="/ceremony" style={{ color: 'var(--sovereign)' }}>
-              {t(
-                'landing.ceremonyLink',
-                'Help with the trusted setup ceremony →',
-              )}
-            </Link>
+            {t(
+              'landing.privacy.closing',
+              'zkqes. Every-day pseudonymity for the holder; recoverable accountability for the state. The same trust structure as the qualified electronic signature itself — preserved on-chain.',
+            )}
           </p>
-        </div>
+        </section>
+
+        <hr className="ct-divider" />
+
+        <p
+          data-testid="landing-ceremony-link"
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: '14px',
+            fontStyle: 'italic',
+          }}
+        >
+          <span aria-hidden="true" style={{ marginRight: '0.5em' }}>·</span>
+          <Link to="/ceremony" className="ct-link">
+            {t(
+              'landing.ceremonyLink',
+              'Help with the trusted setup ceremony →',
+            )}
+          </Link>
+        </p>
       </div>
       <DocumentFooter />
     </main>

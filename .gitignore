@@ -2,6 +2,11 @@ node_modules/
 dist/
 dist-binaries/
 build/
+# T15 multi-QTSP facade: bundle-size test lives at
+# `packages/web/tests/build/`. The generic `build/` pattern above
+# matches it; opt the directory back in so the test ships.
+!packages/web/tests/build/
+!packages/web/tests/build/**
 out/
 .turbo/
 .cache/
@@ -26,6 +31,13 @@ broadcast/
 packages/web/dist/
 packages/web/playwright-report/
 packages/web/test-results/
+# T5 multi-QTSP facade — `qtspIndexPlugin` re-emits this from
+# `fixtures/trust/<cc>/<slug>/meta.json` at every Vite build/dev start.
+packages/web/src/generated/qtsp-index.ts
+# T10 multi-QTSP facade — same plugin mirrors per-QTSP runtime data
+# (`samples.json`, `intermediates/*.pem`) into here so Vite serves
+# them at `/qtsp-data/<cc>/<slug>/...`.
+packages/web/public/qtsp-data/
 # Playwright MCP visual-verification PNGs — regeneratable, not source of truth.
 packages/web/screenshots/
 # Claude/Playwright MCP scratch dirs

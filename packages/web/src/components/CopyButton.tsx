@@ -1,7 +1,8 @@
-// Copy-to-clipboard button. Civic-monumental treatment: text-only, no
-// icons, no shadows. Copy state surfaces as a brief label swap; falls
-// back to a stable "Copy" if the Clipboard API is unavailable (older
-// Safari, sandboxed iframes).
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). Pre-v2
+// sovereign tokens retired in favor of --ct-* + .ct-link grammar
+// (task #84). The copy button visually behaves as an underlined
+// link rather than a Curve-style .ct-btn — it's an inline action
+// embedded in code blocks, not a primary surface CTA.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -41,11 +42,15 @@ export function CopyButton({ text, ariaLabel, testId }: CopyButtonProps) {
       onClick={() => void onClick()}
       aria-label={ariaLabel ?? t('ceremony.copy.aria', 'Copy command')}
       {...(testId ? { 'data-testid': testId } : {})}
-      className="text-mono text-xs px-3 py-1"
       style={{
-        color: 'var(--sovereign)',
-        borderBottom: '1px solid var(--sovereign)',
+        fontFamily: 'var(--mono)',
+        fontSize: '12px',
+        padding: '4px 12px',
+        color: 'var(--ua-blue)',
+        textDecoration: 'underline',
         background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
       }}
     >
       {label}

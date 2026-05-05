@@ -86,83 +86,125 @@ export function SubmitScreen() {
     setTimeout(() => navigate({ to: '/ua/mint' }), 1500);
   }
 
+  // Civic-terminal v2 (task #84) — .doc-grid + sovereign-on-bone
+  // CTA retired. Drop zone uses dashed --ct-rule border (civic-
+  // terminal field-outline grammar); submit CTA collapses to .ct-btn.
   return (
-    <main className="relative min-h-screen">
-      <div className="doc-grid pt-12">
-        <div className="hidden md:block text-mono text-xs pt-2 sticky top-12 self-start">
-          <Link to="/ua/cli" className="block mb-3">← back</Link>
-          <StepIndicator current={2} />
-        </div>
-        <div className="min-w-0 max-w-2xl">
-          <Link to="/ua/cli" className="md:hidden text-mono text-xs block mb-4">← back</Link>
-          <h1 className="text-4xl md:text-5xl mb-6" style={{ color: 'var(--ink)' }}>
-            {t('submit.title', 'Submit your proof')}
-          </h1>
-          <p className="mb-8 text-lg">
-            {t(
-              'submit.lede',
-              'Drop the proof.json the CLI generated. We submit it to the registry on-chain.',
-            )}
-          </p>
-          <hr className="rule" />
-          <label
-            className="block border-2 border-dashed p-12 text-center cursor-pointer mb-6"
-            style={{ borderColor: 'var(--rule)' }}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={async (e) => {
-              e.preventDefault();
-              const f = e.dataTransfer.files?.[0];
+    <main
+      className="ct"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '48px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+        }}
+      >
+        <Link to="/ua/cli" className="ct-link" style={{ fontFamily: 'var(--mono)', fontSize: '12px' }}>
+          ← back
+        </Link>
+        <StepIndicator current={2} />
+        <h1
+          style={{
+            fontFamily: 'var(--display)',
+            fontSize: '48px',
+            lineHeight: 1,
+            margin: 0,
+            color: 'var(--ct-ink)',
+          }}
+        >
+          {t('submit.title', 'Submit your proof')}
+        </h1>
+        <p
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: '15px',
+            lineHeight: 1.5,
+            maxWidth: '60ch',
+            color: 'var(--ct-ink)',
+          }}
+        >
+          {t(
+            'submit.lede',
+            'Drop the proof.json the CLI generated. We submit it to the registry on-chain.',
+          )}
+        </p>
+        <hr className="ct-divider" />
+        <label
+          style={{
+            display: 'block',
+            padding: '48px',
+            textAlign: 'center',
+            cursor: 'pointer',
+            border: '1.5px dashed var(--ct-rule)',
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={async (e) => {
+            e.preventDefault();
+            const f = e.dataTransfer.files?.[0];
+            if (f) await onFile(f);
+          }}
+        >
+          <input
+            type="file"
+            accept=".json,application/json"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
               if (f) await onFile(f);
             }}
-          >
-            <input
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (f) await onFile(f);
-              }}
-            />
-            <span className="text-mono">
-              {payload
-                ? t('submit.ready', 'proof.json loaded — ready to submit')
-                : t('submit.drop', 'Drag proof.json here, or click to browse')}
-            </span>
-          </label>
-          {error && (
-            <p style={{ color: 'var(--brick)' }} className="mb-4 text-mono text-sm">
-              {error}
-            </p>
-          )}
-          <button
-            onClick={onSubmit}
-            disabled={!payload || !isConnected || isPending}
-            className="px-8 py-4 text-lg disabled:opacity-50"
-            style={{ background: 'var(--sovereign)', color: 'var(--bone)', borderRadius: 2 }}
-          >
-            {isPending
-              ? t('submit.pending', 'Submitting…')
-              : t('submit.cta', 'Submit registration')}
-          </button>
-          {txHash && (
-            <p className="mt-4 text-mono text-xs">
-              tx:{' '}
-              <a
-                href={`https://${chainId === 8453 ? 'basescan.org' : 'sepolia.etherscan.io'}/tx/${txHash}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {txHash.slice(0, 12)}…
-              </a>
-            </p>
-          )}
-          {txFailed && (
-            <p style={{ color: 'var(--brick)' }} className="mt-4 text-mono text-sm">
-              {txError?.message ?? 'tx failed'}
-            </p>
-          )}
-        </div>
+          />
+          <span style={{ fontFamily: 'var(--mono)', fontSize: '14px', color: 'var(--ct-ink)' }}>
+            {payload
+              ? t('submit.ready', 'proof.json loaded — ready to submit')
+              : t('submit.drop', 'Drag proof.json here, or click to browse')}
+          </span>
+        </label>
+        {error && (
+          <p style={{ color: 'var(--err)', fontFamily: 'var(--mono)', fontSize: '13px' }}>
+            {error}
+          </p>
+        )}
+        <button
+          onClick={onSubmit}
+          disabled={!payload || !isConnected || isPending}
+          className="ct-btn ct-btn--lg"
+          style={{
+            opacity: !payload || !isConnected || isPending ? 0.5 : 1,
+            cursor: !payload || !isConnected || isPending ? 'not-allowed' : 'pointer',
+            alignSelf: 'flex-start',
+          }}
+        >
+          {isPending
+            ? t('submit.pending', 'Submitting…')
+            : t('submit.cta', 'Submit registration')}
+        </button>
+        {txHash && (
+          <p style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--ct-mute)' }}>
+            tx:{' '}
+            <a
+              href={`https://${chainId === 8453 ? 'basescan.org' : 'sepolia.etherscan.io'}/tx/${txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="ct-link"
+            >
+              {txHash.slice(0, 12)}…
+            </a>
+          </p>
+        )}
+        {txFailed && (
+          <p style={{ color: 'var(--err)', fontFamily: 'var(--mono)', fontSize: '13px' }}>
+            {txError?.message ?? 'tx failed'}
+          </p>
+        )}
       </div>
       <DocumentFooter />
     </main>

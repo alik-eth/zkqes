@@ -6,7 +6,7 @@ import { buildPolicyTreeFromLeaves } from '../../src/lib/policyTree';
 
 const REPO_ROOT = resolve(__dirname, '../../../..');
 const SEED_PATH = resolve(REPO_ROOT, 'fixtures/declarations/ua/policy-v1.json');
-const OUT_PATH = resolve(REPO_ROOT, 'fixtures/trust/ua/policy-root.json');
+const OUT_PATH = resolve(REPO_ROOT, 'fixtures/trust/ua/diia/policy-root.json');
 
 const EXPECTED_LEAF_HASH =
   '0x2d00e73da8dd4dc99f04371d3ce01ecbcf4ad8e476c9017a304c57873494f812';

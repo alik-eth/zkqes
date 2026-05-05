@@ -1,3 +1,7 @@
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). V4 register
+// flow's 3-stage indicator (Install / Submit / Mint) sibling to
+// StepIndicatorV5. Pre-v2 sovereign-indigo dot retired in favor of
+// --ct-ink + civic-terminal kicker rhythm (task #84).
 export interface StepIndicatorProps {
   current: 1 | 2 | 3;
 }
@@ -6,18 +10,35 @@ const STEPS = ['Install', 'Submit', 'Mint'];
 
 export function StepIndicator({ current }: StepIndicatorProps) {
   return (
-    <ol className="flex gap-6 text-mono text-sm" aria-label="Progress">
+    <ol
+      style={{
+        display: 'flex',
+        gap: '24px',
+        fontFamily: 'var(--mono)',
+        fontSize: '13px',
+        color: 'var(--ct-ink)',
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
+      }}
+      aria-label="Progress"
+    >
       {STEPS.map((label, i) => {
         const idx = i + 1;
         const active = idx === current;
-        const done   = idx < current;
+        const done = idx < current;
         return (
-          <li key={label} className="flex items-center gap-2">
+          <li
+            key={label}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
             <span
-              className="inline-block w-2 h-2 rounded-none"
               style={{
-                background: done || active ? 'var(--sovereign)' : 'transparent',
-                border: '1px solid var(--sovereign)',
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                background: done || active ? 'var(--ct-ink)' : 'transparent',
+                border: '1px solid var(--ct-ink)',
               }}
               aria-current={active ? 'step' : undefined}
             />

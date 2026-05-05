@@ -53,106 +53,134 @@ export function MintScreen() {
   const chainLabel = chainId === 8453 ? 'Base' : 'Sepolia';
   const explorerBase = chainId === 8453 ? 'basescan.org' : 'sepolia.etherscan.io';
 
+  // Civic-terminal v2 (task #84) — .doc-grid + sovereign-on-bone
+  // CTA retired in favor of .ct page chrome + .ct-btn--ua.
   return (
-    <main className="relative min-h-screen">
-      <div className="doc-grid pt-12">
-        <div className="hidden md:block text-mono text-xs pt-2 sticky top-12 self-start">
-          <Link to="/" className="block mb-3">← back</Link>
-          <StepIndicator current={3} />
+    <main
+      className="ct"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '48px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+        }}
+      >
+        <Link to="/" className="ct-link" style={{ fontFamily: 'var(--mono)', fontSize: '12px' }}>
+          ← back
+        </Link>
+        <StepIndicator current={3} />
+        <h1
+          style={{
+            fontFamily: 'var(--display)',
+            fontSize: '48px',
+            lineHeight: 1,
+            margin: 0,
+            color: 'var(--ct-ink)',
+          }}
+        >
+          {minted
+            ? t('mint.titleHolder', 'Your certificate')
+            : t('mint.title', 'Mint your certificate')}
+        </h1>
+        <hr className="ct-divider" />
+        {dep && (
+          <p
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '11px',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--ct-mute)',
+              margin: 0,
+            }}
+          >
+            Issued by authority · {dep.registry.slice(0, 6)}…
+            {dep.registry.slice(-4)} · {chainLabel}
+          </p>
+        )}
+        <div className={txMined ? 'cert-stamp-in' : ''}>
+          <CertificatePreview
+            tokenId={previewTokenId}
+            nullifier={
+              (nullifier as `0x${string}`) ?? (`0x${'0'.repeat(64)}` as `0x${string}`)
+            }
+            chainLabel={chainLabel}
+            mintTimestamp={Math.floor(Date.now() / 1000)}
+          />
         </div>
-        <div className="min-w-0 max-w-3xl">
-          <Link to="/" className="md:hidden text-mono text-xs block mb-4">← back</Link>
-          <h1 className="text-4xl md:text-5xl mb-6">
-            {minted
-              ? t('mint.titleHolder', 'Your certificate')
-              : t('mint.title', 'Mint your certificate')}
-          </h1>
-          <hr className="rule" />
-          {dep && (
-            <p
-              className="text-mono text-xs mb-4"
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {!minted && !txMined && !isConnected && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px' }}>
+              <p style={{ fontFamily: 'var(--mono)', fontSize: '13px', color: 'var(--ct-mute)' }}>
+                {t('mint.connectPrompt', 'Connect a wallet to mint your certificate.')}
+              </p>
+              <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
+            </div>
+          )}
+          {!minted && !txMined && isConnected && (
+            <button
+              onClick={onMint}
+              disabled={isPending || !nullifier}
+              className="ct-btn ct-btn--lg ct-btn--ua"
               style={{
-                color: 'var(--seal)',
-                fontVariant: 'small-caps',
-                letterSpacing: '0.12em',
+                opacity: isPending || !nullifier ? 0.5 : 1,
+                cursor: isPending || !nullifier ? 'not-allowed' : 'pointer',
+                alignSelf: 'flex-start',
               }}
             >
-              Issued by authority · {dep.registry.slice(0, 6)}…
-              {dep.registry.slice(-4)} · {chainLabel}
+              {isPending
+                ? t('mint.pending', 'Minting…')
+                : t('mint.cta', `Mint Certificate №${previewTokenId}`)}
+            </button>
+          )}
+          {(minted || txMined) && (
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <a
+                href={`https://${
+                  chainId === 8453
+                    ? 'opensea.io/assets/base/'
+                    : 'testnets.opensea.io/assets/sepolia/'
+                }${dep?.zkqesCertificate}/${previewTokenId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="ct-link"
+                style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
+              >
+                {t('mint.opensea', 'View on OpenSea')}
+              </a>
+              <a
+                href={`https://twitter.com/intent/tweet?text=I'm a verified Ukrainian. Certificate %E2%84%96${previewTokenId} on zkqes.org`}
+                target="_blank"
+                rel="noreferrer"
+                className="ct-link"
+                style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
+              >
+                {t('mint.share', 'Share')}
+              </a>
+            </div>
+          )}
+          {txHash && (
+            <p style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--ct-mute)' }}>
+              tx:{' '}
+              <a
+                href={`https://${explorerBase}/tx/${txHash}`}
+                target="_blank"
+                rel="noreferrer"
+                className="ct-link"
+              >
+                {txHash.slice(0, 12)}…
+              </a>
             </p>
           )}
-          <div className={txMined ? 'cert-stamp-in' : ''}>
-            <CertificatePreview
-              tokenId={previewTokenId}
-              nullifier={
-                (nullifier as `0x${string}`) ?? (`0x${'0'.repeat(64)}` as `0x${string}`)
-              }
-              chainLabel={chainLabel}
-              mintTimestamp={Math.floor(Date.now() / 1000)}
-            />
-          </div>
-          <div className="mt-8">
-            {!minted && !txMined && !isConnected && (
-              <div className="flex flex-col items-start gap-3">
-                <p className="text-sm" style={{ color: 'var(--ink)', opacity: 0.7 }}>
-                  {t('mint.connectPrompt', 'Connect a wallet to mint your certificate.')}
-                </p>
-                <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
-              </div>
-            )}
-            {!minted && !txMined && isConnected && (
-              <button
-                onClick={onMint}
-                disabled={isPending || !nullifier}
-                className="px-8 py-4 text-lg disabled:opacity-50"
-                style={{
-                  background: 'var(--sovereign)',
-                  color: 'var(--bone)',
-                  borderRadius: 2,
-                }}
-              >
-                {isPending
-                  ? t('mint.pending', 'Minting…')
-                  : t('mint.cta', `Mint Certificate №${previewTokenId}`)}
-              </button>
-            )}
-            {(minted || txMined) && (
-              <div className="flex gap-4">
-                <a
-                  href={`https://${
-                    chainId === 8453
-                      ? 'opensea.io/assets/base/'
-                      : 'testnets.opensea.io/assets/sepolia/'
-                  }${dep?.zkqesCertificate}/${previewTokenId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-6 py-3 underline"
-                >
-                  {t('mint.opensea', 'View on OpenSea')}
-                </a>
-                <a
-                  href={`https://twitter.com/intent/tweet?text=I'm a verified Ukrainian. Certificate %E2%84%96${previewTokenId} on zkqes.org`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-6 py-3 underline"
-                >
-                  {t('mint.share', 'Share')}
-                </a>
-              </div>
-            )}
-            {txHash && (
-              <p className="mt-4 text-mono text-xs">
-                tx:{' '}
-                <a
-                  href={`https://${explorerBase}/tx/${txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {txHash.slice(0, 12)}…
-                </a>
-              </p>
-            )}
-          </div>
         </div>
       </div>
       <style>{`

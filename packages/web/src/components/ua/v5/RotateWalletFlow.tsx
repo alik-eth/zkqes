@@ -83,8 +83,8 @@ import {
 import { runCliFirstProver } from '../../../lib/cliFallbackProver';
 import { useCliPresence } from '../../../hooks/useCliPresence';
 import { CliBanner } from './CliBanner';
-import { PaperGrain } from '../../PaperGrain';
 import { DocumentFooter } from '../../DocumentFooter';
+import '../../../styles/civic-terminal.css';
 
 type FlowStep =
   | 'connect'
@@ -553,45 +553,65 @@ export function RotateWalletFlow() {
   // ---- Render ----
 
   return (
-    <main className="relative min-h-screen">
-      <PaperGrain />
-      <div className="doc-grid pt-24 relative z-10">
-        <div />
+    <main
+      className="ct"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '96px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '48px',
+        }}
+      >
         <div className="max-w-3xl space-y-12">
           <header className="space-y-4">
             <h1
-              className="text-5xl leading-none"
-              style={{ color: 'var(--ink)' }}
+              style={{
+                fontFamily: 'var(--display)',
+                fontSize: '52px',
+                lineHeight: 1,
+                letterSpacing: '0.02em',
+                margin: 0,
+                color: 'var(--ct-ink)',
+              }}
             >
               {t('accountRotate.title')}
             </h1>
             <p
               className="text-base max-w-prose"
-              style={{ color: 'var(--ink)', opacity: 0.85 }}
+              style={{ color: 'var(--ct-ink)', opacity: 0.85 }}
             >
               {t('accountRotate.lede')}
             </p>
             <p
               className="text-xs text-mono"
-              style={{ color: 'var(--ink)', opacity: 0.6 }}
+              style={{ color: 'var(--ct-ink)', opacity: 0.6 }}
               data-testid="rotate-step-indicator"
             >
               {t(`accountRotate.steps.${step}`)}
             </p>
           </header>
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           {step === 'connect' && (
             <section aria-labelledby="rotate-connect-heading" className="space-y-6">
-              <h2 id="rotate-connect-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+              <h2 id="rotate-connect-heading" className="ct-display" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.connect.title')}
               </h2>
-              <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+              <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.connect.body')}
               </p>
               <aside
                 className="p-4 space-y-2 border"
-                style={{ borderColor: 'var(--seal)', color: 'var(--seal)' }}
+                style={{ borderColor: 'var(--err)', color: 'var(--err)' }}
                 data-testid="rotate-warning-irreversible"
               >
                 <p className="text-sm font-semibold">{t('accountRotate.connect.warningTitle')}</p>
@@ -599,24 +619,23 @@ export function RotateWalletFlow() {
               </aside>
               {connectedAddress ? (
                 <div className="space-y-2">
-                  <p className="text-sm" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                  <p className="text-sm" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                     {t('accountRotate.connect.newWallet')} {connectedAddress.slice(0, 6)}…{connectedAddress.slice(-4)}
                   </p>
                   {errorMsg && (
-                    <p className="text-sm" role="alert" style={{ color: 'var(--seal)' }}>{errorMsg}</p>
+                    <p className="text-sm" role="alert" style={{ color: 'var(--err)' }}>{errorMsg}</p>
                   )}
                   <button
                     type="button"
                     onClick={onAdvanceFromConnect}
                     data-testid="rotate-advance-to-diia"
-                    className="px-6 py-3 text-mono text-sm"
-                    style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}
+                    className="ct-btn"
                   >
                     {t('accountRotate.connect.advance')}
                   </button>
                 </div>
               ) : (
-                <p className="text-sm" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                <p className="text-sm" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                   {t('accountRotate.connect.noWallet')}
                 </p>
               )}
@@ -625,73 +644,71 @@ export function RotateWalletFlow() {
 
           {step === 'diia' && newWalletAddress && (
             <section aria-labelledby="rotate-diia-heading" className="space-y-6">
-              <h2 id="rotate-diia-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+              <h2 id="rotate-diia-heading" className="ct-display" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.diia.title')}
               </h2>
-              <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+              <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.diia.body')}
               </p>
-              <p className="text-sm text-mono" style={{ color: 'var(--ink)', opacity: 0.6 }}>
+              <p className="text-sm text-mono" style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
                 {t('accountRotate.diia.lockedNew')} {newWalletAddress.slice(0, 6)}…{newWalletAddress.slice(-4)}
               </p>
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label htmlFor="rotate-binding-upload" className="text-sm text-mono"
-                    style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                    style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                     {t('accountRotate.diia.bindingLabel')}
                   </label>
                   <input
                     id="rotate-binding-upload" type="file" accept=".json"
                     data-testid="rotate-binding-input"
                     onChange={handleBindingUpload}
-                    style={{ color: 'var(--ink)' }}
+                    style={{ color: 'var(--ct-ink)' }}
                   />
                 </div>
                 <div className="space-y-1">
                   <label htmlFor="rotate-p7s-upload" className="text-sm text-mono"
-                    style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                    style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                     {t('accountRotate.diia.p7sLabel')}
                   </label>
                   <input
                     id="rotate-p7s-upload" type="file" accept=".p7s"
                     data-testid="rotate-p7s-input"
                     onChange={handleP7sUpload}
-                    style={{ color: 'var(--ink)' }}
+                    style={{ color: 'var(--ct-ink)' }}
                   />
                 </div>
               </div>
               {fingerprint !== null && (
                 <p className="text-xs font-mono break-all" data-testid="rotate-fingerprint"
-                  style={{ color: 'var(--ink)', opacity: 0.6 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
                   fingerprint: {bigIntToBytes32Hex(fingerprint)}
                 </p>
               )}
               {fingerprint !== null && rotationOldCommitment !== null && (
                 <p className="text-xs font-mono break-all" data-testid="rotate-old-commitment"
-                  style={{ color: 'var(--ink)', opacity: 0.6 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
                   rotationOldCommitment (on-chain read): {bigIntToBytes32Hex(rotationOldCommitment)}
                 </p>
               )}
               {fingerprint !== null && rotationOldCommitment === null && (
                 <p className="text-sm" role="status" data-testid="rotate-no-prior-identity"
-                  style={{ color: 'var(--seal)' }}>
+                  style={{ color: 'var(--err)' }}>
                   {t('accountRotate.diia.noPriorIdentity')}
                 </p>
               )}
               {errorMsg && (
-                <p className="text-sm" role="alert" style={{ color: 'var(--seal)' }}>{errorMsg}</p>
+                <p className="text-sm" role="alert" style={{ color: 'var(--err)' }}>{errorMsg}</p>
               )}
               <div className="flex gap-4">
                 <button type="button" onClick={() => setStep('connect')}
-                  className="px-6 py-3 text-mono text-sm"
-                  style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}>
+                  className="ct-btn">
                   {t('accountRotate.back')}
                 </button>
                 <button type="button" onClick={onAdvanceFromDiia}
                   disabled={!p7s || !bindingBytes || fingerprint === null || rotationOldCommitment === null}
                   data-testid="rotate-advance-to-derive-new"
-                  className="px-6 py-3 text-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}>
+                  className="ct-btn">
                   {t('accountRotate.diia.advance')}
                 </button>
               </div>
@@ -700,33 +717,32 @@ export function RotateWalletFlow() {
 
           {step === 'derive-new' && newWalletAddress && (
             <section aria-labelledby="rotate-derive-new-heading" className="space-y-6">
-              <h2 id="rotate-derive-new-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+              <h2 id="rotate-derive-new-heading" className="ct-display" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.deriveNew.title')}
               </h2>
-              <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+              <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.deriveNew.body')}
               </p>
-              <p className="text-sm text-mono" style={{ color: 'var(--ink)', opacity: 0.6 }}>
+              <p className="text-sm text-mono" style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
                 {t('accountRotate.deriveNew.expected')} {newWalletAddress.slice(0, 6)}…{newWalletAddress.slice(-4)}
               </p>
               {connectedAddress && connectedAddress.toLowerCase() !== newWalletAddress.toLowerCase() && (
                 <p className="text-sm" role="status"
-                  style={{ color: 'var(--seal)' }} data-testid="rotate-wrong-wallet-derive-new">
+                  style={{ color: 'var(--err)' }} data-testid="rotate-wrong-wallet-derive-new">
                   {t('accountRotate.deriveNew.wrongWallet')}
                 </p>
               )}
               {statusMsg && (
-                <p className="text-sm" role="status" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                <p className="text-sm" role="status" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                   {statusMsg}
                 </p>
               )}
               {errorMsg && (
-                <p className="text-sm" role="alert" style={{ color: 'var(--seal)' }}>{errorMsg}</p>
+                <p className="text-sm" role="alert" style={{ color: 'var(--err)' }}>{errorMsg}</p>
               )}
               <div className="flex gap-4">
                 <button type="button" onClick={() => setStep('diia')} disabled={isWorking}
-                  className="px-6 py-3 text-mono text-sm disabled:opacity-50"
-                  style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}>
+                  className="ct-btn">
                   {t('accountRotate.back')}
                 </button>
                 <button type="button" onClick={onDeriveNew}
@@ -734,8 +750,7 @@ export function RotateWalletFlow() {
                     || !connectedAddress
                     || connectedAddress.toLowerCase() !== newWalletAddress.toLowerCase()}
                   data-testid="rotate-derive-new-cta"
-                  className="px-6 py-3 text-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}>
+                  className="ct-btn">
                   {isWorking ? t('accountRotate.running') : t('accountRotate.deriveNew.cta')}
                 </button>
               </div>
@@ -744,17 +759,17 @@ export function RotateWalletFlow() {
 
           {step === 'derive-old' && newWalletAddress && fingerprint !== null && dep && (
             <section aria-labelledby="rotate-derive-old-heading" className="space-y-6">
-              <h2 id="rotate-derive-old-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+              <h2 id="rotate-derive-old-heading" className="ct-display" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.deriveOld.title')}
               </h2>
-              <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+              <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.deriveOld.body')}
               </p>
-              <p className="text-sm" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+              <p className="text-sm" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                 {t('accountRotate.deriveOld.switchHint')}
               </p>
               <div className="p-4 space-y-2 font-mono text-xs break-all"
-                style={{ background: 'var(--rule)', color: 'var(--ink)' }}
+                style={{ background: 'var(--ct-paper-2)', color: 'var(--ct-ink)' }}
                 data-testid="rotate-auth-hash">
                 <p className="text-xs uppercase tracking-wide" style={{ opacity: 0.6 }}>
                   {t('accountRotate.deriveOld.authHashLabel')}
@@ -763,22 +778,21 @@ export function RotateWalletFlow() {
               </div>
               {connectedAddress && connectedAddress.toLowerCase() === newWalletAddress.toLowerCase() && (
                 <p className="text-sm" role="status"
-                  style={{ color: 'var(--seal)' }} data-testid="rotate-still-new-wallet">
+                  style={{ color: 'var(--err)' }} data-testid="rotate-still-new-wallet">
                   {t('accountRotate.deriveOld.stillNewWallet')}
                 </p>
               )}
               {statusMsg && (
-                <p className="text-sm" role="status" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                <p className="text-sm" role="status" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                   {statusMsg}
                 </p>
               )}
               {errorMsg && (
-                <p className="text-sm" role="alert" style={{ color: 'var(--seal)' }}>{errorMsg}</p>
+                <p className="text-sm" role="alert" style={{ color: 'var(--err)' }}>{errorMsg}</p>
               )}
               <div className="flex gap-4">
                 <button type="button" onClick={() => setStep('derive-new')} disabled={isWorking}
-                  className="px-6 py-3 text-mono text-sm disabled:opacity-50"
-                  style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}>
+                  className="ct-btn">
                   {t('accountRotate.back')}
                 </button>
                 <button type="button" onClick={onDeriveOldAndSign}
@@ -786,8 +800,7 @@ export function RotateWalletFlow() {
                     || !connectedAddress
                     || connectedAddress.toLowerCase() === newWalletAddress.toLowerCase()}
                   data-testid="rotate-derive-old-cta"
-                  className="px-6 py-3 text-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}>
+                  className="ct-btn">
                   {isWorking ? t('accountRotate.running') : t('accountRotate.deriveOld.cta')}
                 </button>
               </div>
@@ -796,10 +809,10 @@ export function RotateWalletFlow() {
 
           {step === 'prove' && (
             <section aria-labelledby="rotate-prove-heading" className="space-y-6">
-              <h2 id="rotate-prove-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+              <h2 id="rotate-prove-heading" className="ct-display" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.prove.title')}
               </h2>
-              <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+              <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.prove.body')}
               </p>
               {/* CLI nudge banner. Self-suppresses when CLI is detected,
@@ -807,37 +820,36 @@ export function RotateWalletFlow() {
               <CliBanner />
               {!realProverConfigured && !useMockProver && (
                 <p className="text-sm" role="status" data-testid="rotate-ceremony-pending"
-                  style={{ color: 'var(--ink)', opacity: 0.6 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
                   {t('accountRotate.prove.ceremonyPending')}
                 </p>
               )}
               {statusMsg && (
                 <p className="text-sm" role="status" data-testid="rotate-status"
-                  style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                   {statusMsg}
                 </p>
               )}
               {cliFallbackToast && (
                 <p className="text-sm" role="status"
                   data-testid="rotate-cli-fallback-toast"
-                  style={{ color: 'var(--ink)', opacity: 0.85 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.85 }}>
                   {cliFallbackToast}
                 </p>
               )}
               {proofSource && (
                 <p className="text-mono text-xs" role="status"
                   data-testid="rotate-proof-source"
-                  style={{ color: 'var(--ink)', opacity: 0.55 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.55 }}>
                   proved via: {proofSource}
                 </p>
               )}
               {errorMsg && (
-                <p className="text-sm" role="alert" style={{ color: 'var(--seal)' }}>{errorMsg}</p>
+                <p className="text-sm" role="alert" style={{ color: 'var(--err)' }}>{errorMsg}</p>
               )}
               {/* Auto-runs via useEffect on stage entry; back button only. */}
               <button type="button" onClick={() => setStep('derive-old')} disabled={isWorking}
-                className="px-6 py-3 text-mono text-sm disabled:opacity-50"
-                style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}>
+                className="ct-btn">
                 {t('accountRotate.back')}
               </button>
             </section>
@@ -845,7 +857,7 @@ export function RotateWalletFlow() {
 
           {step === 'submit' && newWalletAddress && (
             <section aria-labelledby="rotate-submit-heading" className="space-y-6">
-              <h2 id="rotate-submit-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+              <h2 id="rotate-submit-heading" className="ct-display" style={{ color: 'var(--ct-ink)' }}>
                 {t('accountRotate.submit.title')}
               </h2>
               {/* Receipt + fallback-toast carried over from the prove
@@ -858,40 +870,40 @@ export function RotateWalletFlow() {
               {cliFallbackToast && (
                 <p className="text-sm" role="status"
                   data-testid="rotate-cli-fallback-toast"
-                  style={{ color: 'var(--ink)', opacity: 0.85 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.85 }}>
                   {cliFallbackToast}
                 </p>
               )}
               {proofSource && (
                 <p className="text-mono text-xs" role="status"
                   data-testid="rotate-proof-source"
-                  style={{ color: 'var(--ink)', opacity: 0.55 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.55 }}>
                   proved via: {proofSource}
                 </p>
               )}
               <aside
                 className="p-4 space-y-2 border"
-                style={{ borderColor: 'var(--seal)', color: 'var(--seal)' }}
+                style={{ borderColor: 'var(--err)', color: 'var(--err)' }}
                 data-testid="rotate-warning-final">
                 <p className="text-sm font-semibold">{t('accountRotate.submit.warningTitle')}</p>
                 <p className="text-sm">{t('accountRotate.submit.warningBody')}</p>
               </aside>
-              <p className="text-sm" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+              <p className="text-sm" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                 {t('accountRotate.submit.switchBackHint')} {newWalletAddress.slice(0, 6)}…{newWalletAddress.slice(-4)}
               </p>
-              <p className="text-sm text-mono" style={{ color: 'var(--ink)', opacity: 0.5 }}>
+              <p className="text-sm text-mono" style={{ color: 'var(--ct-ink)', opacity: 0.5 }}>
                 {t('accountRotate.submit.currentlyConnected')}{' '}
                 {connectedAddress ? `${connectedAddress.slice(0, 6)}…${connectedAddress.slice(-4)}` : '—'}
               </p>
               {connectedAddress && connectedAddress.toLowerCase() !== newWalletAddress.toLowerCase() && (
                 <p className="text-sm" role="status"
-                  style={{ color: 'var(--seal)' }} data-testid="rotate-switch-to-new-wallet">
+                  style={{ color: 'var(--err)' }} data-testid="rotate-switch-to-new-wallet">
                   {t('accountRotate.submit.switchToNew')}
                 </p>
               )}
               {!v5Deployed && (
                 <p className="text-sm" role="status" data-testid="rotate-awaiting-deploy"
-                  style={{ color: 'var(--ink)', opacity: 0.6 }}>
+                  style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
                   {t('accountRotate.submit.awaitingDeploy')}
                 </p>
               )}
@@ -901,23 +913,21 @@ export function RotateWalletFlow() {
                 </p>
               )}
               {writeError && (
-                <p className="text-sm" role="alert" style={{ color: 'var(--seal)' }}>{writeError.message}</p>
+                <p className="text-sm" role="alert" style={{ color: 'var(--err)' }}>{writeError.message}</p>
               )}
               {errorMsg && (
-                <p className="text-sm" role="alert" style={{ color: 'var(--seal)' }}>{errorMsg}</p>
+                <p className="text-sm" role="alert" style={{ color: 'var(--err)' }}>{errorMsg}</p>
               )}
               <div className="flex gap-4">
                 <button type="button" onClick={() => setStep('derive-old')} disabled={txPending}
-                  className="px-6 py-3 text-mono text-sm disabled:opacity-50"
-                  style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}>
+                  className="ct-btn">
                   {t('accountRotate.back')}
                 </button>
                 <button type="button" onClick={onSubmit}
                   disabled={txPending || !v5Deployed
                     || (connectedAddress?.toLowerCase() !== newWalletAddress.toLowerCase())}
                   data-testid="rotate-submit-cta"
-                  className="px-6 py-3 text-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}>
+                  className="ct-btn">
                   {t('accountRotate.submit.cta')}
                 </button>
               </div>

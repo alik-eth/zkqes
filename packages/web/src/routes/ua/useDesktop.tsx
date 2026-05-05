@@ -1,3 +1,6 @@
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). Pre-v2
+// PaperGrain + .doc-grid retired (task #84).
+//
 // Out-of-gate landing page. Reached when assessDeviceCapability() returns
 // `denied` at the start of the V5 register flow (see Step1ConnectWallet).
 //
@@ -8,7 +11,7 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { DocumentFooter } from '../../components/DocumentFooter';
-import { PaperGrain } from '../../components/PaperGrain';
+import '../../styles/civic-terminal.css';
 
 const DESKTOP_URL = 'https://app.zkqes.org/ua/registerV5';
 
@@ -22,59 +25,91 @@ export function UseDesktopScreen() {
   )}`;
 
   return (
-    <main className="relative min-h-screen" data-testid="use-desktop-page">
-      <PaperGrain />
-      <div className="doc-grid pt-24 relative z-10">
-        <div />
-        <div className="max-w-2xl space-y-10">
-          <Link to="/" className="text-mono text-xs block">
-            ← back
-          </Link>
-          <header className="space-y-6">
-            <h1
-              className="text-4xl md:text-5xl leading-none"
-              style={{ color: 'var(--ink)' }}
-            >
-              {t(
-                'deviceGate.useDesktop.heading',
-                "This device can't host the zero-knowledge prover.",
-              )}
-            </h1>
-            <p
-              className="text-base md:text-lg max-w-prose"
-              style={{ color: 'var(--ink)' }}
-            >
-              {t(
-                'deviceGate.useDesktop.body',
-                'The prover needs about 2.5 GB of cached storage on your device — most phone browsers cap web pages well below that, so the proof would fail mid-flight. Open this page on a desktop or laptop browser instead and pick up where you left off.',
-              )}
-            </p>
-          </header>
-          <hr className="rule" />
-          <section className="space-y-4">
-            <p
-              className="text-mono text-sm break-all"
-              style={{ color: 'var(--ink)' }}
-            >
-              {DESKTOP_URL}
-            </p>
-            <img
-              src={qrSrc}
-              alt={t('deviceGate.useDesktop.qrCaption', 'QR code to app.zkqes.org on desktop')}
-              width={200}
-              height={200}
-              className="border"
-              style={{ borderColor: 'var(--rule)' }}
-              data-testid="use-desktop-qr"
-            />
-            <p className="text-mono text-xs opacity-70">
-              {t(
-                'deviceGate.useDesktop.qrCaption',
-                'Scan with another phone, or type the URL into a desktop browser.',
-              )}
-            </p>
-          </section>
-        </div>
+    <main
+      className="ct"
+      data-testid="use-desktop-page"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '96px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '40px',
+        }}
+      >
+        <Link to="/" className="ct-link" style={{ fontFamily: 'var(--mono)', fontSize: '12px' }}>
+          ← back
+        </Link>
+        <header style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <h1
+            style={{
+              fontFamily: 'var(--display)',
+              fontSize: '48px',
+              lineHeight: 1,
+              margin: 0,
+              color: 'var(--ct-ink)',
+            }}
+          >
+            {t(
+              'deviceGate.useDesktop.heading',
+              "This device can't host the zero-knowledge prover.",
+            )}
+          </h1>
+          <p
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '15px',
+              lineHeight: 1.5,
+              maxWidth: '60ch',
+              color: 'var(--ct-ink)',
+            }}
+          >
+            {t(
+              'deviceGate.useDesktop.body',
+              'The prover needs about 2.5 GB of cached storage on your device — most phone browsers cap web pages well below that, so the proof would fail mid-flight. Open this page on a desktop or laptop browser instead and pick up where you left off.',
+            )}
+          </p>
+        </header>
+        <hr className="ct-divider" />
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <p
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '14px',
+              wordBreak: 'break-all',
+              color: 'var(--ct-ink)',
+            }}
+          >
+            {DESKTOP_URL}
+          </p>
+          <img
+            src={qrSrc}
+            alt={t('deviceGate.useDesktop.qrCaption', 'QR code to app.zkqes.org on desktop')}
+            width={200}
+            height={200}
+            style={{ border: '1px solid var(--ct-rule)' }}
+            data-testid="use-desktop-qr"
+          />
+          <p
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '12px',
+              color: 'var(--ct-mute)',
+            }}
+          >
+            {t(
+              'deviceGate.useDesktop.qrCaption',
+              'Scan with another phone, or type the URL into a desktop browser.',
+            )}
+          </p>
+        </section>
       </div>
       <DocumentFooter />
     </main>

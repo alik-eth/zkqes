@@ -1,3 +1,7 @@
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). Pre-v2
+// sovereign/bone tokens retired here per founder direction 2026-05-05
+// (task #84). Behaviour unchanged — only styling migrates to `--ct-*`
+// tokens + `.ct-btn` / `.ct-divider` primitives + VT323 / IBM Plex Mono.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAccount } from 'wagmi';
@@ -50,6 +54,22 @@ function downloadBindingFile(bytes: Uint8Array): void {
   // Defer revoke so the click finishes before the blob URL is freed.
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
+
+const HEADING_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--display)',
+  fontSize: '36px',
+  lineHeight: 1,
+  margin: 0,
+  color: 'var(--ct-ink)',
+};
+
+const BODY_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--mono)',
+  fontSize: '14px',
+  lineHeight: 1.5,
+  maxWidth: '60ch',
+  color: 'var(--ct-ink)',
+};
 
 /**
  * Step 2 — produce the QKB/2.0 binding bytes.
@@ -147,11 +167,14 @@ export function Step2GenerateBinding({ onAdvance, onBack }: Step2Props) {
   };
 
   return (
-    <section aria-labelledby="step2-heading" className="space-y-6">
-      <h2 id="step2-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+    <section
+      aria-labelledby="step2-heading"
+      style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+    >
+      <h2 id="step2-heading" style={HEADING_STYLE}>
         {t('registerV5.step2.title')}
       </h2>
-      <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+      <p style={BODY_STYLE}>
         {t(
           'registerV5.step2.body',
           'We will ask your wallet to sign a deterministic recovery message so we can include your public key in the binding. The signature itself is discarded.',
@@ -162,14 +185,21 @@ export function Step2GenerateBinding({ onAdvance, onBack }: Step2Props) {
           type="button"
           onClick={() => void onGenerate()}
           data-testid="v5-generate-binding-cta"
-          className="px-6 py-3 text-mono text-sm"
-          style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}
+          className="ct-btn"
         >
           {t('registerV5.step2.generate', 'Generate binding')}
         </button>
       )}
       {state.kind === 'recovering' && (
-        <p className="text-sm" role="status" data-testid="v5-binding-recovering">
+        <p
+          role="status"
+          data-testid="v5-binding-recovering"
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: '13px',
+            color: 'var(--ct-mute)',
+          }}
+        >
           {t(
             'registerV5.step2.recovering',
             'Awaiting wallet signature for pubkey recovery…',
@@ -178,20 +208,26 @@ export function Step2GenerateBinding({ onAdvance, onBack }: Step2Props) {
       )}
       {state.kind === 'error' && (
         <p
-          className="text-sm"
           role="alert"
           data-testid="v5-binding-error"
-          style={{ color: 'var(--ink)' }}
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: '13px',
+            color: 'var(--err)',
+          }}
         >
           {state.message}
         </p>
       )}
       {state.kind === 'ready' && (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <p
-            className="text-mono text-xs"
             data-testid="v5-binding-preview"
-            style={{ color: 'var(--ink)' }}
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '12px',
+              color: 'var(--ct-ink)',
+            }}
           >
             {state.bcanonText}
           </p>
@@ -199,18 +235,17 @@ export function Step2GenerateBinding({ onAdvance, onBack }: Step2Props) {
             type="button"
             onClick={() => downloadBindingFile(state.bindingBytes)}
             data-testid="v5-binding-download"
-            className="px-6 py-3 text-mono text-sm"
-            style={{
-              border: '1px solid var(--sovereign)',
-              color: 'var(--sovereign)',
-              background: 'transparent',
-            }}
+            className="ct-btn"
           >
             {t('registerV5.step2.download', 'Download binding (.bin)')}
           </button>
           <p
-            className="text-xs max-w-prose"
-            style={{ color: 'var(--ink)', opacity: 0.7 }}
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '12px',
+              maxWidth: '60ch',
+              color: 'var(--ct-mute)',
+            }}
           >
             {t(
               'registerV5.step2.downloadHint',
@@ -219,12 +254,11 @@ export function Step2GenerateBinding({ onAdvance, onBack }: Step2Props) {
           </p>
         </div>
       )}
-      <div className="flex gap-4">
+      <div style={{ display: 'flex', gap: '16px' }}>
         <button
           type="button"
           onClick={onBack}
-          className="px-6 py-3 text-mono text-sm"
-          style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}
+          className="ct-btn"
         >
           {t('registerV5.step2.back')}
         </button>
@@ -233,8 +267,11 @@ export function Step2GenerateBinding({ onAdvance, onBack }: Step2Props) {
           onClick={onContinue}
           disabled={state.kind !== 'ready'}
           data-testid="v5-binding-advance-cta"
-          className="px-6 py-3 text-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}
+          className="ct-btn"
+          style={{
+            opacity: state.kind === 'ready' ? 1 : 0.5,
+            cursor: state.kind === 'ready' ? 'pointer' : 'not-allowed',
+          }}
         >
           {t('registerV5.step2.advance')}
         </button>

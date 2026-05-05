@@ -234,7 +234,24 @@ export {
   type CountryCeremonyPins,
   type CountryConfig,
   type SupportedCountry,
+  // Multi-QTSP facade T2: per-(country, QTSP) metadata schema.
+  QTSP_STATES,
+  QtspMetaSchema,
+  SignerToolMetaSchema,
+  type QtspMeta,
+  type QtspState,
+  type SignerToolMeta,
 } from './country/index.js';
+
+// Multi-QTSP facade T3: pure-byte X.690 §10 (DER) canonicality guard.
+// Called from parse-p7s.ts BEFORE any pkijs `.toBER(false)` re-encode (T4
+// wires it). Throws via `cert.berInput` ZkqesError with reason + offset +
+// path so per-QTSP onboarding errors surface a usable diagnostic.
+export {
+  isStrictDER,
+  type DerStrictReason,
+  type DerStrictResult,
+} from './cert/der-strict.js';
 
 // M4: viem read helpers + deployments fixture + freshly-built ABIs.
 export { isVerified, nullifierOf, trustedListRoot } from './registry/index.js';
