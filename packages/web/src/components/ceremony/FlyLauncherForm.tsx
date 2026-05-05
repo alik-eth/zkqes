@@ -141,7 +141,7 @@ export function FlyLauncherForm() {
           )}
         </p>
         <p
-          className="text-fine text-sm italic"
+          className="text-sm italic"
           style={{ color: 'var(--err)' }}
         >
           {t(
@@ -298,7 +298,7 @@ export function FlyLauncherForm() {
       {/* Rendered command sequence + copy button. */}
       <div className="space-y-3">
         <h4
-          className="text-fine text-sm"
+          className="text-sm"
           style={{
             color: 'var(--ct-ink)',
             fontVariant: 'small-caps',

@@ -282,7 +282,7 @@ zkqes serve
             <dl className="space-y-6">
               <div>
                 <dt
-                  className="text-fine text-sm mb-1"
+                  className="text-sm mb-1"
                   style={{
                     color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',
@@ -300,7 +300,7 @@ zkqes serve
               </div>
               <div>
                 <dt
-                  className="text-fine text-sm mb-1"
+                  className="text-sm mb-1"
                   style={{
                     color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',
@@ -318,7 +318,7 @@ zkqes serve
               </div>
               <div>
                 <dt
-                  className="text-fine text-sm mb-1"
+                  className="text-sm mb-1"
                   style={{
                     color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',

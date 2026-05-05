@@ -209,7 +209,7 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
                 data-testid={`ceremony-contributor-${c.round}`}
               >
                 <div
-                  className="text-fine text-sm"
+                  className="text-sm"
                   style={{
                     color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',

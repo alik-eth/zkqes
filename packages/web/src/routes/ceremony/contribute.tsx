@@ -227,7 +227,7 @@ export function CeremonyContribute() {
             {panels.map((p) => (
               <article key={p.step} className="space-y-3">
                 <h3
-                  className="text-fine text-sm"
+                  className="text-sm"
                   style={{
                     color: 'var(--ct-mute)',
                     fontVariant: 'small-caps',
