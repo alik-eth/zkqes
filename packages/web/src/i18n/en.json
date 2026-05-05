@@ -137,6 +137,15 @@
     "optedOut": "SCW path cancelled — please connect an EOA wallet (MetaMask, Rabby, Frame, etc.) and retry."
   },
   "accountRotate": {
+    "v3": {
+      "back": "back to overview",
+      "heading": "Rotate a wallet",
+      "lede": "A rotation is just a new binding under the same nullifier. The old wallet becomes inert; on-chain, nothing ties the two together — the registry sees two unrelated nullifier-uses by the same identity.",
+      "marqueeSidebar": "rotate a wallet binding under the same nullifier",
+      "diagram": {
+        "aria": "Rotation diagram. The old wallet and the new wallet both resolve to the same nullifier from the holder's perspective, but on-chain they appear as two unrelated nullifier-uses with no link between them."
+      }
+    },
     "title": "Rotate to a new wallet",
     "lede": "Bind your verified identity to a different wallet without re-running the Diia signature flow against your old wallet. The old wallet authorises the rotation; the new wallet takes over going forward.",
     "back": "Back",
