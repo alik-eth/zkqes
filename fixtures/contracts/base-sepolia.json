@@ -22,5 +22,29 @@
       "registry": "0x6a6a52d4debb8b58b75d77a27c899fb3e4d3e1d0f7f7687b6fc2e531cd9112ca",
       "certificate": "0xcbcbdb0b0cd54df626893543a91b282967454346b50825cfd6fc3e048a7e384f"
     }
+  },
+  "v5_4": {
+    "country": "UA",
+    "registry": "0x262D017051196F8C686BFBa00Cbbe2BD5B055491",
+    "identityVerifier": "0xa669F0Ede4eBD025897554Af8aCcE31eA4990f04",
+    "identityVerifierKind": "stub",
+    "ageVerifier": "0xc30DF40b1E2F8af15a36DBebc0E1BD91E1E2a693",
+    "ageVerifierKind": "stub",
+    "deployedAt": "2026-05-05",
+    "deployBlock": 41115149,
+    "deployTx": "0xdd7be8fa376826",
+    "verified": true,
+    "verifierFlipNote": "Both identityVerifier + ageVerifier are immutable stubs; post-ceremony real-verifier swap = fresh ZKQESRegistryUA redeploy + new pump (per V5.4 spec §6 / orchestration §C). Same posture as V5.2.",
+    "auxiliaryAddresses": {
+      "poseidonT3": "0xF6C4451CaD646119dfbC1ef1885425637421BC91",
+      "poseidonT7": "0xD334B39AbC77CE43083902f06696Ba63f1A22323"
+    },
+    "deployTxs": {
+      "registry": "0xdd7be8fa376826",
+      "poseidonT3": "0x0f723a7dc48c0",
+      "poseidonT7": "0xec97376e82b35",
+      "identityVerifier": "(deployed during partial pre-refactor broadcast; reused per sunk-cost mitigation)",
+      "ageVerifier": "(deployed during partial pre-refactor broadcast; reused per sunk-cost mitigation)"
+    }
   }
 }
