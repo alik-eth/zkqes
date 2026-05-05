@@ -14,6 +14,7 @@
 import { RotateWalletFlow } from '../../components/ua/v5/RotateWalletFlow';
 import { DeviceReadinessGate } from '../../components/app/DeviceReadinessGate';
 import { PreviewModeBanner } from '../../components/app/PreviewModeBanner';
+import { TestnetBanner } from '../../components/app/TestnetBanner';
 import { FooterRibbon } from '../../components/civic-terminal/FooterRibbon';
 
 const BUILD_SHA = (import.meta.env.VITE_BUILD_SHA as string | undefined) ?? 'dev';
@@ -32,6 +33,7 @@ export function AccountRotateScreen() {
       }}
       data-testid="account-rotate-v2-shell"
     >
+      <TestnetBanner />
       <PreviewModeBanner />
       <div
         style={{

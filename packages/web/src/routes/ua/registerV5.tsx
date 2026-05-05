@@ -28,6 +28,7 @@ import { Step3DiiaSign } from '../../components/ua/v5/Step3DiiaSign';
 import { Step4ProveAndRegister } from '../../components/ua/v5/Step4ProveAndRegister';
 import { DeviceReadinessGate } from '../../components/app/DeviceReadinessGate';
 import { PreviewModeBanner } from '../../components/app/PreviewModeBanner';
+import { TestnetBanner } from '../../components/app/TestnetBanner';
 import { FooterRibbon } from '../../components/civic-terminal/FooterRibbon';
 import { QTSP_INDEX } from '../../generated/qtsp-index';
 import { QtspScopeContext, resolveQtspScope } from '../../lib/qtspScope';
@@ -79,6 +80,7 @@ export function RegisterV5Screen({ searchParams }: RegisterV5ScreenProps = {}) {
         background: 'var(--ct-paper)',
       }}
     >
+      <TestnetBanner />
       <PreviewModeBanner />
       <div
         style={{
