@@ -32,7 +32,16 @@
  * pinning.
  */
 
-import { Buffer } from 'buffer';
+// `Buffer` is referenced only in the type position of
+// `BuildAgeWitnessArgs.signedCades`. A value import of `'buffer'` would
+// trigger `vite-plugin-node-polyfills` to rewrite the path to
+// `vite-plugin-node-polyfills/shims/buffer`, which under strict-pnpm
+// fails to resolve from @zkqes/sdk's compiled JS (the plugin is a dep
+// of @zkqes/web, not @zkqes/sdk). A pure `import type` is stripped by
+// TS at compile time so the runtime bundle never sees it. Internally
+// the function works with `Uint8Array` (Buffer is a Uint8Array
+// subclass; structurally compatible).
+import type { Buffer } from 'buffer';
 
 import { extractDobFromDiiaUA } from '../../dob/index.js';
 import { ZkqesError } from '../../errors/index.js';
