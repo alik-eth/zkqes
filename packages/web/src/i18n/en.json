@@ -228,6 +228,27 @@
     }
   },
   "ceremony": {
+    "v3": {
+      "statusKicker": "STATUS",
+      "chainHeading": "The chain so far",
+      "tagsHashesVerified": "All hashes verified",
+      "tagsAppendOnly": "Append-only · IPFS-pinned",
+      "feedDown": "Status feed unreachable. The chain reflects the last cached payload — re-check in a minute.",
+      "recruitKicker": "WE NEED YOU",
+      "recruitHeading": "Make us trustworthy.",
+      "recruitLede": "Run four commands on a machine you'll throw away. So long as one contributor (you) honestly destroys their entropy, every binding ever produced is sound.",
+      "commandsLegend": "FOUR COMMANDS — preview",
+      "commandsAria": "Four-command snarkjs preview: download the previous round's intermediate zkey, contribute, verify locally, upload via signed URL.",
+      "commandsCaption": "Full setup, signed-URL handoff, and copy buttons live in the contributor guide.",
+      "ctaContribute": "Read the contributor guide",
+      "ctaQuestions": "I have questions",
+      "statRam": "RAM",
+      "statRamValue": "≥ 32 GB",
+      "statTime": "Time",
+      "statTimeValue": "~25 min",
+      "statCost": "Cost",
+      "statCostValue": "≈ $0.40 on Fly"
+    },
     "copy": {
       "idle": "Copy",
       "copied": "Copied",
