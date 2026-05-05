@@ -113,13 +113,16 @@ interface IZKQESRegistry {
     }
 
     struct ChainProof {
-        uint256[2]   a;
-        uint256[2][2] b;
-        uint256[2]   c;
-        uint256      rTL;
-        uint256      algorithmTag;
-        uint256      leafSpkiCommit;
+        uint256 rTL;
+        uint256 algorithmTag;
+        uint256 leafSpkiCommit;
     }
+    // ChainProof carries only the on-chain bind values for the cert
+    // chain. Chain verification itself is on-chain (P256Verify on the
+    // intermediate cert + Poseidon Merkle climb to trustedRoot) — there
+    // is no separate Groth16 chain proof. (Earlier brainstorm drafts
+    // sketched (a, b, c) tuples here when split-proof was on the table;
+    // V5.4 reverted to V5.2's unified architecture.)
 
     struct LeafProof {
         uint256[2]   a;
@@ -143,8 +146,21 @@ interface IZKQESRegistry {
     function identityVerifier() external view returns (address);
     function ageVerifier() external view returns (address);
 
-    function register(ChainProof calldata, LeafProof calldata)
-        external returns (bytes32 bindingId);
+    function register(
+        ChainProof calldata chainProof,
+        LeafProof calldata leafProof,
+        bytes calldata leafSpki,
+        bytes calldata intSpki,
+        bytes calldata signedAttrs,
+        bytes32[2] calldata leafSig,    // r, s of CAdES leaf signature
+        bytes32[2] calldata intSig,     // r, s of intermediate cert signature
+        bytes32[16] calldata trustMerklePath,
+        uint256 trustMerklePathBits
+    ) external returns (bytes32 bindingId);
+    // Chain verification path: on-chain P256Verify(intSpki, signedAttrs, intSig)
+    // + Poseidon Merkle climb (intSpki → trustMerklePath → trustedRoot).
+    // No separate Groth16 chain proof. Calldata extras ported verbatim from
+    // V5.2's register() shape.
 
     function rotateWallet(
         bytes32 bindingId,
@@ -172,6 +188,18 @@ interface IZKQESRegistry {
 
 The interface is **frozen at V5.4** — V5.5 country #2 implements this
 exact shape. Any breaking change requires a V6 amendment.
+
+### 3.1.1 V5.1 / V5.2 schema-migration relaxations
+
+V5.4 collapses V5.2's per-fingerprint storage shape (`identityWallets[fp]`,
+`nullifierOf[wallet]`, `identityCommitments[fp]`) into a unified
+`bindings[bindingId]` mapping keyed by `bindingId = keccak256(abi.encode(country, identityFingerprint))`.
+Two V5.1/V5.2 invariants are intentionally relaxed as a consequence:
+
+- **V5.1 wallet uniqueness across rotation** (V5.2's `nullifierOf[newWallet] != 0 → AlreadyRegistered` gate). Dropped because V5.4 has no wallet→bindingId reverse mapping. The load-bearing replay protection is the rotation auth-sig over the domain-bound payload (`chainid + addr(this) + bindingId + newWallet`) plus the on-chain `bindings[bindingId].pk == leafProof.bindingPk` check. Cardinality consequence: walletX *could* simultaneously be the bound wallet for multiple bindings (if Alice and Bob both rotate to walletX). Security is unaffected — Mallory still can't rotate a binding to a wallet she doesn't control.
+- **V5.2 `CommitmentMismatch` rotateWallet stale-state check.** Dropped because V5.4 has no `identityCommitments` slot. The in-circuit `rotationOldCommitment === identityCommitment` `ForceEqualIfEnabled` gate (V5.3 22-signal layout slots 14, 16) plus the auth-sig domain binding are the load-bearing protections.
+
+SDK consequence: web SDK + UI must not assume `wallet → binding` is unique. Enumerate via indexed events (see §3.2.1) rather than reverse mapping or localStorage.
 
 ### 3.2 `ZKQESRegistryUA` implementation
 
@@ -290,24 +318,43 @@ forward-compat with potential V5.5+ delegated-prover use cases — set to
 | Name | Type | Description |
 |---|---|---|
 | `dobYmd` | uint (YYYYMMDD) | Extracted DOB from Diia SDA |
-| `signedAttrsBytes` | byte array | Original signed certificate bytes |
-| `sdaFrameOffset` | uint | Offset into signedAttrsBytes where SDA frame starts |
+| `leafTbsBytes` | byte array (MAX_DER=1408 / 1536) | Raw TBSCertificate bytes — full-cert scan window |
+| `leafTbsLen` | uint | Actual length within leafTbsBytes |
 | `nullifierSecret` | uint | V5.1 carry-through secret |
 
-### 4.2 SDA-frame anchoring (V5.31 pattern)
+The witness shape mirrors the existing `DobExtractor(MAX_DER)`
+template's signature (V5.3 OID-anchor amendment, audited 2026-05-05).
+The extractor scans `leafTbsBytes[0..leafTbsLen]` for the Diia
+extension OID prefix rather than consuming a pre-computed offset,
+so no `sdaFrameOffset` field is needed — see §4.2.
 
-Per circuits-eng's audit, `DobExtractorDiiaUA.circom` already implements
+### 4.2 SDA-frame anchoring (V5.31 pattern, scan-based)
+
+Per circuits-eng's audit, `DobExtractor(MAX_DER)` already implements
 SDA-frame anchoring — the same anti-Sybil pattern V5.3 codified for
-X509SubjectSerial. The extractor:
+X509SubjectSerial. The extractor is **scan-based** (not pre-located
+offset based), which is functionally equivalent to offset-anchored
+extraction: byte-equality at a matched scan position == byte-equality
+at a pre-located offset. The scan dominates the constraint envelope
+(~40K of the ~81K total at MAX_DER=1536) and trades off ~7K extra
+constraints for elimination of the witness-side offset field.
 
-1. Reads `signedAttrsBytes[sdaFrameOffset .. +N]`.
-2. Asserts the OID prefix bytes match Diia's UA-arc OID
+The extractor:
+
+1. Walks every byte position in `leafTbsBytes[0..leafTbsLen]`.
+2. At each position, asserts the 5-byte ext-OID prefix
+   `06 03 55 1D 09` (extensions sequence). On match, anchors the
+   inner-OID byte-equality assertion.
+3. Asserts the inner OID matches Diia's UA-arc OID
    (`1.2.804.2.1.1.1.11.1.4.11.1`, hex `0x06 0x0e 0x2a 0x86 0x...`).
-3. Asserts the value-tag is `0x13` (PrintableString).
-4. Asserts the length byte matches the declared content length.
-5. Reads the leading 8 PrintableString bytes (YYYYMMDD).
-6. Bounds the read window to the leading 8; the trailing
+4. Asserts the value-tag is `0x13` (PrintableString).
+5. Asserts the length byte matches the declared content length.
+6. Reads the leading 8 PrintableString bytes (YYYYMMDD).
+7. Bounds the read window to the leading 8; the trailing
    `-NNNNN` (partial Ukrainian taxpayer INN) is NOT extracted.
+8. Emits `dobSupported = 1` only when all OID-prefix assertions pass;
+   non-Diia leaves emit `dobSupported = 0` and the registry rejects
+   the binding via the `dobSupported === 1` constraint.
 
 The audit note flagged this side-channel: the SDA window contains
 identity material beyond the DOB. The extractor's bounded read prevents
