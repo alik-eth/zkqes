@@ -33,6 +33,17 @@ import {
 import { useCliPresence } from '../../../hooks/useCliPresence';
 import { CliBanner } from './CliBanner';
 import { ScwPassphraseModal } from './ScwPassphraseModal';
+// Multi-QTSP facade T13: surface `cert.berInput` ZkqesErrors via the
+// scope-aware i18n templates from T6. Falls back to the generic
+// template when no QTSP scope is in effect (UA-default flow). The
+// `t as Interpolator` cast at the call sites is safe — the helper
+// only invokes `t(key, optionsObject)`, which both i18next's
+// `TFunction` and the test mock support.
+import {
+  formatCertBerInput,
+  useQtspScope,
+  type Interpolator,
+} from '../../../lib/qtspScope';
 
 export interface Step4Props {
   p7s: Uint8Array;
@@ -101,6 +112,11 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
   // render the install nudge.
   const cliPresence = useCliPresence();
   const cliPresent = cliPresence.status === 'present';
+  // T13: active QTSP scope (or null for UA-default). Drives the
+  // `cert.berInput` error template selection inside the catch
+  // blocks below — `formatCertBerInput` picks the scoped vs.
+  // generic i18n key based on this.
+  const qtspScope = useQtspScope();
 
   const [stage, setStage] = useState<V5_2PipelineProgress | null>(null);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
@@ -292,7 +308,7 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
       // and resumes through onScwPassphraseSubmit.
       await runPipelineAndSubmit(walletSecret, cliReady);
     } catch (err) {
-      setPipelineError(err instanceof Error ? err.message : String(err));
+      setPipelineError(formatCertBerInput(err, qtspScope, t as Interpolator));
     }
   };
 
@@ -329,7 +345,7 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
       await runPipelineAndSubmit(secret, observed === 'present');
     } catch (err) {
       resetScwState();
-      setPipelineError(err instanceof Error ? err.message : String(err));
+      setPipelineError(formatCertBerInput(err, qtspScope, t as Interpolator));
     }
   };
 

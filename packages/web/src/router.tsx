@@ -168,10 +168,22 @@ const appOnlyRoutes: AnyRoute[] = import.meta.env.VITE_TARGET !== 'landing'
       createRoute({
         getParentRoute: () => rootRoute,
         path: '/ua/registerV5',
-        component: lazyRouteComponent(
-          () => import('./routes/ua/registerV5'),
-          'RegisterV5Screen',
-        ),
+        // T13: switched to default-export `RegisterV5Route` wrapper
+        // which reads `?qtsp=` via `useSearch` and threads scope down
+        // to `RegisterV5Screen`. UA-default behavior preserved when
+        // `?qtsp=` is absent / malformed / bronze.
+        component: lazyRouteComponent(() => import('./routes/ua/registerV5')),
+      }),
+      // T13: alias path. `/v5/registerV5` is the canonical multi-QTSP
+      // entry point that QtspPage CTAs (T10) link to. Same component
+      // as `/ua/registerV5`; the route distinction is just URL polish
+      // for "this is the protocol-level register flow, not a
+      // UA-specific page." Future work may collapse them once the
+      // existing `/ua/registerV5` inbound links + e2e tests rotate.
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/v5/registerV5',
+        component: lazyRouteComponent(() => import('./routes/ua/registerV5')),
       }),
       createRoute({
         getParentRoute: () => rootRoute,

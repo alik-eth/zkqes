@@ -19,8 +19,9 @@
 // page. The legacy `assessDeviceCapability` flow stays exported from
 // lib/deviceGate.ts for any non-v2 consumer that hasn't migrated.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearch } from '@tanstack/react-router';
 import { Step1ConnectWallet } from '../../components/ua/v5/Step1ConnectWallet';
 import { Step2GenerateBinding } from '../../components/ua/v5/Step2GenerateBinding';
 import { Step3DiiaSign } from '../../components/ua/v5/Step3DiiaSign';
@@ -28,6 +29,8 @@ import { Step4ProveAndRegister } from '../../components/ua/v5/Step4ProveAndRegis
 import { DeviceReadinessGate } from '../../components/app/DeviceReadinessGate';
 import { PreviewModeBanner } from '../../components/app/PreviewModeBanner';
 import { FooterRibbon } from '../../components/civic-terminal/FooterRibbon';
+import { QTSP_INDEX } from '../../generated/qtsp-index';
+import { QtspScopeContext, resolveQtspScope } from '../../lib/qtspScope';
 
 type StepNumber = 1 | 2 | 3 | 4;
 
@@ -43,13 +46,31 @@ const STEP_LABELS: Record<StepNumber, string> = {
   4: 'PROVE & REGISTER',
 };
 
-export function RegisterV5Screen() {
+export interface RegisterV5ScreenProps {
+  /**
+   * Optional search-params bag. The route wrapper passes
+   * `useSearch({ strict: false })`; tests + standalone callers can
+   * pass a literal `{ qtsp?: string }`. Multi-QTSP facade T13:
+   * `qtsp` is a `<cc>/<slug>` path against `QTSP_INDEX`; on resolve
+   * the meta scopes the register-flow surface (signing-tool prompt,
+   * `cert.berInput` error templates). On miss / malformed / bronze
+   * the scope falls back to UA-default (null context) per spec §4.4.
+   */
+  searchParams?: { qtsp?: string };
+}
+
+export function RegisterV5Screen({ searchParams }: RegisterV5ScreenProps = {}) {
   const { t } = useTranslation();
   const [step, setStep] = useState<StepNumber>(1);
   const [bindingBytes, setBindingBytes] = useState<Uint8Array | null>(null);
   const [p7s, setP7s] = useState<Uint8Array | null>(null);
+  const qtspScope = useMemo(
+    () => resolveQtspScope(searchParams?.qtsp, QTSP_INDEX),
+    [searchParams?.qtsp],
+  );
 
   return (
+    <QtspScopeContext.Provider value={qtspScope}>
     <main
       style={{
         minHeight: '100vh',
@@ -86,6 +107,23 @@ export function RegisterV5Screen() {
               'Four steps. Your private credentials never leave this browser — only a zero-knowledge proof reaches the chain.',
             )}
           </p>
+          {qtspScope && (
+            // Multi-QTSP facade T13: scoped-tool prompt.  Surfaces the
+            // active QTSP's signing-tool name so the user sees which
+            // QES app they should be using before they hit Step 3.
+            // UA-default (qtspScope=null) keeps existing copy as-is.
+            <p
+              data-testid="qtsp-scope-banner"
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '13px',
+                color: 'var(--ct-mute)',
+                marginTop: '8px',
+              }}
+            >
+              {qtspScope.displayName} · {qtspScope.signingTool.name}
+            </p>
+          )}
         </header>
 
         {/* Sticky-header progress strip per spec §5.1. */}
@@ -156,5 +194,22 @@ export function RegisterV5Screen() {
       </div>
       <FooterRibbon buildSha={BUILD_SHA} buildDate={BUILD_DATE} />
     </main>
+    </QtspScopeContext.Provider>
   );
+}
+
+/**
+ * Route wrapper — reads `?qtsp=` from TanStack Router and threads it
+ * into `RegisterV5Screen`. Default export so `lazyRouteComponent`
+ * picks it up; both `/ua/registerV5` and `/v5/registerV5` route
+ * declarations point at this same component.
+ *
+ * `useSearch({ strict: false })` accepts any search-param shape
+ * without requiring a per-route schema. The cast narrows it to the
+ * `qtsp` field this component cares about; unrecognized params
+ * pass through untouched.
+ */
+export default function RegisterV5Route(): JSX.Element {
+  const search = useSearch({ strict: false }) as { qtsp?: string };
+  return <RegisterV5Screen searchParams={search} />;
 }
