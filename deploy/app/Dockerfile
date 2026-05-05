@@ -30,15 +30,19 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 RUN pnpm -F @zkqes/sdk build
 
-# Build args. Each one has a defensible default for "build for
-# Sepolia preview"; production builds override via the GH Action.
+# Build args. Each one has a defensible default so a bare
+# `flyctl deploy --config deploy/app/fly.toml --dockerfile deploy/app/Dockerfile`
+# from a developer's machine produces a working bundle without `--build-arg`
+# overrides. fly.toml's [build.args] takes precedence at deploy time when
+# present.
 #
 # VITE_WALLETCONNECT_PROJECT_ID — required for RainbowKit; an empty
-# string crashes the wagmi config at module load (see the dev-server
-# blank-page fix from earlier). The CI must inject the real value via
-# secret on production builds.
-ARG VITE_CHAIN=sepolia
-ARG VITE_WALLETCONNECT_PROJECT_ID=
+# string crashes the wagmi config at module load. The default below is
+# the project's real WalletConnect Cloud project ID — public-by-design
+# (every WC-enabled dapp ships theirs in the JS bundle), checked-in
+# alongside packages/web/fly.toml:14.
+ARG VITE_CHAIN=base-sepolia
+ARG VITE_WALLETCONNECT_PROJECT_ID=c46544572774f96e20db476d5cc565be
 ARG VITE_USE_MOCK_PROVER=
 ENV VITE_TARGET=app \
     VITE_BASE=/ \
