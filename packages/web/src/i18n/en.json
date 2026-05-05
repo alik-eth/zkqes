@@ -246,6 +246,50 @@
     "useEoaInstead": "Or: connect an EOA wallet (recommended for V5 alpha)",
     "optedOut": "SCW path cancelled — please connect an EOA wallet (MetaMask, Rabby, Frame, etc.) and retry."
   },
+  "accountAgeProof": {
+    "back": "back to overview",
+    "heading": "Prove your age",
+    "lede": "Prove you are at least N years old as of a chosen date — without revealing your name, your DOB, or anything else on your QES certificate. The proof is generated locally; the chain sees only a binary qualified-or-not result for the cutoff you chose.",
+    "marqueeSidebar": "prove an age threshold under your existing nullifier",
+    "connect": {
+      "legend": "STEP 1 · CONNECT",
+      "body": "Connect the wallet bound to the identity you want to prove against."
+    },
+    "cutoff": {
+      "legend": "STEP 2 · CUTOFF DATE",
+      "body": "Pick the date you want to prove your DOB is on-or-before. The default is today minus 18 years (the most common age-verification threshold).",
+      "label": "CUTOFF",
+      "advance": "Continue to QES upload"
+    },
+    "p7s": {
+      "legend": "STEP 3 · QES SIGNATURE",
+      "body": "Upload the same .p7s envelope you used to register the binding. The DOB is read locally from the leaf certificate — never transmitted, never proven on-chain.",
+      "advance": "Generate proof"
+    },
+    "prove": {
+      "legend": "STEP 4 · PROVING",
+      "working": "Building the V5.4 witness and running the AgeDiiaUA prover. This takes ~30–90 s in the browser; ~14 s with the zkqes CLI."
+    },
+    "result": {
+      "legend": "RESULT",
+      "qualifiedTag": "QUALIFIED",
+      "qualifiedBody": "Your DOB is on-or-before {{cutoffIso}}. The proof is generated locally; nothing about the date itself reaches the chain.",
+      "notQualifiedTag": "NOT QUALIFIED",
+      "notQualifiedBody": "Your DOB is after {{cutoffIso}}. The proof is generated locally; the chain receives only a binary not-qualified result for this cutoff.",
+      "submitPending": "On-chain submission opens once the V5.4 ZKQESRegistryUA deploy lands (task #15 / Phase C). Until then this surface renders the proof's local verdict and stops here."
+    },
+    "actions": {
+      "back": "Back",
+      "retry": "Retry"
+    },
+    "error": {
+      "tag": "ERROR",
+      "unknown": "An unknown error occurred while building the witness or running the prover."
+    },
+    "errors": {
+      "missingP7s": "Upload your .p7s before generating the proof."
+    }
+  },
   "accountRotate": {
     "v3": {
       "back": "back to overview",
