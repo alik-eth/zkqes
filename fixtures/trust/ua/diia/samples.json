@@ -1,32 +1,32 @@
 [
   {
-    "id": "diia-sample-001-eu-pno-prefix",
-    "sigAlg": "ECDSA-P256",
-    "subjectSerialPrefix": "PNO",
+    "p7sSha256": "0x4ca81ea12839f81f3216cbe688361cb9e83ae680be03b3bbd225bea9aa0a8411",
+    "leafCertNotBefore": "2025-10-18T11:16:40.000Z",
+    "leafCertNotAfter": "2026-10-18T11:16:39.000Z",
     "parserWalk": "pass",
     "derStrict": "pass",
     "witnessGen": "n/a-pre-ceremony",
-    "verified": false,
-    "note": "Placeholder evidence per spec §3.4 silver-state requirements (parser + DER strict guards only). witnessGen-pass + verified=true gated on Phase B Phase 2 ceremony output. Real .p7s fixtures live under fixtures/qes/ (gitignored — PII)."
+    "contributor": "synthetic-test-helper",
+    "addedAt": "2026-05-05"
   },
   {
-    "id": "diia-sample-002-eu-tin-prefix",
-    "sigAlg": "ECDSA-P256",
-    "subjectSerialPrefix": "TIN",
+    "p7sSha256": "0xb52fe062ac78959b1dbb148dae17e94a6dc5db5f30622512348f9dcafe28b651",
+    "leafCertNotBefore": "2025-10-18T11:16:40.000Z",
+    "leafCertNotAfter": "2026-10-18T11:16:39.000Z",
     "parserWalk": "pass",
     "derStrict": "pass",
     "witnessGen": "n/a-pre-ceremony",
-    "verified": false,
-    "note": "Placeholder evidence per spec §3.4 silver-state requirements (parser + DER strict guards only). witnessGen-pass + verified=true gated on Phase B Phase 2 ceremony output. Real .p7s fixtures live under fixtures/qes/ (gitignored — PII)."
+    "contributor": "synthetic-test-helper",
+    "addedAt": "2026-05-05"
   },
   {
-    "id": "diia-sample-003-eu-idc-prefix",
-    "sigAlg": "ECDSA-P256",
-    "subjectSerialPrefix": "IDC",
+    "p7sSha256": "0x67aa12c81f94c9bacaf8b3b12e3383097c2e65f9841e5f2a2f9070acc8c7d979",
+    "leafCertNotBefore": "2025-10-18T11:16:40.000Z",
+    "leafCertNotAfter": "2026-10-18T11:16:39.000Z",
     "parserWalk": "pass",
     "derStrict": "pass",
     "witnessGen": "n/a-pre-ceremony",
-    "verified": false,
-    "note": "Placeholder evidence per spec §3.4 silver-state requirements (parser + DER strict guards only). witnessGen-pass + verified=true gated on Phase B Phase 2 ceremony output. Real .p7s fixtures live under fixtures/qes/ (gitignored — PII)."
+    "contributor": "synthetic-test-helper",
+    "addedAt": "2026-05-05"
   }
 ]
