@@ -1,0 +1,59 @@
+# Fly.io app config — zkqes landing surface.
+#
+# Serves the VITE_TARGET=landing SPA bundle (hero, ceremony pages,
+# integrations, ua/* legacy surfaces) at:
+#
+#   https://zkqes.org           (apex, primary cert)
+#   https://www.zkqes.org       (alias, redirect via DNS / extra cert)
+#   https://ceremony.zkqes.org  (alias — same dist; users land at the
+#                                ceremony pages via in-page nav or a
+#                                future redirect rewrite)
+#
+# Sister apps:
+#   zkqes-app  → app.zkqes.org  (VITE_TARGET=app, register flow)
+#
+# Cost posture:
+#   - auto_stop_machines = "stop"  → machine sleeps when idle (~3 min).
+#   - auto_start_machines = true   → first request after sleep wakes it.
+#                                    Cold start ~1s for nginx-alpine.
+#   - min_machines_running = 0     → no always-on machine; bill is $0
+#                                    when there's no traffic.
+#   For a marketing landing pre-launch this is the right call. Bump
+#   min_machines_running to 1 (~$2/mo for shared-1x) once traffic
+#   matters and cold-start becomes a UX hit.
+
+app = "zkqes-landing"
+primary_region = "fra"  # Frankfurt — closest Fly region to UA + EU traffic.
+
+# NOTE: no [build] section — the dockerfile path is passed via the
+# `--dockerfile` CLI flag at deploy time so the build context resolves
+# at the repo root (the Dockerfile COPYs pnpm-lock.yaml + packages/*
+# from there). Putting `dockerfile = "deploy/landing/Dockerfile"` in
+# the [build] section makes flyctl resolve it relative to this fly.toml's
+# own dir, which yields a doubly-nested path.
+
+[http_service]
+  internal_port = 8080
+  force_https = true            # Fly issues a Let's Encrypt cert per cert; redirect HTTP → HTTPS.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "256mb"
+  # nginx-alpine + ~3 MB of dist assets fits in 64 MB of RSS easily.
+  # 256 MB is the smallest billable size on Fly's shared tier.
+
+[[services.tcp_checks]]
+  # Health check matches the http_service port. Fly retries on failure
+  # before declaring a machine bad.
+  interval     = "15s"
+  timeout      = "2s"
+  grace_period = "5s"
+  port         = 8080

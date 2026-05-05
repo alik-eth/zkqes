@@ -1,0 +1,101 @@
+# Fly.io deploy → zkqes.org (landing) + app.zkqes.org (app SPA).
+#
+# Founder direction 2026-05-05: landing + app + ceremony move from
+# GH Pages to Fly.io. Docs stays on GH Pages (see pages.yml). The
+# ceremony surface lives inside the landing build (VITE_TARGET=landing
+# bundles /ceremony/* routes) so ceremony.zkqes.org points to the same
+# Fly app as zkqes.org — only the cert + DNS differ.
+#
+# Two Fly apps:
+#   zkqes-landing  → zkqes.org + ceremony.zkqes.org
+#                    config: deploy/landing/fly.toml
+#   zkqes-app      → app.zkqes.org
+#                    config: deploy/app/fly.toml
+#
+# **Required GitHub repo secret**: `FLY_API_TOKEN` — generate via
+# `flyctl tokens create deploy -a zkqes-landing -a zkqes-app`. The
+# token is scoped to those two apps only; revocable; expires per the
+# Fly tokens dashboard. NEVER commit to source.
+#
+# **Required GitHub repo secret**: `VITE_WALLETCONNECT_PROJECT_ID` —
+# RainbowKit's WalletConnect Cloud project ID. Empty value crashes
+# the app build at module load (wagmi config rejects empty string).
+# Landing build doesn't need it (no wallet flow ships in landing).
+
+name: Deploy SPA to Fly.io
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/web/**'
+      - 'packages/sdk/**'
+      - 'packages/contracts-sdk/**'
+      - 'fixtures/**'
+      - 'deploy/**'
+      - '.github/workflows/fly-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target app to deploy (landing | app | both)'
+        required: true
+        default: 'both'
+        type: choice
+        options: [landing, app, both]
+
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-landing:
+    name: Deploy zkqes-landing
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.target == 'landing' || github.event.inputs.target == 'both'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy zkqes-landing
+        # `flyctl deploy --remote-only` builds inside Fly's builder
+        # cluster, not on the GH runner. Faster + we don't ship build
+        # cache through the runner. The Dockerfile + build context is
+        # uploaded as a tar.
+        run: |
+          flyctl deploy \
+            --config deploy/landing/fly.toml \
+            --dockerfile deploy/landing/Dockerfile \
+            --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-app:
+    name: Deploy zkqes-app
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.target == 'app' || github.event.inputs.target == 'both'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy zkqes-app
+        run: |
+          flyctl deploy \
+            --config deploy/app/fly.toml \
+            --dockerfile deploy/app/Dockerfile \
+            --remote-only \
+            --build-arg VITE_WALLETCONNECT_PROJECT_ID="${VITE_WALLETCONNECT_PROJECT_ID}" \
+            --build-arg VITE_CHAIN="${VITE_CHAIN}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
+          VITE_CHAIN: ${{ vars.VITE_CHAIN || 'sepolia' }}

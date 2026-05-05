@@ -1,0 +1,84 @@
+# Allowlist .dockerignore — repo has 12 GB+ of circuit artifacts +
+# Playwright fixtures + node_modules trees that the SPA build doesn't
+# need. Naive denylist patterns missed enough that build context
+# uploads ran past 500 MB before timeout. Allowlist is bulletproof:
+# ignore everything, then re-include only what the Dockerfiles COPY.
+
+# Step 1: ignore EVERYTHING
+**
+
+# Step 2: re-include only the packages + workspace files needed for
+# the SPA build. Order: re-include the dirs before the files, then
+# selectively include subtrees within them.
+
+# Workspace root — we only need these specific files at the top level.
+!package.json
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
+# tsconfig.base.json — extended by packages/sdk/tsconfig.build.json
+# (and several other workspaces). Without it, tsc falls back to the
+# default `target` (ES3), which trips BigInt-literal errors all over
+# the SDK source.
+!tsconfig*.json
+
+# Web package — the SPA itself, plus all build-time inputs.
+!packages
+!packages/web
+!packages/web/**
+
+# SDK + contracts-sdk — workspace-aliased imports from web.
+!packages/sdk
+!packages/sdk/**
+!packages/contracts-sdk
+!packages/contracts-sdk/**
+
+# Fixtures — qtspIndexPlugin reads fixtures/trust/*/*/meta.json at
+# build start to emit src/generated/qtsp-index.ts. Without these the
+# vite plugin throws.
+!fixtures
+!fixtures/trust
+!fixtures/trust/**
+
+# Deploy configs (the Dockerfile copies its own nginx.conf at build).
+!deploy
+!deploy/**
+
+# Step 3: re-exclude the heavy bits that snuck in via the wide
+# packages/web/** include. These are Playwright fixtures, build
+# caches, and node_modules trees — none needed for `pnpm -F @zkqes/
+# web build` from a clean slate (pnpm install rehydrates).
+packages/web/node_modules/
+packages/web/dist/
+packages/web/tests/e2e/.r2-cache/
+packages/web/tests/test-results/
+packages/web/playwright-report/
+packages/web/screenshots/
+packages/web/.playwright-mcp/
+packages/sdk/node_modules/
+packages/sdk/dist/
+packages/contracts-sdk/node_modules/
+packages/contracts-sdk/dist/
+
+# Top-level node_modules — pnpm-store is recreated by `pnpm install`.
+node_modules/
+
+# Belt-and-braces patterns matching what naive .dockerignore would
+# ignore — anchor with **/ so they hit at any depth.
+**/node_modules/
+**/.pnpm-store/
+**/dist/
+!packages/web/tests/build/
+!packages/web/tests/build/**
+**/build/
+**/out/
+**/.turbo/
+**/.cache/
+**/coverage/
+**/*.zkey
+**/*.r1cs
+**/*.wasm
+**/*.sym
+**/*.ptau
+**/*.p7s
+**/*.log
+**/.DS_Store
