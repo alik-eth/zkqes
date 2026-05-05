@@ -11,15 +11,18 @@ import { test, expect, type Response, type Page } from '@playwright/test';
 //
 //   PROD_APP     — https://app.zkqes.org
 //     Full SPA (`VITE_TARGET=app`); register / rotate / verify /
-//     mint / submit. Gated on the Sepolia E2E §9.4 acceptance gate
-//     (#18 still pending) and DNS migration (#62 still pending —
-//     only zkqes.org root has DNS today).
+//     mint / submit. Live as of the v0.7.1-civic-terminal-v3 manual
+//     Fly deploy (task #91, 2026-05-05); the route's default `/`
+//     surface is the v3 <HomeDocument /> letterhead. The previous
+//     `test.fixme` gating on app-target routes (against #18 + #62)
+//     is removed in this revision since the subdomain is reachable
+//     end-to-end.
 //
-// Until app.zkqes.org is live, the per-route prod-smoke tests
-// against the app surface can't resolve. They're `test.fixme()`-
-// skipped here with the gating task referenced; flip back to active
-// once #18 and #62 close. The landing-route test (single `/` against
-// PROD_LANDING) stays active and covers the live production surface.
+// Note on landing target: zkqes.org root still serves the v2
+// <LandingHero /> ("Verified Identity" hero + "Identity, escrowed"
+// privacy section). The v3 redesign arc swapped the APP target
+// only — the landing-target hero stays as-is until a future arc
+// migrates it.
 const PROD_LANDING = 'https://zkqes.org';
 const PROD_APP = 'https://app.zkqes.org';
 const SCREENSHOT_DIR = 'tests/e2e/screenshots/prod-baseline';
@@ -116,6 +119,24 @@ const ROUTES: RouteSpec[] = [
     },
   },
   {
+    // app.zkqes.org root → v3 <HomeDocument /> civic-document landing
+    // (Task #87, 2026-05-05). Heading regex matches the EN/UK
+    // letterhead office string. Not a route's <h1> — the letterhead
+    // is rendered as a styled <div>, so the assertion uses
+    // page.getByText() in the per-route check below; we keep the
+    // RouteSpec.heading shape consistent and accept that it's used
+    // for getByRole lookup, falling back to text via extraAssert.
+    slug: 'app-root',
+    path: '/',
+    target: 'app',
+    heading: /OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR|БЮРО РЕЄСТРАТОРА З НУЛЬОВИМ РОЗГОЛОШЕННЯМ/,
+    extraAssert: async (page) => {
+      await expect(page.getByTestId('home-document-v3-shell')).toBeVisible({
+        timeout: 10_000,
+      });
+    },
+  },
+  {
     slug: 'ua-cli',
     path: '/ua/cli',
     target: 'app',
@@ -149,18 +170,21 @@ for (const viewport of VIEWPORTS) {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
     for (const route of ROUTES) {
-      // App-target routes don't resolve until app.zkqes.org deploys
-      // (gated on #18 + #62). Skip with `test.fixme()` — restore when
-      // both close.
-      const declare = route.target === 'app' ? test.fixme : test;
-      declare(`prod — ${route.slug} on ${viewport.name}`, async ({ page }) => {
+      // app.zkqes.org is live as of task #91 — the previous
+      // `route.target === 'app' ? test.fixme : test` gate is removed.
+      test(`prod — ${route.slug} on ${viewport.name}`, async ({ page }) => {
         const monitor = await captureNetwork(page);
         const base = route.target === 'landing' ? PROD_LANDING : PROD_APP;
         await page.goto(`${base}${route.path}`, {
           waitUntil: 'networkidle',
           timeout: 30_000,
         });
-        await expect(page.getByRole('heading', { name: route.heading })).toBeVisible({
+        // getByText().first() — the v3 civic-document letterhead on
+        // `app.zkqes.org/` is rendered as a styled <div>, not an
+        // <h1>; using getByText keeps the assertion uniform across
+        // semantic-heading routes (/ua/cli, /ua/submit, /ua/mint,
+        // /integrations) and styled-letterhead routes (app-root).
+        await expect(page.getByText(route.heading).first()).toBeVisible({
           timeout: 15_000,
         });
         if (route.extraAssert) await route.extraAssert(page);
