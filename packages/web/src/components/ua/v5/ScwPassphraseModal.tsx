@@ -122,14 +122,23 @@ export function ScwPassphraseModal({
     && scoredPassphrase === passphrase;
   const canSubmit = meetsThreshold && !zxcvbnLoading && !isDeriving;
 
+  // Civic-terminal v2 tokens — backdrop is --ct-ink at 70% alpha
+  // (matches the surface ink), dialog itself is --ct-paper-2 (the
+  // lighter civic-terminal panel inset). Warning aside uses --err
+  // for both border and text since the SCW-loss warning IS a hard
+  // alert (you cannot recover the identity if the passphrase is lost).
+  const monoXs: React.CSSProperties = {
+    fontFamily: 'var(--mono)',
+    fontSize: '12px',
+    color: 'var(--ct-mute)',
+    margin: 0,
+  };
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="scw-passphrase-heading"
       data-testid="scw-passphrase-modal"
-      // Manual backdrop styling — Tailwind classes won't render reliably
-      // for an inset-0 overlay with the package's CSS variable theme.
       style={{
         position: 'fixed',
         inset: 0,
@@ -137,37 +146,73 @@ export function ScwPassphraseModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(20, 19, 14, 0.7)',  // var(--ink) at 70% alpha
-        padding: '1.5rem',
+        background: 'rgba(26, 26, 26, 0.7)',  // var(--ct-ink) at 70% alpha
+        padding: '24px',
       }}
     >
       <div
-        className="max-w-lg w-full p-8 space-y-6"
-        style={{ background: 'var(--bone)', color: 'var(--ink)' }}
+        style={{
+          maxWidth: '512px',
+          width: '100%',
+          padding: '32px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+          background: 'var(--ct-paper-2)',
+          color: 'var(--ct-ink)',
+          border: '1.5px solid var(--ct-ink)',
+        }}
       >
-        <h2 id="scw-passphrase-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+        <h2
+          id="scw-passphrase-heading"
+          style={{
+            fontFamily: 'var(--display)',
+            fontSize: '36px',
+            lineHeight: 1,
+            margin: 0,
+            color: 'var(--ct-ink)',
+          }}
+        >
           {t('scwPassphrase.title')}
         </h2>
-        <p className="text-base" style={{ color: 'var(--ink)' }}>
+        <p
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: '14px',
+            lineHeight: 1.5,
+            margin: 0,
+            color: 'var(--ct-ink)',
+          }}
+        >
           {t('scwPassphrase.body')}
         </p>
-        <p className="text-xs text-mono" style={{ color: 'var(--ink)', opacity: 0.6 }}>
+        <p style={monoXs}>
           {t('scwPassphrase.walletLabel')} {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
         </p>
 
-        {/* Loud warning — sienna sealed border, full text. */}
+        {/* Loud warning — civic-terminal --err border + text. */}
         <aside
-          className="p-4 space-y-2 border"
-          style={{ borderColor: 'var(--seal)', color: 'var(--seal)' }}
+          style={{
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            border: '1.5px solid var(--err)',
+            color: 'var(--err)',
+            fontFamily: 'var(--mono)',
+            fontSize: '13px',
+          }}
           data-testid="scw-passphrase-warning"
         >
-          <p className="text-sm font-semibold">{t('scwPassphrase.warningTitle')}</p>
-          <p className="text-sm">{t('scwPassphrase.warningBody')}</p>
+          <p style={{ margin: 0, fontWeight: 600 }}>{t('scwPassphrase.warningTitle')}</p>
+          <p style={{ margin: 0 }}>{t('scwPassphrase.warningBody')}</p>
         </aside>
 
-        <div className="space-y-2">
-          <label htmlFor="scw-passphrase-input" className="text-sm text-mono"
-            style={{ color: 'var(--ink)', opacity: 0.7 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label
+            htmlFor="scw-passphrase-input"
+            style={{ fontFamily: 'var(--mono)', fontSize: '13px', color: 'var(--ct-mute)' }}
+          >
             {t('scwPassphrase.inputLabel')}
           </label>
           <input
@@ -179,19 +224,23 @@ export function ScwPassphraseModal({
             disabled={isDeriving}
             autoComplete="new-password"
             spellCheck={false}
-            className="w-full p-2 text-mono text-sm"
-            style={{
-              background: 'var(--bone)',
-              color: 'var(--ink)',
-              border: '1px solid var(--ink)',
-            }}
+            className="ct-input ct-input--paper"
           />
           <button
             type="button"
             onClick={() => setRevealed((v) => !v)}
             disabled={isDeriving}
-            className="text-xs text-mono"
-            style={{ color: 'var(--ink)', opacity: 0.6, textDecoration: 'underline' }}
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '12px',
+              color: 'var(--ct-mute)',
+              textDecoration: 'underline',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              alignSelf: 'flex-start',
+            }}
           >
             {revealed ? t('scwPassphrase.hide') : t('scwPassphrase.reveal')}
           </button>
@@ -201,8 +250,11 @@ export function ScwPassphraseModal({
             measure rather than the 0-4 score (which collapses too many
             states for our 80-bit floor). */}
         {passphrase.length > 0 && (
-          <div className="space-y-1" data-testid="scw-passphrase-strength">
-            <p className="text-xs text-mono" style={{ color: 'var(--ink)', opacity: 0.6 }}>
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+            data-testid="scw-passphrase-strength"
+          >
+            <p style={monoXs}>
               {zxcvbnLoading
                 ? t('scwPassphrase.computing')
                 : strength
@@ -213,13 +265,24 @@ export function ScwPassphraseModal({
                   : ''}
             </p>
             {strength?.feedback.warning && (
-              <p className="text-xs" style={{ color: 'var(--seal)' }}
-                data-testid="scw-passphrase-feedback-warning">
+              <p
+                style={{ ...monoXs, color: 'var(--err)' }}
+                data-testid="scw-passphrase-feedback-warning"
+              >
                 {strength.feedback.warning}
               </p>
             )}
             {strength && strength.feedback.suggestions.length > 0 && (
-              <ul className="text-xs list-disc list-inside" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+              <ul
+                style={{
+                  fontFamily: 'var(--mono)',
+                  fontSize: '12px',
+                  color: 'var(--ct-mute)',
+                  listStyle: 'disc inside',
+                  margin: 0,
+                  paddingLeft: 0,
+                }}
+              >
                 {strength.feedback.suggestions.map((s, i) => (
                   <li key={i}>{s}</li>
                 ))}
@@ -229,20 +292,26 @@ export function ScwPassphraseModal({
         )}
 
         {isDeriving && (
-          <p className="text-sm" role="status" data-testid="scw-passphrase-deriving"
-            style={{ color: 'var(--ink)', opacity: 0.7 }}>
+          <p
+            role="status"
+            data-testid="scw-passphrase-deriving"
+            style={{ fontFamily: 'var(--mono)', fontSize: '13px', color: 'var(--ct-mute)', margin: 0 }}
+          >
             {t('scwPassphrase.deriving')}
           </p>
         )}
 
-        <div className="flex flex-col gap-3 pt-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
           <button
             type="button"
             onClick={() => void onSubmit(passphrase)}
             disabled={!canSubmit}
             data-testid="scw-passphrase-submit"
-            className="px-6 py-3 text-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}
+            className="ct-btn"
+            style={{
+              opacity: canSubmit ? 1 : 0.5,
+              cursor: canSubmit ? 'pointer' : 'not-allowed',
+            }}
           >
             {t('scwPassphrase.submit')}
           </button>
@@ -251,8 +320,11 @@ export function ScwPassphraseModal({
             onClick={onCancel}
             disabled={isDeriving}
             data-testid="scw-passphrase-use-eoa"
-            className="px-6 py-3 text-mono text-sm disabled:opacity-50"
-            style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}
+            className="ct-btn"
+            style={{
+              opacity: isDeriving ? 0.5 : 1,
+              cursor: isDeriving ? 'not-allowed' : 'pointer',
+            }}
           >
             {t('scwPassphrase.useEoaInstead')}
           </button>
