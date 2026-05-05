@@ -19,6 +19,53 @@
 
 export type CeremonyPhase = 'recruiting' | 'ceremony-live' | 'live';
 
+/**
+ * v3 (2026-05-05, V5.4 plan T5): per-circuit ceremony tracking enum.
+ * V5.3 identity circuit + V5.4 age-Diia-UA circuit ride the same Phase B
+ * ceremony per-contributor per orchestration §2.2 step 7. Each circuit's
+ * round counter advances independently within
+ * `CeremonyStatusPayload.circuits[name]` when `publish-status.ts
+ * --circuit <name>` lands a contribution.
+ *
+ * The `circuits` map's keys are typed as plain `string` (not the
+ * `CeremonyCircuit` literal union) so V5.5+ entries (e.g.,
+ * `'v5.5-age-rfc3739'`, `'v5.5-age-cf-italy'`) round-trip without
+ * forcing a synchronized type bump on every web read. Validator
+ * shape-checks each entry but does not enforce membership in
+ * `KNOWN_CIRCUITS`.
+ */
+export type CeremonyCircuit = 'v5.3-identity' | 'v5.4-age-diia-ua';
+
+export const KNOWN_CIRCUITS: readonly CeremonyCircuit[] = [
+  'v5.3-identity',
+  'v5.4-age-diia-ua',
+] as const;
+
+/**
+ * v3 (2026-05-05, V5.4 plan T5): per-circuit state tracker. Each circuit
+ * in `CeremonyStatusPayload.circuits` carries its own round counter +
+ * last-contributor metadata, isolated from other circuits. The parent
+ * payload's top-level `round` / `contributors` fields remain the legacy
+ * single-primary-circuit view (V5.3 identity for V5.4-era ceremonies);
+ * web surfaces that pre-date the per-circuit map keep working unchanged.
+ */
+export interface CeremonyCircuitState {
+  /** 1-indexed round counter for this circuit. */
+  readonly round: number;
+  /** Display handle of the last contributor who advanced this circuit's
+   *  round. Null until the first contribution lands. */
+  readonly lastContributor: string | null;
+  /** ISO-8601 of when this circuit's round last advanced. Null until the
+   *  first contribution lands. */
+  readonly lastContributedAt: string | null;
+  /** Final-zkey sha256 for this circuit; non-null once the ceremony for
+   *  THIS circuit closes (beacon applied + finalize ran for this
+   *  circuit). Different circuits can finalize independently if their
+   *  Phase B contributor sets diverge — currently expected to land
+   *  together per orchestration §2.2 single-session decision. */
+  readonly finalZkeySha256?: string | null;
+}
+
 export interface CeremonyContributor {
   /** Display handle / email — what we show in the public chain. */
   readonly name: string;
@@ -55,6 +102,19 @@ export interface CeremonyStatusPayload {
   readonly beaconHash: string | null;
   /** v2 spec §6.3 + §7.1: phase discriminator drives every UI state machine. */
   readonly phase: CeremonyPhase;
+  /**
+   * v3 (2026-05-05, V5.4 plan T5): per-circuit round counters. Optional
+   * for backwards compat with v2 payloads — readers fall through to
+   * top-level `round` / `contributors` when this field is absent or
+   * empty. Forward writes from `publish-status.ts --circuit <name>`
+   * populate per-circuit entries.
+   *
+   * Map keys are plain `string` (not `CeremonyCircuit` literal) so V5.5+
+   * additions parse without a synchronized web-side type bump; the
+   * validator shape-checks each entry but does not enforce
+   * `KNOWN_CIRCUITS` membership.
+   */
+  readonly circuits?: Readonly<Record<string, CeremonyCircuitState>>;
 }
 
 const KNOWN_PHASES: readonly CeremonyPhase[] = ['recruiting', 'ceremony-live', 'live'];
@@ -101,6 +161,38 @@ export function validateStatusPayload(p: unknown): asserts p is CeremonyStatusPa
     if (typeof cc.name !== 'string') throw new Error(`contributors[${i}].name not string`);
     if (typeof cc.round !== 'number') throw new Error(`contributors[${i}].round not number`);
     if (typeof cc.completedAt !== 'string') throw new Error(`contributors[${i}].completedAt not string`);
+  }
+  // v3: optional per-circuit map. Shape-validate entries when present;
+  // accept absent / empty map for backwards compat with v2 payloads.
+  // Map keys are NOT enforced against `KNOWN_CIRCUITS` so V5.5+ entries
+  // round-trip without a synchronized web release.
+  if (o.circuits !== undefined && o.circuits !== null) {
+    if (typeof o.circuits !== 'object' || Array.isArray(o.circuits)) {
+      throw new Error('circuits must be a plain object');
+    }
+    for (const [name, raw] of Object.entries(o.circuits as Record<string, unknown>)) {
+      if (typeof raw !== 'object' || raw === null) {
+        throw new Error(`circuits[${name}] not object`);
+      }
+      const e = raw as Record<string, unknown>;
+      if (typeof e.round !== 'number') {
+        throw new Error(`circuits[${name}].round not number`);
+      }
+      if (e.lastContributor !== null && typeof e.lastContributor !== 'string') {
+        throw new Error(`circuits[${name}].lastContributor not string|null`);
+      }
+      if (e.lastContributedAt !== null && typeof e.lastContributedAt !== 'string') {
+        throw new Error(`circuits[${name}].lastContributedAt not string|null`);
+      }
+      // finalZkeySha256 is optional — when present, must be string|null.
+      if (
+        e.finalZkeySha256 !== undefined &&
+        e.finalZkeySha256 !== null &&
+        typeof e.finalZkeySha256 !== 'string'
+      ) {
+        throw new Error(`circuits[${name}].finalZkeySha256 not string|null|undefined`);
+      }
+    }
   }
 }
 
