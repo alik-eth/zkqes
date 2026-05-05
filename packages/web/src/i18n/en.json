@@ -15,6 +15,42 @@
       "recoveryLabel": "What can be recovered, by whom, under what process",
       "recoveryBody": "by the issuing authority, under lawful order, at meaningful compute cost. Not by third parties.",
       "closing": "This is identity escrow. Every-day pseudonymity for the holder; recoverable accountability for the state. The same trust structure as the qualified electronic signature itself — preserved on-chain."
+    },
+    "v3": {
+      "letterhead": {
+        "office": "OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR",
+        "formId": "FORM ZK-QES / 01 · BINDING WALLET TO QUALIFIED IDENTITY"
+      },
+      "documentFigure": {
+        "aria": "Specimen binding statement: the holder of a qualified electronic signature certificate issued under eIDAS Regulation (EU) 910/2014 and the Law of Ukraine on Electronic Trust Services binds a wallet address to their identity, without revealing it. Signed by a qualified signature."
+      },
+      "legal": {
+        "legend": "SECTION I — LEGAL BASIS",
+        "eidas": "Regulation (EU) {{reg}} on electronic identification (eIDAS)",
+        "uaLaw": "Law of Ukraine «Про електронні довірчі послуги» (2155-VIII)",
+        "ceremonyRecruiting": "Ceremony parameters · in recruitment · round 0 of {{total}}",
+        "ceremonyLive": "Ceremony parameters · live · round {{round}} of {{total}}",
+        "ceremonyComplete": "Ceremony parameters · complete · {{total}} rounds attested"
+      },
+      "seal": {
+        "aria": "zkQES official seal",
+        "label": "QUALIFIED · ZERO-KNOWLEDGE · 2026"
+      },
+      "benefits": {
+        "legend": "SECTION II — WHAT YOU GET",
+        "oneNullifier": "One nullifier per identity (no double-use)",
+        "boundWallets": "One or more wallets bound under that nullifier",
+        "rotate": "Rotate any wallet without revealing it was yours",
+        "zeroCorrelation": "Zero correlation between QES and chain activity"
+      },
+      "cta": {
+        "beginFiling": "Begin filing",
+        "verify": "Verify a binding"
+      },
+      "revision": {
+        "supersedes": "SUPERSEDES ALL PRIOR EDITIONS",
+        "page": "PAGE 1 OF 1"
+      }
     }
   },
   "cli": {
