@@ -19,7 +19,7 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from '../../components/CopyButton';
 import { DocumentFooter } from '../../components/DocumentFooter';
-import { PaperGrain } from '../../components/PaperGrain';
+import '../../styles/civic-terminal.css';
 
 export function CliInstall() {
   const { t } = useTranslation();
@@ -35,23 +35,42 @@ export function CliInstall() {
   const NPM_INSTALL = 'npm install -g @zkqes/cli';
 
   return (
-    <main className="relative min-h-screen">
-      <PaperGrain />
-      <div className="doc-grid pt-24 relative z-10">
-        <div />
-        <div className="min-w-0 max-w-3xl space-y-12">
-          <Link to="/" className="text-mono text-xs block">
-            ← {t('cli.back', 'back to home')}
-          </Link>
+    <main
+      className="ct"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '96px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '48px',
+        }}
+      >
+        <Link to="/" className="ct-link" style={{ fontFamily: 'var(--mono)', fontSize: '12px' }}>
+          ← {t('cli.back', 'back to home')}
+        </Link>
 
-          <header>
-            <h1
-              className="text-4xl sm:text-5xl md:text-6xl leading-none mb-8"
-              style={{ color: 'var(--ink)' }}
-            >
-              {t('cli.title', 'Install zkqes CLI for native proof generation.')}
-            </h1>
-            <p className="text-xl max-w-2xl" style={{ color: 'var(--ink)' }}>
+        <header>
+          <h1
+            style={{
+              fontFamily: 'var(--display)',
+              fontSize: '52px',
+              lineHeight: 1,
+              margin: 0,
+              marginBottom: '24px',
+              color: 'var(--ct-ink)',
+            }}
+          >
+            {t('cli.title', 'Install zkqes CLI for native proof generation.')}
+          </h1>
+          <p style={{ fontFamily: 'var(--mono)', fontSize: '15px', lineHeight: 1.5, maxWidth: '60ch', color: 'var(--ct-ink)' }}>
               {t(
                 'cli.lede',
                 'Optional. The browser prover works as-is. Install the CLI to make proof generation about 7× faster and 10× lighter on memory.',
@@ -59,7 +78,7 @@ export function CliInstall() {
             </p>
           </header>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="why-heading"
@@ -69,13 +88,13 @@ export function CliInstall() {
             <h2
               id="why-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('cli.whyHeading', 'Why install it')}
             </h2>
-            <ul className="space-y-3 text-base" style={{ color: 'var(--ink)' }}>
+            <ul className="space-y-3 text-base" style={{ color: 'var(--ct-ink)' }}>
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>·</span>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>·</span>
                 <strong>{t('cli.whyFasterTitle', '~7× faster.')}</strong>{' '}
                 {t(
                   'cli.whyFaster',
@@ -83,7 +102,7 @@ export function CliInstall() {
                 )}
               </li>
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>·</span>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>·</span>
                 <strong>{t('cli.whyLighterTitle', '~10× less memory.')}</strong>{' '}
                 {t(
                   'cli.whyLighter',
@@ -91,7 +110,7 @@ export function CliInstall() {
                 )}
               </li>
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>·</span>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>·</span>
                 <strong>{t('cli.whyOnlyOnInvokeTitle', 'Runs only when invoked.')}</strong>{' '}
                 {t(
                   'cli.whyOnlyOnInvoke',
@@ -99,7 +118,7 @@ export function CliInstall() {
                 )}
               </li>
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>·</span>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>·</span>
                 <strong>{t('cli.whyPrivateTitle', 'Keys never leave your machine.')}</strong>{' '}
                 {t(
                   'cli.whyPrivate',
@@ -109,7 +128,7 @@ export function CliInstall() {
             </ul>
           </section>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="install-heading"
@@ -119,11 +138,11 @@ export function CliInstall() {
             <h2
               id="install-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('cli.installHeading', 'Install')}
             </h2>
-            <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+            <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
               {t(
                 'cli.installLede',
                 'V1 ships via npm. Requires Node 20 or newer; works on macOS, Linux, and Windows + WSL.',
@@ -132,14 +151,14 @@ export function CliInstall() {
             <pre
               className="text-mono text-sm p-4 overflow-x-auto whitespace-pre-wrap break-all"
               data-testid="cli-cmd-npm"
-              style={{ background: 'var(--ink)', color: 'var(--bone)' }}
+              style={{ background: 'var(--ct-ink)', color: 'var(--hilite-text)' }}
             >
 {NPM_INSTALL}
             </pre>
             <div>
               <CopyButton text={NPM_INSTALL} testId="cli-copy-npm" />
             </div>
-            <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+            <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
               {t(
                 'cli.installNpmNote',
                 'Postinstall downloads the rapidsnark sidecar matching your OS + arch (~12 MB). The CLI itself is a ~32 KB tarball.',
@@ -153,10 +172,10 @@ export function CliInstall() {
                 circuits-eng's T8 scope cut. */}
             <aside
               className="p-4 space-y-2 border"
-              style={{ borderColor: 'var(--seal)', color: 'var(--ink)' }}
+              style={{ borderColor: 'var(--ct-mute)', color: 'var(--ct-ink)' }}
               data-testid="cli-windows-callout"
             >
-              <p className="text-sm font-semibold" style={{ color: 'var(--seal)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--ct-mute)' }}>
                 {t('cli.windowsCalloutLabel', 'Windows note')}
               </p>
               <p className="text-sm">
@@ -168,7 +187,7 @@ export function CliInstall() {
             </aside>
             <p
               className="text-sm"
-              style={{ color: 'var(--ink)', opacity: 0.7 }}
+              style={{ color: 'var(--ct-ink)', opacity: 0.7 }}
               data-testid="cli-deferred-channels"
             >
               {t(
@@ -178,7 +197,7 @@ export function CliInstall() {
             </p>
           </section>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="run-heading"
@@ -188,11 +207,11 @@ export function CliInstall() {
             <h2
               id="run-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('cli.runHeading', 'Run it')}
             </h2>
-            <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+            <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
               {t(
                 'cli.runBody',
                 'Open a terminal and start the server. Leave it running while you generate proofs — it binds to localhost:9080 and accepts /prove POSTs from https://app.zkqes.org only.',
@@ -201,14 +220,14 @@ export function CliInstall() {
             <pre
               className="text-mono text-sm p-4 overflow-x-auto"
               data-testid="cli-cmd-serve"
-              style={{ background: 'var(--ink)', color: 'var(--bone)' }}
+              style={{ background: 'var(--ct-ink)', color: 'var(--hilite-text)' }}
             >
 zkqes serve
             </pre>
             <div>
               <CopyButton text="zkqes serve" testId="cli-copy-serve" />
             </div>
-            <p className="text-sm" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+            <p className="text-sm" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
               {t(
                 'cli.runStop',
                 'Stop with Ctrl+C when finished. The server does not auto-start; nothing runs in the background.',
@@ -216,7 +235,7 @@ zkqes serve
             </p>
           </section>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="verify-heading"
@@ -226,11 +245,11 @@ zkqes serve
             <h2
               id="verify-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('cli.verifyHeading', 'Verify it')}
             </h2>
-            <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+            <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
               {t(
                 'cli.verifyBody',
                 'With zkqes serve running, go back to the register flow. The "Install zkqes" banner disappears when the browser detects the running server, and your prove step shows "proved via: cli" instead of "browser".',
@@ -239,14 +258,14 @@ zkqes serve
             <Link
               to="/ua/registerV5"
               className="inline-block text-lg"
-              style={{ color: 'var(--sovereign)' }}
+              style={{ color: 'var(--ua-blue)' }}
               data-testid="cli-back-to-register"
             >
               {t('cli.verifyCta', 'Back to the register flow →')}
             </Link>
           </section>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="troubleshoot-heading"
@@ -256,7 +275,7 @@ zkqes serve
             <h2
               id="troubleshoot-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('cli.troubleshootHeading', 'Troubleshooting')}
             </h2>
@@ -265,14 +284,14 @@ zkqes serve
                 <dt
                   className="text-fine text-sm mb-1"
                   style={{
-                    color: 'var(--sovereign)',
+                    color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',
                     letterSpacing: '0.08em',
                   }}
                 >
                   {t('cli.troublePortLabel', 'Port 9080 already in use')}
                 </dt>
-                <dd className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+                <dd className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                   {t(
                     'cli.troublePortBody',
                     'Another process is bound to :9080. Either stop it (`lsof -i :9080`, then kill the PID) or pass `zkqes serve --port <other>`. The browser only auto-detects :9080 in V1; alternate ports work but the banner won\'t auto-disappear.',
@@ -283,14 +302,14 @@ zkqes serve
                 <dt
                   className="text-fine text-sm mb-1"
                   style={{
-                    color: 'var(--sovereign)',
+                    color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',
                     letterSpacing: '0.08em',
                   }}
                 >
                   {t('cli.troubleSidecarLabel', 'rapidsnark sidecar missing')}
                 </dt>
-                <dd className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+                <dd className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                   {t(
                     'cli.troubleSidecarBody',
                     'If postinstall couldn\'t download the sidecar (offline machine, restricted CI, or native Windows where iden3 v0.0.8 ships no prebuilt), pass `zkqes serve --rapidsnark-bin <path>` with a binary you built yourself. Run `zkqes cache rebuild` while online to retry the postinstall download on platforms that have a prebuilt.',
@@ -301,14 +320,14 @@ zkqes serve
                 <dt
                   className="text-fine text-sm mb-1"
                   style={{
-                    color: 'var(--sovereign)',
+                    color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',
                     letterSpacing: '0.08em',
                   }}
                 >
                   {t('cli.troubleManifestLabel', 'Manifest fetch fails')}
                 </dt>
-                <dd className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+                <dd className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                   {t(
                     'cli.troubleManifestBody',
                     'On first run the CLI fetches the V5.2 zkey manifest from zkqes.org. If your network blocks it, pass `--manifest-url file:///path/to/local-manifest.json` with a vendored copy. The CLI verifies the manifest signature against the embedded public key in either case.',
@@ -316,8 +335,7 @@ zkqes serve
                 </dd>
               </div>
             </dl>
-          </section>
-        </div>
+        </section>
       </div>
       <DocumentFooter />
     </main>
