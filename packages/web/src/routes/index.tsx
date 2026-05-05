@@ -5,6 +5,9 @@ import { MintButton } from '../components/MintButton';
 import { DocumentFooter } from '../components/DocumentFooter';
 import { LandingHero } from '../components/LandingHero';
 import { PaperGrain } from '../components/PaperGrain';
+import { CountryGrid } from '../components/qtsp/CountryGrid';
+import type { QtspMeta } from '@zkqes/sdk';
+import '../styles/civic-terminal.css';
 
 /**
  * Root `/` route — surface depends on a runtime variant flag, then on
@@ -39,16 +42,63 @@ import { PaperGrain } from '../components/PaperGrain';
  * on a compile-time constant works at runtime but trips the
  * `react-hooks/rules-of-hooks` rule statically.
  */
+// Synthetic fixture set for the `?variant=qtsp-grid` preview surface.
+// All four states represented so the dotted/dashed/solid border
+// progression + state-specific badge chrome can be eyeballed in a
+// real browser. Replaced by the real `QTSP_INDEX` once the grid
+// is wired into Landing in T14.
+const QTSP_PREVIEW_FIXTURES: readonly QtspMeta[] = [
+  {
+    country: 'UA', qtspSlug: 'diia', displayName: 'Diia',
+    qtspUrl: 'https://diia.gov.ua/', tslEntry: null,
+    signingTool: { name: 'Diia mobile app', url: 'https://diia.gov.ua/', minVersion: null },
+    state: 'live', addedAt: '2026-05-05', promotedAt: '2026-05-05',
+    lastVerified: '2026-05-05', notes: 'Live UA QTSP — preview only.',
+  },
+  {
+    country: 'IT', qtspSlug: 'aruba-pec', displayName: 'Aruba PEC',
+    qtspUrl: 'https://www.pec.it/', tslEntry: null,
+    signingTool: { name: 'ArubaSign', url: 'https://www.pec.it/firma-digitale.aspx', minVersion: null },
+    state: 'bronze', addedAt: '2026-05-05', promotedAt: null,
+    lastVerified: '2026-05-05', notes: 'Bronze IT QTSP — preview only.',
+  },
+  {
+    country: 'DE', qtspSlug: 'd-trust', displayName: 'D-Trust',
+    qtspUrl: 'https://www.d-trust.net/', tslEntry: null,
+    signingTool: { name: 'sign-me', url: 'https://www.d-trust.net/', minVersion: null },
+    state: 'silver', addedAt: '2026-05-05', promotedAt: null,
+    lastVerified: '2026-05-05', notes: 'Silver DE QTSP — preview only.',
+  },
+  {
+    country: 'FI', qtspSlug: 'digi-fi', displayName: 'Digi-FI',
+    qtspUrl: 'https://www.digi-fi.example/', tslEntry: null,
+    signingTool: { name: 'Digi-FI signer', url: 'https://www.digi-fi.example/', minVersion: null },
+    state: 'gold', addedAt: '2026-05-05', promotedAt: null,
+    lastVerified: '2026-05-05', notes: 'Gold FI QTSP — preview only.',
+  },
+];
+
 export function IndexScreen() {
   // Variant flag — runtime URL check. `window` is always defined in
   // the SPA runtime; the `typeof` guard is defensive against any
   // future SSR / pre-render path.
-  if (
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('variant') ===
-      'civic-terminal'
-  ) {
-    return <CivicTerminalLanding />;
+  if (typeof window !== 'undefined') {
+    const variant = new URLSearchParams(window.location.search).get('variant');
+    if (variant === 'civic-terminal') {
+      return <CivicTerminalLanding />;
+    }
+    if (variant === 'qtsp-grid') {
+      // T9 visual-verification preview. `?variant=qtsp-grid` mounts the
+      // CountryGrid against a four-state synthetic fixture set so the
+      // dotted/dashed/solid border progression renders side-by-side.
+      // Replaced by the real `QTSP_INDEX` after T14 wires the grid
+      // into Landing.
+      return (
+        <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+          <CountryGrid index={QTSP_PREVIEW_FIXTURES} />
+        </div>
+      );
+    }
   }
 
   // Direct env-var comparison rather than the `IS_LANDING_TARGET`

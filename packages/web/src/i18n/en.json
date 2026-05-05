@@ -411,6 +411,20 @@
         "gold": "Try on testnet",
         "live": "Register"
       }
+    },
+    "region": {
+      "EASTERN_EU": "Eastern Europe",
+      "NORDICS": "Nordics",
+      "SOUTHERN_EU": "Southern Europe",
+      "CENTRAL_EU": "Central Europe",
+      "WESTERN_EU": "Western Europe",
+      "OTHER": "Other"
+    },
+    "filter": {
+      "all": "All"
+    },
+    "grid": {
+      "empty": "No QTSPs yet — help us add yours."
     }
   },
   "errors": {
