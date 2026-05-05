@@ -26,6 +26,9 @@ broadcast/
 packages/web/dist/
 packages/web/playwright-report/
 packages/web/test-results/
+# T5 multi-QTSP facade — `qtspIndexPlugin` re-emits this from
+# `fixtures/trust/<cc>/<slug>/meta.json` at every Vite build/dev start.
+packages/web/src/generated/qtsp-index.ts
 # Playwright MCP visual-verification PNGs — regeneratable, not source of truth.
 packages/web/screenshots/
 # Claude/Playwright MCP scratch dirs
