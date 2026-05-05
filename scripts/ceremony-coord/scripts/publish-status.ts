@@ -35,8 +35,11 @@ import {
 loadEnvFromAncestors(import.meta.dirname ?? process.cwd());
 import {
   validateStatusPayload,
+  applyCircuitUpdate,
+  KNOWN_CIRCUITS,
   type CeremonyStatusPayload,
   type CeremonyContributor,
+  type CeremonyCircuit,
   type CeremonyPhase,
   derivePhase,
 } from '../src/types.ts';
@@ -49,6 +52,7 @@ interface Args {
   finalize?: boolean;
   finalSha?: string;
   phase?: CeremonyPhase;
+  circuit?: CeremonyCircuit;
   commit: boolean;
 }
 
@@ -61,6 +65,7 @@ function parseCliArgs(): Args {
       finalize: { type: 'boolean' },
       'final-sha': { type: 'string' },
       phase: { type: 'string' },
+      circuit: { type: 'string' },
       commit: { type: 'boolean', default: false },
     },
   });
@@ -87,15 +92,35 @@ function parseCliArgs(): Args {
       throw new Error(`--phase must be one of ${KNOWN_PHASES.join('|')}; got ${values.phase}`);
     args.phase = values.phase as CeremonyPhase;
   }
+  if (typeof values.circuit === 'string') {
+    if (!KNOWN_CIRCUITS.includes(values.circuit as CeremonyCircuit))
+      throw new Error(`--circuit must be one of ${KNOWN_CIRCUITS.join('|')}; got ${values.circuit}`);
+    args.circuit = values.circuit as CeremonyCircuit;
+  }
   const modes = [args.round, args.beacon, args.finalize].filter(Boolean).length;
   if (modes !== 1) throw new Error('exactly one of --round / --beacon / --finalize required');
+  // v3 (V5.4 plan T5): `--circuit` only composes with `--round` (per-circuit
+  // round advance). Beacon + finalize remain global-only — those terminal
+  // transitions land once per ceremony, not per-circuit.
+  if (args.circuit !== undefined && args.round === undefined) {
+    throw new Error('--circuit requires --round (per-circuit round advance)');
+  }
   return args;
 }
 
-function applyRoundUpdate(
-  current: CeremonyStatusPayload,
-  round: number,
-): CeremonyStatusPayload {
+/**
+ * Read pending contributor + attestation metadata for `round` from disk.
+ * Shared by the legacy global-update path AND the v3 per-circuit path —
+ * both consume the same pending/round-N.json + round-N.attestation
+ * files (the ceremony's per-round metadata is circuit-agnostic; only
+ * the round-counter scoping differs).
+ */
+function readPendingRound(round: number): {
+  name: string;
+  profileUrl?: string;
+  sha256: string;
+  verifiedAt: string;
+} {
   const pendingFile = join(import.meta.dirname ?? '.', '..', 'pending', `round-${round}.json`);
   const attestationFile = join(import.meta.dirname ?? '.', '..', 'pending', `round-${round}.attestation`);
   const pending = JSON.parse(readFileSync(pendingFile, 'utf-8')) as {
@@ -106,12 +131,25 @@ function applyRoundUpdate(
     sha256: string;
     verifiedAt: string;
   };
-  const entry: CeremonyContributor = {
+  return {
     name: pending.name,
-    round,
-    completedAt: attestation.verifiedAt,
     ...(pending.profileUrl ? { profileUrl: pending.profileUrl } : {}),
-    attestation: attestation.sha256,
+    sha256: attestation.sha256,
+    verifiedAt: attestation.verifiedAt,
+  };
+}
+
+function applyRoundUpdate(
+  current: CeremonyStatusPayload,
+  round: number,
+): CeremonyStatusPayload {
+  const meta = readPendingRound(round);
+  const entry: CeremonyContributor = {
+    name: meta.name,
+    round,
+    completedAt: meta.verifiedAt,
+    ...(meta.profileUrl ? { profileUrl: meta.profileUrl } : {}),
+    attestation: meta.sha256,
   };
   if (current.contributors.some((c) => c.round === round))
     throw new Error(`round ${round} already in chain`);
@@ -123,6 +161,22 @@ function applyRoundUpdate(
     contributors: [...current.contributors, entry],
     currentRoundOpenedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * v3 per-circuit round update (V5.4 plan T5). Reads the same
+ * pending/round-${round}.json metadata as the legacy path, then
+ * applies the per-circuit-scoped update via `applyCircuitUpdate`.
+ * Top-level `round`/`contributors` are NOT touched — multi-circuit
+ * isolation invariant.
+ */
+function applyCircuitRoundFromPending(
+  current: CeremonyStatusPayload,
+  circuit: CeremonyCircuit,
+  round: number,
+): CeremonyStatusPayload {
+  const meta = readPendingRound(round);
+  return applyCircuitUpdate(current, circuit, round, meta.name, meta.verifiedAt);
 }
 
 function applyBeacon(
@@ -154,11 +208,22 @@ async function main(): Promise<void> {
   validateStatusPayload(current);
 
   let next: CeremonyStatusPayload;
-  if (args.round !== undefined) next = applyRoundUpdate(current, args.round);
-  else if (args.beacon)
+  if (args.round !== undefined) {
+    // v3 per-circuit branch (V5.4 plan T5): when --circuit is set, scope the
+    // round advance to circuits[name] and leave top-level round/contributors
+    // untouched. Without --circuit, legacy global-update path runs.
+    if (args.circuit !== undefined) {
+      next = applyCircuitRoundFromPending(current, args.circuit, args.round);
+    } else {
+      next = applyRoundUpdate(current, args.round);
+    }
+  } else if (args.beacon) {
     next = applyBeacon(current, args.beacon.height, args.beacon.hash);
-  else if (args.finalize) next = applyFinalize(current, args.finalSha!);
-  else throw new Error('unreachable');
+  } else if (args.finalize) {
+    next = applyFinalize(current, args.finalSha!);
+  } else {
+    throw new Error('unreachable');
+  }
 
   // v2 spec §7.2: explicit --phase override wins; otherwise auto-derive
   // from post-update fields. Beacon-applied with finalZkey populated → live;
@@ -168,19 +233,22 @@ async function main(): Promise<void> {
   next = { ...next, phase: nextPhase };
 
   console.log('--- DIFF ---');
-  console.log(
-    JSON.stringify(
-      {
-        round: { from: current.round, to: next.round },
-        contributors: { from: current.contributors.length, to: next.contributors.length },
-        beaconBlockHeight: { from: current.beaconBlockHeight, to: next.beaconBlockHeight },
-        finalZkeySha256: { from: current.finalZkeySha256, to: next.finalZkeySha256 },
-        phase: { from: current.phase, to: next.phase },
-      },
-      null,
-      2,
-    ),
-  );
+  const diff: Record<string, unknown> = {
+    round: { from: current.round, to: next.round },
+    contributors: { from: current.contributors.length, to: next.contributors.length },
+    beaconBlockHeight: { from: current.beaconBlockHeight, to: next.beaconBlockHeight },
+    finalZkeySha256: { from: current.finalZkeySha256, to: next.finalZkeySha256 },
+    phase: { from: current.phase, to: next.phase },
+  };
+  // v3 (V5.4 plan T5): surface circuits-map deltas when present, so
+  // per-circuit updates are visible in the dry-run diff.
+  if (current.circuits !== undefined || next.circuits !== undefined) {
+    diff.circuits = {
+      from: current.circuits ?? {},
+      to: next.circuits ?? {},
+    };
+  }
+  console.log(JSON.stringify(diff, null, 2));
 
   if (!args.commit) {
     console.log('\nDry-run. Re-run with --commit to publish.');
