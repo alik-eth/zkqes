@@ -224,14 +224,25 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         bytes32 _policyRoot,
         address _identityVerifier,
         address _ageVerifier,
-        address _admin
+        address _admin,
+        address _poseidonT3,
+        address _poseidonT7
     ) {
         trustedRoot = _trustedRoot;
         policyRoot = _policyRoot;
         identityVerifier = IGroth16Verifier(_identityVerifier);
         ageVerifier = IGroth16AgeVerifier(_ageVerifier);
         admin = _admin;
+        poseidonT3 = _poseidonT3;
+        poseidonT7 = _poseidonT7;
     }
+    // Poseidon T3+T7 are pre-deployed externally and passed in. Earlier
+    // drafts had the constructor CREATE-deploy them internally, mirroring
+    // V5.2's pattern, but the resulting initcode size (~41.6 KB) tripped
+    // Base Sepolia's `max initcode size exceeded` policy on broadcast
+    // (V5.2 squeaked under at 40.2 KB; V5.4's +1.5 KB delta tipped over).
+    // Pre-deploying as separate contracts is the canonical Solidity
+    // library pattern and reduces ZKQESRegistryUA's bytecode to ~6.3 KB.
 
     // ... register, rotateWallet, proveAge, admin functions ...
 }
