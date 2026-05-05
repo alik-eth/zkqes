@@ -10,7 +10,7 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DocumentFooter } from '../../components/DocumentFooter';
-import { PaperGrain } from '../../components/PaperGrain';
+import '../../styles/civic-terminal.css';
 import {
   CEREMONY_POLL_MS,
   CEREMONY_STATUS_URL,
@@ -52,23 +52,42 @@ export function CeremonyStatus() {
   }, []);
 
   return (
-    <main className="relative min-h-screen">
-      <PaperGrain />
-      <div className="doc-grid pt-24 relative z-10">
-        <div />
-        <div className="min-w-0 max-w-3xl space-y-12">
-          <Link to="/ceremony" className="text-mono text-xs block">
-            ← {t('ceremony.status.back', 'back to overview')}
-          </Link>
+    <main
+      className="ct"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '96px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '48px',
+        }}
+      >
+        <Link to="/ceremony" className="ct-link" style={{ fontFamily: 'var(--mono)', fontSize: '12px' }}>
+          ← {t('ceremony.status.back', 'back to overview')}
+        </Link>
 
-          <header>
-            <h1
-              className="text-4xl sm:text-5xl leading-none mb-8"
-              style={{ color: 'var(--ink)' }}
-            >
-              {t('ceremony.status.heading', 'Live progress.')}
-            </h1>
-            <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+        <header>
+          <h1
+            style={{
+              fontFamily: 'var(--display)',
+              fontSize: '52px',
+              lineHeight: 1,
+              margin: 0,
+              marginBottom: '24px',
+              color: 'var(--ct-ink)',
+            }}
+          >
+            {t('ceremony.status.heading', 'Live progress.')}
+          </h1>
+            <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
               {t(
                 'ceremony.status.lede',
                 'Each round closes when the contributor uploads their attested intermediate zkey. We publish the chain here as it grows.',
@@ -76,14 +95,14 @@ export function CeremonyStatus() {
             </p>
           </header>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           {feed.kind === 'loading' && (
             <p
               className="text-sm"
               role="status"
               data-testid="ceremony-status-loading"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('ceremony.status.loading', 'Loading status feed…')}
             </p>
@@ -94,7 +113,7 @@ export function CeremonyStatus() {
               className="text-sm"
               role="alert"
               data-testid="ceremony-status-unavailable"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t(
                 'ceremony.status.unavailable',
@@ -103,10 +122,9 @@ export function CeremonyStatus() {
             </p>
           )}
 
-          {feed.kind === 'ok' && (
-            <StatusBody payload={feed.payload} />
-          )}
-        </div>
+        {feed.kind === 'ok' && (
+          <StatusBody payload={feed.payload} />
+        )}
       </div>
       <DocumentFooter />
     </main>
@@ -127,7 +145,7 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
         <h2
           id="state-heading"
           className="text-3xl"
-          style={{ color: 'var(--ink)' }}
+          style={{ color: 'var(--ct-ink)' }}
         >
           {state === 'planned' &&
             t('ceremony.status.statePlanned', 'Awaiting first contributor.')}
@@ -138,7 +156,7 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
         </h2>
         <p
           className="text-base max-w-prose"
-          style={{ color: 'var(--ink)' }}
+          style={{ color: 'var(--ct-ink)' }}
           data-testid="ceremony-state-blurb"
         >
           {state === 'planned' &&
@@ -160,7 +178,7 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
         </p>
       </section>
 
-      <hr className="rule" />
+      <hr className="ct-divider" />
 
       <section
         aria-labelledby="chain-heading"
@@ -170,14 +188,14 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
         <h2
           id="chain-heading"
           className="text-3xl"
-          style={{ color: 'var(--ink)' }}
+          style={{ color: 'var(--ct-ink)' }}
         >
           {t('ceremony.status.chainHeading', 'Contributor chain')}
         </h2>
         {payload.contributors.length === 0 ? (
           <p
             className="text-base"
-            style={{ color: 'var(--ink)', opacity: 0.7 }}
+            style={{ color: 'var(--ct-ink)', opacity: 0.7 }}
             data-testid="ceremony-chain-empty"
           >
             {t('ceremony.status.chainEmpty', 'No rounds yet.')}
@@ -193,30 +211,30 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
                 <div
                   className="text-fine text-sm"
                   style={{
-                    color: 'var(--sovereign)',
+                    color: 'var(--ua-blue)',
                     fontVariant: 'small-caps',
                     letterSpacing: '0.08em',
                   }}
                 >
-                  <span aria-hidden="true" style={{ color: 'var(--seal)', marginRight: '0.5em' }}>
+                  <span aria-hidden="true" style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>
                     {c.round}
                   </span>
                   {t('ceremony.status.roundLabel', 'Round')} {c.round}
                 </div>
-                <div className="text-base" style={{ color: 'var(--ink)' }}>
+                <div className="text-base" style={{ color: 'var(--ct-ink)' }}>
                   {c.profileUrl ? (
-                    <a href={c.profileUrl} style={{ color: 'var(--sovereign)' }}>
+                    <a href={c.profileUrl} style={{ color: 'var(--ua-blue)' }}>
                       {c.name}
                     </a>
                   ) : (
                     c.name
                   )}
                 </div>
-                <div className="text-mono text-xs" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                <div className="text-mono text-xs" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                   {c.completedAt}
                 </div>
                 {c.attestation && (
-                  <div className="text-mono text-xs break-all" style={{ color: 'var(--ink)', opacity: 0.6 }}>
+                  <div className="text-mono text-xs break-all" style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
                     {c.attestation}
                   </div>
                 )}
@@ -228,7 +246,7 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
 
       {payload.finalZkeySha256 && (
         <>
-          <hr className="rule" />
+          <hr className="ct-divider" />
           <section
             aria-labelledby="final-heading"
             data-testid="ceremony-final"
@@ -237,25 +255,25 @@ function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
             <h2
               id="final-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('ceremony.status.finalHeading', 'Final zkey')}
             </h2>
             <p
               className="text-mono text-sm break-all"
               data-testid="ceremony-final-hash"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               sha256 {payload.finalZkeySha256}
             </p>
             {payload.beaconBlockHeight !== null &&
               payload.beaconHash !== null && (
-                <p className="text-mono text-xs break-all" style={{ color: 'var(--ink)', opacity: 0.7 }}>
+                <p className="text-mono text-xs break-all" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
                   beacon block {payload.beaconBlockHeight} {payload.beaconHash}
                 </p>
               )}
-            <p className="text-base" style={{ color: 'var(--ink)' }}>
-              <Link to="/ceremony/verify" style={{ color: 'var(--sovereign)' }}>
+            <p className="text-base" style={{ color: 'var(--ct-ink)' }}>
+              <Link to="/ceremony/verify" style={{ color: 'var(--ua-blue)' }}>
                 {t('ceremony.status.verifyLink', 'Verify your downloaded zkey →')}
               </Link>
             </p>
