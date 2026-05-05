@@ -64,13 +64,34 @@ export function MintNftStep() {
   const chainLabel = chainId === 8453 ? 'Base' : 'Sepolia';
   const explorerBase = chainId === 8453 ? 'basescan.org' : 'sepolia.etherscan.io';
 
+  // Civic-terminal v2 (task #84) — heading uses VT323 display, mint
+  // CTA collapses to .ct-btn--lg.ct-btn--ua, OpenSea + tx links pick
+  // up .ct-link.
+  const headingStyle: React.CSSProperties = {
+    fontFamily: 'var(--display)',
+    fontSize: '52px',
+    lineHeight: 1,
+    margin: 0,
+    color: 'var(--ct-ink)',
+  };
+
   if (!v5Deployed) {
     return (
-      <section aria-labelledby="mint-heading" className="space-y-4">
-        <h1 id="mint-heading" className="text-5xl">
+      <section
+        aria-labelledby="mint-heading"
+        style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+      >
+        <h1 id="mint-heading" style={headingStyle}>
           Mint your certificate
         </h1>
-        <p className="text-base" data-testid="v5-mint-pending-deploy">
+        <p
+          data-testid="v5-mint-pending-deploy"
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: '14px',
+            color: 'var(--ct-ink)',
+          }}
+        >
           Awaiting V5 registry deployment. Mint becomes available once
           orchestration §9.4 (Base Sepolia E2E) closes.
         </p>
@@ -79,11 +100,14 @@ export function MintNftStep() {
   }
 
   return (
-    <section aria-labelledby="mint-heading" className="space-y-6">
-      <h1 id="mint-heading" className="text-5xl">
+    <section
+      aria-labelledby="mint-heading"
+      style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+    >
+      <h1 id="mint-heading" style={headingStyle}>
         {minted ? 'Your certificate' : 'Mint your certificate'}
       </h1>
-      <hr className="rule" />
+      <hr className="ct-divider" />
       <div className={txMined ? 'cert-stamp-in' : ''}>
         <CertificatePreview
           tokenId={previewTokenId}
@@ -92,18 +116,18 @@ export function MintNftStep() {
           mintTimestamp={Math.floor(Date.now() / 1000)}
         />
       </div>
-      <div className="mt-8">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {!minted && !txMined && (
           <button
             type="button"
             onClick={onMint}
             disabled={isPending || !registered}
             data-testid="v5-mint-cta"
-            className="px-8 py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ct-btn ct-btn--lg ct-btn--ua"
             style={{
-              background: 'var(--sovereign)',
-              color: 'var(--bone)',
-              borderRadius: 2,
+              opacity: isPending || !registered ? 0.5 : 1,
+              cursor: isPending || !registered ? 'not-allowed' : 'pointer',
+              alignSelf: 'flex-start',
             }}
           >
             {isPending
@@ -114,7 +138,7 @@ export function MintNftStep() {
           </button>
         )}
         {(minted || txMined) && (
-          <div className="flex gap-4">
+          <div style={{ display: 'flex', gap: '16px' }}>
             <a
               href={`https://${
                 chainId === 8453
@@ -123,19 +147,28 @@ export function MintNftStep() {
               }${dep?.zkqesCertificate}/${previewTokenId}`}
               target="_blank"
               rel="noreferrer"
-              className="px-6 py-3 underline"
+              className="ct-link"
+              style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
             >
               View on OpenSea
             </a>
           </div>
         )}
         {txHash && (
-          <p className="mt-4 text-mono text-xs">
+          <p
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '12px',
+              color: 'var(--ct-mute)',
+              margin: 0,
+            }}
+          >
             tx:{' '}
             <a
               href={`https://${explorerBase}/tx/${txHash}`}
               target="_blank"
               rel="noreferrer"
+              className="ct-link"
             >
               {txHash.slice(0, 12)}…
             </a>
