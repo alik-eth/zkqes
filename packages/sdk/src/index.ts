@@ -81,6 +81,15 @@ export {
   type ParsedCades,
 } from './cert/cades.js';
 
+export { packAgeProof, type AgeProofCalldata } from './cert/age-proof.js';
+
+export {
+  buildAgeWitness,
+  type AgePublicSignals,
+  type BuildAgeWitnessArgs,
+  type BuildAgeWitnessOutput,
+} from './witness/v5_4/build-age-witness.js';
+
 export {
   loadArtifacts,
   pickVariantUrls,
@@ -258,14 +267,19 @@ export { isVerified, nullifierOf, trustedListRoot } from './registry/index.js';
 
 export {
   ZKQES_DEPLOYMENTS,
+  ZKQES_REGISTRY_UA,
   deploymentForChainId,
+  zkqesRegistryUaForChainId,
   type ZkqesDeployment,
   type ZkqesNetwork,
+  type ZkqesRegistryUaDeployment,
+  type ZkqesRegistryUaNetwork,
 } from './deployments.js';
 
 export { zkqesRegistryV4Abi } from './abi/ZkqesRegistryV4.js';
 export { zkqesRegistryV5_1Abi } from './abi/ZkqesRegistryV5_1.js';
 export { zkqesRegistryV5_2Abi } from './abi/ZkqesRegistryV5_2.js';
+export { zkqesRegistryUaAbi } from './abi/ZkqesRegistryUA.js';
 export { zkqesCertificateAbi } from './abi/ZkqesCertificate.js';
 
 export {

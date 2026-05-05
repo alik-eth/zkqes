@@ -223,6 +223,18 @@ const appOnlyRoutes: AnyRoute[] = import.meta.env.VITE_TARGET !== 'landing'
           'AccountRotateScreen',
         ),
       }),
+      // V5.4 — age verification flow (orchestration §S2.1 step 5,
+      // web plan T4). App-target only: the flow needs wagmi +
+      // SAB-Worker prover + on-chain ZKQES_REGISTRY_UA reads
+      // (post-Phase-C). Today's Phase A skeleton ships under MockProver.
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/account/prove-age',
+        component: lazyRouteComponent(
+          () => import('./routes/account/proveAge'),
+          'AccountProveAgeScreen',
+        ),
+      }),
     ]
   : [];
 

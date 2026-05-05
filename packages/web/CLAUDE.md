@@ -453,6 +453,27 @@ Fields written per route:
   AND a Playwright assertion in `tests/e2e/flow.spec.ts`.
 - Any `console.log` / `console.error` in `src/` — kills the
   "no console errors in dist" smoke test.
+- `vi.restoreAllMocks()` in `afterEach` alongside module-factory mocks
+  (`vi.mock(path, () => ({ ... }))`) — silently contaminates the
+  factory-injected `vi.fn()` instances in ways that pass-in-isolation
+  but fail-in-full-file-runs. Pattern: per-test explicit `mockReset()`
+  on each mocked symbol + a `beforeEach` that re-installs the default
+  implementations. Documented post-V5.4-T5.2 (`68f5f4e`) after
+  `useV5_4BindingsForWallet` mock drift surfaced this way.
+- `vi.useFakeTimers()` (default scope) + Testing Library's `waitFor` —
+  faking `setTimeout` freezes `waitFor`'s polling interval, so React's
+  effect schedule never advances within the 5 s test timeout. When you
+  only need frozen-`Date.now()` for a deterministic clock, scope to
+  `vi.useFakeTimers({ toFake: ['Date'] })` to keep
+  `setTimeout`/`setInterval` real. Documented post-V5.4-T5.2 (`68f5f4e`).
+- `new MockProver()` with `side: 'v5'` defaults to **14 publicSignals**
+  (V5.x intermediate count), which downstream `pack*Proof` length
+  guards reject. V5.4 surfaces (3 publics per AgeDiiaUA §1.3 FROZEN)
+  need a configured `MockProver({result: {publicSignals: [3-array]}})`
+  helper; `tests/unit/ProveAgeFlow.test.tsx::v5_4MockProver()` is the
+  reference pattern. New V5.x-derivative circuits with non-default
+  signal counts should ship a sibling helper alongside their first
+  unit test. Documented post-V5.4-T5.4 (`550cabe`).
 
 ## Phase 2 QIE — MVP refinement (current)
 

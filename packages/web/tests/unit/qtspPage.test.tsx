@@ -69,6 +69,12 @@ function meta(country: string, slug: string, state: QtspMeta['state']): QtspMeta
     promotedAt: state === 'live' ? '2026-05-05' : null,
     lastVerified: '2026-05-05',
     notes: 'sample notes',
+    // V5.4 — required QtspMeta fields. Cross-field invariant requires
+    // a non-null OID when dobEncoding !== 'none'; the fixture uses
+    // canonical Diia-UA values regardless of country since these
+    // tests don't exercise per-country DOB extraction.
+    dobEncoding: 'diia-ua' as const,
+    dobAttributeOid: '1.2.804.2.1.1.1.11.1.4.11.1',
   };
 }
 
