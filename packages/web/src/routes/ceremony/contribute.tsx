@@ -14,8 +14,8 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from '../../components/CopyButton';
 import { DocumentFooter } from '../../components/DocumentFooter';
-import { PaperGrain } from '../../components/PaperGrain';
 import { FlyLauncherForm } from '../../components/ceremony/FlyLauncherForm';
+import '../../styles/civic-terminal.css';
 
 interface CommandPanel {
   step: number;
@@ -96,23 +96,42 @@ export function CeremonyContribute() {
   ];
 
   return (
-    <main className="relative min-h-screen">
-      <PaperGrain />
-      <div className="doc-grid pt-24 relative z-10">
-        <div />
-        <div className="min-w-0 max-w-3xl space-y-12">
-          <Link to="/ceremony" className="text-mono text-xs block">
-            ← {t('ceremony.contribute.back', 'back to overview')}
-          </Link>
+    <main
+      className="ct"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--ct-paper)',
+        color: 'var(--ct-ink)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '720px',
+          margin: '0 auto',
+          padding: '96px 24px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '48px',
+        }}
+      >
+        <Link to="/ceremony" className="ct-link" style={{ fontFamily: 'var(--mono)', fontSize: '12px' }}>
+          ← {t('ceremony.contribute.back', 'back to overview')}
+        </Link>
 
-          <header>
-            <h1
-              className="text-4xl sm:text-5xl leading-none mb-8"
-              style={{ color: 'var(--ink)' }}
-            >
-              {t('ceremony.contribute.heading', 'Contribute on your machine.')}
-            </h1>
-            <p className="text-lg max-w-2xl" style={{ color: 'var(--ink)' }}>
+        <header>
+          <h1
+            style={{
+              fontFamily: 'var(--display)',
+              fontSize: '52px',
+              lineHeight: 1,
+              margin: 0,
+              marginBottom: '24px',
+              color: 'var(--ct-ink)',
+            }}
+          >
+            {t('ceremony.contribute.heading', 'Contribute on your machine.')}
+          </h1>
+          <p style={{ fontFamily: 'var(--mono)', fontSize: '15px', lineHeight: 1.5, maxWidth: '60ch', color: 'var(--ct-ink)' }}>
               {t(
                 'ceremony.contribute.lede',
                 'The actual contribution runs as a local snarkjs CLI invocation on your laptop or workstation. The browser cannot host it — V8 caps WebAssembly at 4 GB of heap and the prover key needs more than that to ingest.',
@@ -120,7 +139,7 @@ export function CeremonyContribute() {
             </p>
           </header>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="requirements-heading"
@@ -130,16 +149,16 @@ export function CeremonyContribute() {
             <h2
               id="requirements-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('ceremony.contribute.requirementsHeading', 'What you need')}
             </h2>
             <ul
               className="space-y-3 text-base"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>
                   ·
                 </span>
                 <strong>32 GB RAM minimum.</strong>{' '}
@@ -149,7 +168,7 @@ export function CeremonyContribute() {
                 )}
               </li>
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>
                   ·
                 </span>
                 <strong>5 GB free disk.</strong>{' '}
@@ -159,7 +178,7 @@ export function CeremonyContribute() {
                 )}
               </li>
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>
                   ·
                 </span>
                 <strong>Linux, macOS, or Windows + WSL.</strong>{' '}
@@ -169,7 +188,7 @@ export function CeremonyContribute() {
                 )}
               </li>
               <li>
-                <span style={{ color: 'var(--seal)', marginRight: '0.5em' }}>
+                <span style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>
                   ·
                 </span>
                 <strong>30–40 minutes.</strong>{' '}
@@ -181,7 +200,7 @@ export function CeremonyContribute() {
             </ul>
             <p
               className="text-sm"
-              style={{ color: 'var(--ink)', opacity: 0.75 }}
+              style={{ color: 'var(--ct-ink)', opacity: 0.75 }}
               data-testid="ceremony-not-supported"
             >
               {t(
@@ -191,7 +210,7 @@ export function CeremonyContribute() {
             </p>
           </section>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="commands-heading"
@@ -201,7 +220,7 @@ export function CeremonyContribute() {
             <h2
               id="commands-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('ceremony.contribute.commandsHeading', 'The four commands')}
             </h2>
@@ -210,23 +229,23 @@ export function CeremonyContribute() {
                 <h3
                   className="text-fine text-sm"
                   style={{
-                    color: 'var(--sovereign)',
+                    color: 'var(--ct-mute)',
                     fontVariant: 'small-caps',
                     letterSpacing: '0.08em',
                   }}
                 >
-                  <span aria-hidden="true" style={{ color: 'var(--seal)', marginRight: '0.5em' }}>
+                  <span aria-hidden="true" style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>
                     {p.step}
                   </span>
                   {p.title}
                 </h3>
-                <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+                <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
                   {p.body}
                 </p>
                 <pre
                   className="text-mono text-sm p-4 overflow-x-auto whitespace-pre-wrap break-all"
                   data-testid={`ceremony-cmd-${p.testIdSuffix}`}
-                  style={{ background: 'var(--ink)', color: 'var(--bone)' }}
+                  style={{ background: 'var(--ct-ink)', color: 'var(--hilite-text)' }}
                 >
 {p.cmd}
                 </pre>
@@ -240,11 +259,11 @@ export function CeremonyContribute() {
             ))}
           </section>
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <FlyLauncherForm />
 
-          <hr className="rule" />
+          <hr className="ct-divider" />
 
           <section
             aria-labelledby="signup-heading"
@@ -254,11 +273,11 @@ export function CeremonyContribute() {
             <h2
               id="signup-heading"
               className="text-3xl"
-              style={{ color: 'var(--ink)' }}
+              style={{ color: 'var(--ct-ink)' }}
             >
               {t('ceremony.contribute.signupHeading', 'Sign up')}
             </h2>
-            <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+            <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
               {t(
                 'ceremony.contribute.signupBody',
                 'Email the admin with your handle, preferred contribution slot, and a short note on who you are. The admin assigns rounds in arrival order and replies with your download + signed-upload URLs.',
@@ -267,14 +286,13 @@ export function CeremonyContribute() {
             <p className="text-mono text-sm">
               <a
                 href="mailto:ceremony@zkqes.org?subject=V5%20ceremony%20contribution&body=Handle%3A%20%0AAffiliation%2Frole%3A%20%0APreferred%20slot%3A%20%0ANotes%3A%20"
-                style={{ color: 'var(--sovereign)' }}
+                className="ct-link"
                 data-testid="ceremony-signup-mailto"
               >
                 ceremony@zkqes.org
               </a>
             </p>
-          </section>
-        </div>
+        </section>
       </div>
       <DocumentFooter />
     </main>
