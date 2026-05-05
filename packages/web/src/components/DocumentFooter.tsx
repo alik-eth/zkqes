@@ -8,12 +8,17 @@ import { deploymentForChainId } from '@zkqes/sdk';
 export function DocumentFooter() {
   const chainId = useChainId();
   const dep = deploymentForChainId(chainId);
+  // Chain ID → human label. 8453 = Base mainnet, 84532 = Base Sepolia
+  // (current pre-launch testnet target per task #15 / #70), 11155111 =
+  // Ethereum Sepolia (legacy testnet, kept for backwards compat).
   const network =
     chainId === 8453
       ? 'Base mainnet'
-      : chainId === 11155111
-        ? 'Sepolia'
-        : 'unknown';
+      : chainId === 84532
+        ? 'Base Sepolia'
+        : chainId === 11155111
+          ? 'Sepolia'
+          : 'unknown';
   return (
     <footer
       style={{

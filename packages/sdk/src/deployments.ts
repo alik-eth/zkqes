@@ -36,9 +36,28 @@ export const ZKQES_DEPLOYMENTS = {
     },
     mintDeadline: 1792833194,
   },
+  // Base Sepolia (L2 testnet) — current pre-launch deploy target per
+  // task #15 / #70. v5.2 stub-verifier deployment populated from
+  // fixtures/contracts/base-sepolia.json (deployed 2026-05-04). V4
+  // contracts not present on this chain — V4 was Sepolia-L1-only.
+  // The verifierKind is 'stub' until the post-ceremony Groth16Verifier
+  // swap (which per spec §8.2 requires a fresh registry redeploy).
+  baseSepolia: {
+    chainId: 84532,
+    registry:           '0x0000000000000000000000000000000000000000' as Address,
+    registryV5:         '0xeE3bE208418DB51040e5983138C758C9eD154816' as Address,
+    zkqesCertificate:  '0x1e6a264F760D80BBf9E6fb2700A69b93B46a1A63' as Address,
+    verifiers: {
+      leaf:  '0x0000000000000000000000000000000000000000' as Address,
+      chain: '0x0000000000000000000000000000000000000000' as Address,
+      age:   '0x0000000000000000000000000000000000000000' as Address,
+      v5:    '0x5d63671653d9a047493386D494891fFDEc64007e' as Address,
+    },
+    mintDeadline: 0,
+  },
   base: {
     chainId: 8453,
-    // populated by M8 deploy
+    // populated by M8 deploy (post-§9.4 mainnet launch)
     registry:           '0x0000000000000000000000000000000000000000' as Address,
     registryV5:         '0x0000000000000000000000000000000000000000' as Address,
     zkqesCertificate:  '0x0000000000000000000000000000000000000000' as Address,
