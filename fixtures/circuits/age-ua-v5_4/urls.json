@@ -5,14 +5,14 @@
   "note": "AgeDiiaUA Tier-2 age circuit — V5.4 per-country pattern (UA only in V5.4 scope). Initial pre-ceremony zkey (contributor-0) computed locally via `snarkjs groth16 setup` against the pinned pot22 phase 1 ptau (Hermez transcript, sha256-verified against the V5.3 stub script's pinned literal). This is the input to the upcoming single Phase B ceremony covering BOTH V5.3 identity + V5.4 age circuits per contributor (per orchestration §2.2 step 7). URLs are placeholders — team-lead backfills `zkeyUrl` after R2 upload from main checkout where R2_* creds live (CLAUDE.md secrets-hygiene split: R2_SECRET_ACCESS_KEY never messaged to workers). The `verifierSolSha256` lands at T6 post-ceremony when `snarkjs zkey export solidityverifier` runs against the FINAL zkey, NOT this initial one.",
   "circuit": "AgeDiiaUA",
   "country": "UA",
-  "wasmUrl": "",
-  "zkeyUrl": "",
+  "wasmUrl": "https://prove.zkqes.org/age-ua-v5_4/AgeDiiaUA.wasm",
+  "zkeyUrl": "https://prove.zkqes.org/age-ua-v5_4/age-ua-v5_4-initial.zkey",
   "vkeyUrl": "",
-  "wasmSha256": "TBD-post-r2-upload-and-vkey-export",
+  "wasmSha256": "8322c9c527a7ed371ce81604180be98dceb033fb0be1ec87d6609093ccf55a56",
   "zkeySha256": "919b87a856bc2afd7facecc9a24f988e5c5bd58440c86778ba48be9a97ba7b38",
-  "vkeySha256": "TBD-post-r2-upload-and-vkey-export",
+  "vkeySha256": "TBD-post-vkey-export",
   "verifierSolSha256": "TBD-post-ceremony-T6",
-  "wasmBytes": null,
+  "wasmBytes": 377148,
   "zkeyBytes": 51396408,
   "publicSignals": 3,
   "powersOfTau": 22,
@@ -26,5 +26,5 @@
   "ceremonyPhase": "A — initial pre-ceremony zkey, contributor-0",
   "nextStep": "Phase B multi-contributor ceremony per V5.4 plan T6 (≥5 contributors, both V5.3 identity + V5.4 age circuits per session)",
   "localZkeyPath": "packages/circuits/build/v5_4/AgeDiiaUA-initial.zkey",
-  "uploadedAt": null
+  "uploadedAt": "2026-05-05T16:06:00Z"
 }
