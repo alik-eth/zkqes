@@ -37,23 +37,25 @@ const DIST_HTML = resolve(DIST_DIR, 'index.html');
 // wiring a gzipper, and the relative budget tracks dependency weight
 // changes monotonically.
 //
-// Spec §11 #3 floor: 2.7 MB. Current state on the multi-QTSP facade
-// branch sits at ~2.77 MB after T9-T14 — 70 KB over the spec floor.
-// Lead's T15 dispatch was clear ("don't hack around budget overruns,
-// investigate"); the investigation surfaced no isolated lazy-import
-// drift to fix (CountryGrid is already lazy via React.lazy; route
-// chunks are already lazyRouteComponent-d; old-style PaperGrain
-// + civic-monumental tokens were removed at user's "remove old
-// style" request). The 70 KB margin is broadly distributed across
-// the i18next + react + tanstack baseline + the qtsp helpers/
-// QTSP_INDEX consumers that have to be in the entry to render
-// the `#coverage` section's Suspense boundary.
+// Spec §11 #3 floor: 2.7 MB. Live state after task #84 (founder-
+// directed civic-terminal redesign of all remaining old-style
+// surfaces — Step1-4, ScwPassphraseModal, RotateWalletFlow,
+// AppRegisterLanding, ceremony pages, MintButton/MintNftStep, ua/*
+// legacy routes, CliBanner, FlyLauncherForm, PaperGrain delete,
+// styles.css legacy-token strip) is **2.77 MB** — same as before
+// the redesign. The legacy-token surfaces all lived in the app
+// target (`AppRegisterLanding`, `RotateWalletFlow`, ceremony pages
+// behind `IS_APP_TARGET`); Vite's dead-branch elimination already
+// kept them out of the landing entry. Removing the dead-branch
+// imports themselves doesn't move the landing bundle.
 //
-// Holding at **2.85 MB** as the working ceiling so the ratchet
-// catches future drift; ratcheting back to 2.7 MB is a follow-up
-// once the broader civic-terminal-only refactor (AppRegisterLanding,
-// ceremony pages, ScwPassphraseModal etc) lands and removes the
-// dead-branch overhead. Logged as task #84 / T15.1 polish.
+// The ~70 KB margin over the spec floor is broadly distributed
+// across i18next + react + tanstack baseline + qtsp helpers /
+// QTSP_INDEX consumers required to render the `#coverage`
+// section's Suspense boundary. No isolated lazy-import drift to
+// fix; ratchet stays at 2.85 MB for forward drift detection,
+// spec-floor ratchet (2.7 MB) deferred to a future bundle-only
+// task that targets the i18next/tanstack/qtsp triad directly.
 const BUDGET_BYTES = 2.85 * 1024 * 1024;
 
 // Default-skip gate. `pnpm test` (per-PR fast suite) discovers this
@@ -65,9 +67,6 @@ const RUN_BUNDLE_SIZE = process.env.RUN_BUNDLE_SIZE === '1';
 describe.runIf(RUN_BUNDLE_SIZE)('landing bundle size budget (T15)', () => {
   // 120s test timeout — `pnpm -F @zkqes/web build` is ~15-20s in the
   // worktree, ~60-90s on CI runners with cold caches.
-  // Test-name budget is the live ratchet ceiling, not the spec
-  // floor. Spec §11 floor is 2.7 MB; we hold at 2.85 MB pending the
-  // T15.1 broader civic-terminal refactor (see BUDGET_BYTES comment).
   it('VITE_TARGET=landing entry chunk fits the live budget', { timeout: 120_000 }, () => {
     execSync('pnpm -F @zkqes/web build', {
       env: {
