@@ -94,6 +94,16 @@ const qtspPageRoute = createRoute({
   component: lazyRouteComponent(() => import('./routes/qtspPage')),
 });
 
+// Multi-QTSP facade T11: `/countries` soft-redirect to Landing's
+// `#coverage` anchor. Targeted by bronze-tile direct-loads from T10
+// and by URL-typed `/countries` arrivals. Lazy-loaded for chunk
+// hygiene (the body is tiny, but consistency-first).
+const countriesRedirectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/countries',
+  component: lazyRouteComponent(() => import('./routes/countriesRedirect')),
+});
+
 const sharedRoutes: AnyRoute[] = [
   indexRoute,
   ceremonyRoute,
@@ -102,6 +112,7 @@ const sharedRoutes: AnyRoute[] = [
   ceremonyVerifyRoute,
   integrationsRoute,
   qtspPageRoute,
+  countriesRedirectRoute,
 ];
 
 // ---------------------------------------------------------------- //
