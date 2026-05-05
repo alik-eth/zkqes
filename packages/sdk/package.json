@@ -47,7 +47,8 @@
     "asn1js": "^3.0.7",
     "canonicalize": "^3.0.0",
     "circomlibjs": "^0.1.7",
-    "pkijs": "^3.4.0"
+    "pkijs": "^3.4.0",
+    "zod": "^3.22.0"
   },
   "peerDependencies": {
     "snarkjs": "^0.7",

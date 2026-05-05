@@ -144,3 +144,15 @@ export function getCountryConfig(
   if (!overrides) return base;
   return { ...base, ...overrides };
 }
+
+// Multi-QTSP facade (per plan T2): per-(country, QTSP) metadata schema for
+// the trust-list ingestion contract. Consumed by the Vite plugin at build
+// time + by the Landing tile grid + per-QTSP route at runtime.
+export {
+  QTSP_STATES,
+  QtspMetaSchema,
+  SignerToolMetaSchema,
+  type QtspMeta,
+  type QtspState,
+  type SignerToolMeta,
+} from './qtspMeta.js';
