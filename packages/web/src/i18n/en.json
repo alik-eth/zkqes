@@ -357,6 +357,34 @@
           "heading": "RECENT",
           "empty": "no lookups yet"
         }
+      },
+      "binding": {
+        "back": "back to overview",
+        "heading": "Verify a binding",
+        "lede": "Paste a wallet address. The verifier runs locally — no server learns what you looked up. Pre-launch, the on-chain registry is gated behind the Base Sepolia deploy + ceremony close; for attestation lookups today, head to the ceremony verifier.",
+        "marqueeSidebar": "verify a wallet ↔ qualified-identity binding",
+        "queryLabel": "QUERY",
+        "placeholder": "0x… wallet address",
+        "submit": "Verify",
+        "result": {
+          "heading": "RESULT",
+          "idle": "Paste a wallet and press Verify. Lookups run locally; nothing leaves this tab.",
+          "invalidTag": "INVALID INPUT",
+          "invalidBody": "That doesn't look like a 0x-prefixed wallet address. Expected: 42-character hex string.",
+          "preLaunchTag": "AVAILABLE POST-LAUNCH",
+          "checkedLocally": "checked locally · 0 ms",
+          "preLaunchBody": "The on-chain binding registry deploys to Base Sepolia after the trusted-setup ceremony closes (task #15 / #70). Once live, this surface will report whether the wallet is bound to a qualified identity, the QTSP class (EU LOTL or UA TL), the ceremony round the proof verifies against, and how many wallets share the underlying nullifier — without revealing the identity itself.",
+          "preLaunchAttestationLink": "verify a ceremony attestation hash today →"
+        },
+        "notLearned": {
+          "heading": "WHAT YOU CAN'T LEARN",
+          "bullets": [
+            "The holder's name.",
+            "Which QTSP issued the certificate.",
+            "Which country they are in.",
+            "Whether two wallets share a holder, unless the holder tells you."
+          ]
+        }
       }
     }
   },

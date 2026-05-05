@@ -32,6 +32,7 @@ import { CeremonyIndex } from './routes/ceremony/index';
 import { CeremonyContribute } from './routes/ceremony/contribute';
 import { CeremonyStatus } from './routes/ceremony/status';
 import { CeremonyVerify } from './routes/ceremony/verify';
+import { VerifyBindingScreen } from './routes/verifyBinding';
 
 function RootLayout() {
   return <Outlet />;
@@ -104,6 +105,18 @@ const countriesRedirectRoute = createRoute({
   component: lazyRouteComponent(() => import('./routes/countriesRedirect')),
 });
 
+// /verify — civic-terminal v3 binding-lookup surface (founder pick
+// 2026-05-05 per Claude Design handoff). Net-new top-level route,
+// distinct from /ceremony/verify (which verifies attestation hashes
+// against the ceremony chain). Static composition — no wallet
+// connection required, no SAB context — so it's safe to ship on
+// landing target as a sharedRoute.
+const verifyBindingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/verify',
+  component: VerifyBindingScreen,
+});
+
 const sharedRoutes: AnyRoute[] = [
   indexRoute,
   ceremonyRoute,
@@ -113,6 +126,7 @@ const sharedRoutes: AnyRoute[] = [
   integrationsRoute,
   qtspPageRoute,
   countriesRedirectRoute,
+  verifyBindingRoute,
 ];
 
 // ---------------------------------------------------------------- //
