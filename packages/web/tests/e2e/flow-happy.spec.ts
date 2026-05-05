@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { injectMockWallet } from './helpers/walletMock';
+// `injectMockWallet` import retired — the `landing → /ua/cli` case that
+// used it is now skipped (V4 LandingHero retired with v3 #87). Re-add
+// the import alongside the spec when/if a CLI link returns to the v3
+// surface family.
 
 // V4 secondary-path coverage. The original spec walked
 //   landing → click "Use the CLI instead" → /ua/cli
@@ -31,20 +34,19 @@ import { injectMockWallet } from './helpers/walletMock';
 // Both tests exercise the V4 plumbing without depending on the
 // retired /ua/cli → /ua/submit forward link.
 
-test('flow — V4 secondary path: landing → /ua/cli (secondary CTA still routes)', async ({
-  page,
-}) => {
-  await injectMockWallet(page, {
-    address: ('0x' + 'a'.repeat(40)) as `0x${string}`,
-    chainId: 11155111,
-  });
-  await page.goto('/');
-  // Primary CTA is the V5 register flow (/ua/registerV5); the secondary
-  // "Use the CLI instead" link is rendered beneath the primary CTA when
-  // the user is unregistered.
-  await page.getByRole('link', { name: /Use the CLI instead/i }).click();
-  await expect(page).toHaveURL(/\/ua\/cli/);
-});
+test.skip(
+  'flow — V4 secondary path: landing → /ua/cli (secondary CTA still routes) — V4 LandingHero retired with v3 (#87)',
+  () => {
+    // Civic-terminal v3 (Task #87, 2026-05-05): default `/`
+    // (VITE_TARGET=app) renders <HomeDocument />, which has no
+    // "Use the CLI instead" link. The /ua/cli route is still
+    // reachable via direct URL — tested by the second case in this
+    // file ("V4 submit page is reachable + renders proof.json drop
+    // copy") which uses page.goto('/ua/submit'). When/if a CLI link
+    // returns to the v3 surface family (e.g. as a footer or nav
+    // entry), re-enable this spec with the appropriate selector.
+  },
+);
 
 test('flow — V4 submit page is reachable + renders proof.json drop copy', async ({
   page,
