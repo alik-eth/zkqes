@@ -1,3 +1,8 @@
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). Pre-v2
+// sovereign-indigo dot retired in favor of --ct-ink + civic-terminal
+// kicker rhythm. Behaviour byte-identical: 1..4 indexed steps, current
+// receives aria-current="step", done/active receive a filled marker.
+//
 // V5 register flow has 4 stages, distinct from V4's StepIndicator
 // (Install / Submit / Mint). Kept as a sibling rather than extended on
 // top of StepIndicator so V4 ergonomics are unaffected during migration.
@@ -22,7 +27,17 @@ export function StepIndicatorV5({ current }: StepIndicatorV5Props) {
   const { t } = useTranslation();
   return (
     <ol
-      className="flex flex-wrap gap-6 text-mono text-sm"
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '24px',
+        fontFamily: 'var(--mono)',
+        fontSize: '13px',
+        color: 'var(--ct-ink)',
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
+      }}
       aria-label={t('registerV5.indicator.aria', 'Progress')}
     >
       {STEP_KEYS.map(([key, fallback], i) => {
@@ -31,12 +46,17 @@ export function StepIndicatorV5({ current }: StepIndicatorV5Props) {
         const done = idx < current;
         const label = t(key, fallback);
         return (
-          <li key={key} className="flex items-center gap-2">
+          <li
+            key={key}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
             <span
-              className="inline-block w-2 h-2 rounded-none"
               style={{
-                background: done || active ? 'var(--sovereign)' : 'transparent',
-                border: '1px solid var(--sovereign)',
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                background: done || active ? 'var(--ct-ink)' : 'transparent',
+                border: '1px solid var(--ct-ink)',
               }}
               aria-current={active ? 'step' : undefined}
             />
