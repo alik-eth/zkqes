@@ -36,6 +36,8 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { DocumentFooter } from './DocumentFooter';
 import { PaperGrain } from './PaperGrain';
+import { CountryGrid } from './qtsp/CountryGrid';
+import '../styles/civic-terminal.css';
 
 export function LandingHero() {
   const { t } = useTranslation();
@@ -46,8 +48,12 @@ export function LandingHero() {
         <div />
         <div className="min-w-0 max-w-3xl space-y-12">
           {/* Header — descriptor lead per BRAND.md §"How to write
-              about the project". */}
-          <header>
+              about the project". Frozen marketer copy — hero copy
+              update lives in marketer task #72 (the "qualified
+              electronic signatures across eIDAS Europe" reframing
+              for multi-QTSP land happens in a separate post-marketer
+              -review commit, not here). */}
+          <header data-section="hero">
             <p
               className="text-fine text-sm mb-4"
               style={{
@@ -83,6 +89,20 @@ export function LandingHero() {
 
           <hr className="rule" />
 
+          {/* Multi-QTSP facade T12: country/QTSP coverage grid sits
+              between hero and path cards. `id="coverage"` is the
+              scroll target for the T11 `/countries → /#coverage`
+              redirect (and the T10 bronze-tile redirect chain). */}
+          <section
+            id="coverage"
+            data-section="coverage"
+            aria-label="qtsp-coverage"
+          >
+            <CountryGrid />
+          </section>
+
+          <hr className="rule" />
+
           {/* Three contribution paths. Each path links to
               /ceremony/contribute — the page already has the snarkjs
               commands AND the Fly launcher form, so deep-linking
@@ -90,6 +110,7 @@ export function LandingHero() {
           <section
             aria-labelledby="paths-heading"
             data-testid="zkqes-paths"
+            data-section="path-cards"
             className="space-y-10"
           >
             <h2
