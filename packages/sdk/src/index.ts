@@ -81,6 +81,15 @@ export {
   type ParsedCades,
 } from './cert/cades.js';
 
+export { packAgeProof, type AgeProofCalldata } from './cert/age-proof.js';
+
+export {
+  buildAgeWitness,
+  type AgePublicSignals,
+  type BuildAgeWitnessArgs,
+  type BuildAgeWitnessOutput,
+} from './witness/v5_4/build-age-witness.js';
+
 export {
   loadArtifacts,
   pickVariantUrls,

@@ -163,6 +163,17 @@ export interface DiiaDobExtraction {
   readonly supported: boolean;
   readonly ymd: number;
   readonly sourceTag: number;
+  /**
+   * V5.4 — byte offset of the SubjectDirectoryAttributes outer-OID
+   * (2.5.29.9, DER `06 03 55 1d 09`) within the input DER. Used by the
+   * V5.4 witness builder as the scan anchor the AgeDiiaUA circuit
+   * consumes to locate the per-country DOB attribute frame.
+   * `-1` when `supported` is `false`.
+   *
+   * Additive field — pre-V5.4 callers reading only `supported`/`ymd`/
+   * `sourceTag` are unaffected.
+   */
+  readonly sdaFrameOffsetInTbs: number;
 }
 
 // Outer extension OID 2.5.29.9 (SubjectDirectoryAttributes) header: 06 03 55 1D 09.
@@ -173,7 +184,12 @@ const DIIA_INNER_UA_ATTR_OID = new Uint8Array([
 ]);
 const PRINTABLE_STRING_TAG = 0x13;
 const DIIA_DOB_SOURCE_TAG = 1;
-const DIIA_DOB_NEG: DiiaDobExtraction = { supported: false, ymd: 0, sourceTag: 0 };
+const DIIA_DOB_NEG: DiiaDobExtraction = {
+  supported: false,
+  ymd: 0,
+  sourceTag: 0,
+  sdaFrameOffsetInTbs: -1,
+};
 
 // Byte-exact mirror of DobExtractorDiiaUA.circom (M2.3b). The value is encoded
 // as ASN.1 PrintableString (tag 0x13), NOT GeneralizedTime — Diia's observed
@@ -203,7 +219,12 @@ export function extractDobFromDiiaUA(der: Uint8Array): DiiaDobExtraction {
     if (d < 0x30 || d > 0x39) return DIIA_DOB_NEG;
   }
   const ymd = Number(new TextDecoder().decode(digits));
-  return { supported: true, ymd, sourceTag: DIIA_DOB_SOURCE_TAG };
+  return {
+    supported: true,
+    ymd,
+    sourceTag: DIIA_DOB_SOURCE_TAG,
+    sdaFrameOffsetInTbs: outer,
+  };
 }
 
 function findSubsequence(haystack: Uint8Array, needle: Uint8Array, from: number): number {

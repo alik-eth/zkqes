@@ -46,6 +46,12 @@ const baseMeta: QtspMeta = {
   promotedAt: null,
   lastVerified: '2026-05-05',
   notes: 'Italian QTSP — paper-trail only, no parser yet.',
+  // V5.4 — required QtspMeta fields. The QtspTile rendering doesn't
+  // exercise DOB extraction; using canonical Diia-UA values to satisfy
+  // the cross-field invariant ('none' would be more semantically
+  // accurate for a bronze IT entry but null pairing reads odd).
+  dobEncoding: 'diia-ua',
+  dobAttributeOid: '1.2.804.2.1.1.1.11.1.4.11.1',
 };
 
 describe('QtspTile', () => {
