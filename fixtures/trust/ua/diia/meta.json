@@ -13,5 +13,7 @@
   "addedAt": "2026-05-05",
   "promotedAt": null,
   "lastVerified": "2026-05-05",
-  "notes": "Ukrainian Ministry of Digital Transformation; ECDSA-P256 leaves with subjectSerialNumber TIN/PNO prefix per ETSI EN 319 412-1. Silver state per spec §3.4: code-shipping with stub-verifier on testnet, no Phase B Phase 2 ceremony output yet. Promotes to gold post-ceremony, live post-mainnet-deploy."
+  "notes": "Ukrainian Ministry of Digital Transformation; ECDSA-P256 leaves with subjectSerialNumber TIN/PNO prefix per ETSI EN 319 412-1. Silver state per spec §3.4: code-shipping with stub-verifier on testnet, no Phase B Phase 2 ceremony output yet. Promotes to gold post-ceremony, live post-mainnet-deploy.",
+  "dobEncoding": "diia-ua",
+  "dobAttributeOid": "1.2.804.2.1.1.1.11.1.4.11.1"
 }
