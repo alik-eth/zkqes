@@ -33,14 +33,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
+import {
+  useAccount,
+  useChainId,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi';
 import { encodePacked, keccak256 } from 'viem';
 
 import {
   buildAgeWitness,
   MockProver,
-  type IProver,
+  packAgeProof,
+  zkqesRegistryUaAbi,
+  zkqesRegistryUaForChainId,
   type AgePublicSignals,
+  type Groth16Proof,
+  type IProver,
 } from '@zkqes/sdk';
 
 import { Marquee } from '../civic-terminal/Marquee';
@@ -143,6 +152,25 @@ export function ProveAgeFlow({
   const effectiveTotal = status?.totalRounds ?? 1;
 
   const { address: connectedAddress, isConnected } = useAccount();
+  const chainId = useChainId();
+  const registry = useMemo(
+    () =>
+      chainId !== undefined ? zkqesRegistryUaForChainId(chainId) : undefined,
+    [chainId],
+  );
+
+  // wagmi tx-submission state. `txHash` is the user-signed tx; once
+  // mined, `useWaitForTransactionReceipt` flips `txMined` true so the
+  // result step can pivot from "submitting" to "submitted".
+  const {
+    writeContract,
+    data: txHash,
+    isPending: txPending,
+    error: writeError,
+    reset: resetWriteContract,
+  } = useWriteContract();
+  const { isSuccess: txMined, data: txReceipt } =
+    useWaitForTransactionReceipt({ hash: txHash });
 
   const [step, setStep] = useState<FlowStep>(
     isConnected ? 'binding-pick' : 'connect',
@@ -154,6 +182,16 @@ export function ProveAgeFlow({
   const [p7s, setP7s] = useState<Uint8Array | null>(null);
   const [publicSignals, setPublicSignals] =
     useState<AgePublicSignals | null>(null);
+  // Captured snarkjs prover output — fed into `packAgeProof` for the
+  // on-chain `proveAge` writeContract call. `proverPublics` is the
+  // raw 3-string-array snarkjs returns (slot order §1.3 FROZEN);
+  // `publicSignals` (above) is the typed off-circuit mirror used for
+  // UI rendering. Drift between the two would surface as a contract
+  // revert with no offset context — `packAgeProof` validates length.
+  const [proof, setProof] = useState<Groth16Proof | null>(null);
+  const [proverPublics, setProverPublics] = useState<readonly string[] | null>(
+    null,
+  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
 
@@ -230,12 +268,18 @@ export function ProveAgeFlow({
       // `artifacts`. The route layer threads sha256-pinned URLs from
       // `lib/v5_4AgeArtifacts.ts`; tests default to `'about:blank'`
       // because MockProver ignores URLs.
-      await prover.prove(witnessOut.witness, {
+      const proveResult = await prover.prove(witnessOut.witness, {
         side: 'v5',
         wasmUrl,
         zkeyUrl,
       });
 
+      // Capture prover output for T5.4's writeContract. The off-
+      // circuit `witnessOut.publicSignals` drives UI rendering;
+      // `proveResult.publicSignals` is the raw snarkjs string array
+      // packed into the on-chain AgeProof tuple.
+      setProof(proveResult.proof);
+      setProverPublics(proveResult.publicSignals);
       setPublicSignals(witnessOut.publicSignals);
       setStep('result');
     } catch (err) {
@@ -250,6 +294,64 @@ export function ProveAgeFlow({
     () => ymdToDateInput(ageCutoffDate),
     [ageCutoffDate],
   );
+
+  const onSubmit = () => {
+    if (
+      !proof ||
+      !proverPublics ||
+      !bindingId ||
+      !registry ||
+      !publicSignals
+    ) {
+      // Defensive — the submit CTA only renders when all prerequisites
+      // are present. This guards against future state-machine refactors
+      // that could pre-render the CTA before the prover settles.
+      setErrorMsg(t('accountAgeProof.errors.missingForSubmit'));
+      return;
+    }
+    if (publicSignals.ageQualified !== 1) {
+      // No on-chain submission for ageQualified=0 — the contract would
+      // record `ageProvenCutoffs[bindingId][cutoff] = false` which is
+      // useless; the local verdict stops at the result panel.
+      return;
+    }
+    setErrorMsg(null);
+    try {
+      // `packAgeProof` validates `publicSignals.length === 3` per the
+      // §1.3 FROZEN layout. A length mismatch is a cross-worker drift
+      // bug, not a user-recoverable error — surface in the dedicated
+      // error step so the failure is visible (vs an uncaught render
+      // exception that would white-screen the surface).
+      const calldata = packAgeProof(proof, proverPublics);
+      writeContract({
+        address: registry.address,
+        abi: zkqesRegistryUaAbi,
+        functionName: 'proveAge',
+        args: [
+          bindingId,
+          BigInt(ageCutoffDate),
+          // `packAgeProof` returns a strongly-typed tuple-shape object;
+          // viem's `args` for a tuple-typed Solidity input wants the
+          // object form, which matches the IZKQESRegistry.AgeProof
+          // struct components 1:1.
+          calldata,
+        ],
+      });
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setStep('error');
+    }
+  };
+
+  // Surface wagmi writeContract errors via the existing error step —
+  // user can retry or step back. Reset the wagmi state on retry so
+  // the next submit isn't blocked by the prior error.
+  useEffect(() => {
+    if (writeError) {
+      setErrorMsg(writeError.message);
+      setStep('error');
+    }
+  }, [writeError]);
 
   return (
     <main
@@ -452,16 +554,19 @@ export function ProveAgeFlow({
               {t('accountAgeProof.result.legend')}
             </span>
             <ResultBody publicSignals={publicSignals} />
-            <p
-              style={{
-                fontSize: 11.5,
-                color: 'var(--ct-mute)',
-                margin: '12px 0 0',
+            <SubmitSubstep
+              t={t}
+              ageQualified={publicSignals.ageQualified}
+              registry={registry}
+              txHash={txHash}
+              txPending={txPending}
+              txMined={txMined}
+              txReceipt={txReceipt}
+              onSubmit={onSubmit}
+              onReset={() => {
+                resetWriteContract();
               }}
-              data-testid="prove-age-submit-pending"
-            >
-              {t('accountAgeProof.result.submitPending')}
-            </p>
+            />
           </div>
         )}
 
@@ -499,6 +604,163 @@ export function ProveAgeFlow({
 function shortHex(v: `0x${string}`, head = 6, tail = 4): string {
   if (v.length <= head + tail + 1) return v;
   return `${v.slice(0, head)}…${v.slice(-tail)}`;
+}
+
+interface SubmitSubstepProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly t: any;
+  readonly ageQualified: 0 | 1;
+  readonly registry:
+    | { readonly chainId: number; readonly address: `0x${string}` }
+    | undefined;
+  readonly txHash: `0x${string}` | undefined;
+  readonly txPending: boolean;
+  readonly txMined: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly txReceipt: any;
+  readonly onSubmit: () => void;
+  readonly onReset: () => void;
+}
+
+/**
+ * Result-step submit substate machine:
+ *
+ *   ageQualified=0          → no submit (qualified-or-not is local-only)
+ *   no registry on chain    → "no V5.4 deployment on this chain" hint
+ *   no txHash + !txPending  → "Submit on-chain" CTA
+ *   txPending (signing)     → "awaiting wallet signature"
+ *   txHash set + !txMined   → "submitting" + tx-hash basescan link
+ *   txMined === true        → "submitted" success state + receipt link
+ *
+ * Errors from `useWriteContract` (user-rejected, RPC fail, contract
+ * revert) propagate via the parent's `useEffect` → setStep('error'),
+ * which the parent surfaces in the dedicated error step. No need for
+ * a per-substate error branch here.
+ */
+function SubmitSubstep({
+  t,
+  ageQualified,
+  registry,
+  txHash,
+  txPending,
+  txMined,
+  txReceipt,
+  onSubmit,
+  onReset,
+}: SubmitSubstepProps) {
+  if (ageQualified === 0) {
+    return (
+      <p
+        style={{
+          fontSize: 11.5,
+          color: 'var(--ct-mute)',
+          margin: '12px 0 0',
+        }}
+        data-testid="prove-age-submit-skip-not-qualified"
+      >
+        {t('accountAgeProof.submit.skipNotQualified')}
+      </p>
+    );
+  }
+
+  if (!registry) {
+    return (
+      <p
+        style={{
+          fontSize: 11.5,
+          color: 'var(--ct-mute)',
+          margin: '12px 0 0',
+        }}
+        data-testid="prove-age-submit-no-registry"
+      >
+        {t('accountAgeProof.submit.noRegistry')}
+      </p>
+    );
+  }
+
+  if (txMined && txHash) {
+    return (
+      <div
+        data-testid="prove-age-submit-success"
+        style={{ marginTop: 14 }}
+      >
+        <span className="ct-tag ct-tag--ok">
+          {t('accountAgeProof.submit.successTag')}
+        </span>
+        <p style={{ fontSize: 12.5, margin: '10px 0 6px' }}>
+          {t('accountAgeProof.submit.successBody')}
+        </p>
+        <p
+          style={{
+            fontSize: 11.5,
+            fontFamily: 'var(--mono)',
+            color: 'var(--ct-mute)',
+            margin: 0,
+            wordBreak: 'break-all',
+          }}
+        >
+          tx: {shortHex(txHash, 10, 8)}
+          {txReceipt?.blockNumber !== undefined && (
+            <> · block {String(txReceipt.blockNumber)}</>
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  if (txHash && !txMined) {
+    return (
+      <div data-testid="prove-age-submit-pending" style={{ marginTop: 14 }}>
+        <span className="ct-tag ct-tag--warn">
+          {t('accountAgeProof.submit.pendingTag')}
+        </span>
+        <p style={{ fontSize: 12.5, margin: '10px 0 6px' }}>
+          {t('accountAgeProof.submit.pendingBody')}
+        </p>
+        <p
+          style={{
+            fontSize: 11.5,
+            fontFamily: 'var(--mono)',
+            color: 'var(--ct-mute)',
+            margin: 0,
+            wordBreak: 'break-all',
+          }}
+        >
+          tx: {shortHex(txHash, 10, 8)}
+        </p>
+      </div>
+    );
+  }
+
+  if (txPending) {
+    return (
+      <p
+        data-testid="prove-age-submit-awaiting-signature"
+        style={{
+          fontSize: 12.5,
+          color: 'var(--ct-ink)',
+          margin: '14px 0 0',
+        }}
+      >
+        {t('accountAgeProof.submit.awaitingSignature')}
+      </p>
+    );
+  }
+
+  // Idle: render the CTA. `onReset` exposed so a future "submit again"
+  // affordance can clear the wagmi state — not surfaced today.
+  void onReset;
+  return (
+    <button
+      type="button"
+      className="ct-btn ct-btn--primary"
+      data-testid="prove-age-submit-cta"
+      onClick={onSubmit}
+      style={{ marginTop: 14 }}
+    >
+      ▶ {t('accountAgeProof.submit.cta')}
+    </button>
+  );
 }
 
 interface BindingPickerStepProps {

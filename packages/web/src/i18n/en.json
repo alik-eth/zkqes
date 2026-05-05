@@ -285,8 +285,17 @@
       "qualifiedTag": "QUALIFIED",
       "qualifiedBody": "Your DOB is on-or-before {{cutoffIso}}. The proof is generated locally; nothing about the date itself reaches the chain.",
       "notQualifiedTag": "NOT QUALIFIED",
-      "notQualifiedBody": "Your DOB is after {{cutoffIso}}. The proof is generated locally; the chain receives only a binary not-qualified result for this cutoff.",
-      "submitPending": "On-chain submission opens once the V5.4 ZKQESRegistryUA deploy lands (task #15 / Phase C). Until then this surface renders the proof's local verdict and stops here."
+      "notQualifiedBody": "Your DOB is after {{cutoffIso}}. The proof is generated locally; the chain receives only a binary not-qualified result for this cutoff."
+    },
+    "submit": {
+      "cta": "Submit on-chain",
+      "awaitingSignature": "Awaiting wallet signature…",
+      "pendingTag": "SUBMITTING",
+      "pendingBody": "Tx submitted; waiting for confirmation.",
+      "successTag": "SUBMITTED",
+      "successBody": "Your age proof is recorded on-chain against the V5.4 UA registry. The chain stores only the binary qualified-or-not flag for this binding × cutoff pair — your DOB never touched the network.",
+      "skipNotQualified": "On-chain submission is skipped because your DOB is after the cutoff — recording a `not qualified` flag would be useless.",
+      "noRegistry": "Switch your wallet to Base Sepolia (chainId 84532) to submit. V5.4 ZKQESRegistryUA isn't deployed on this chain."
     },
     "actions": {
       "back": "Back",
@@ -298,7 +307,8 @@
     },
     "errors": {
       "missingP7s": "Upload your .p7s before generating the proof.",
-      "missingBinding": "Pick a binding before generating the proof."
+      "missingBinding": "Pick a binding before generating the proof.",
+      "missingForSubmit": "Internal error: prover output, binding, or registry deployment missing at submit time."
     }
   },
   "accountRotate": {
