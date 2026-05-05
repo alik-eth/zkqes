@@ -33,7 +33,7 @@ const argVal = (flag, fallback) => {
 const OUT_PATH = argVal('--out', '/home/alikvovk/Downloads/binding-v2-core.json');
 const KEYS_PATH = OUT_PATH.replace(/\.json$/, '.keys.json');
 
-// -- Committed UA policy leaf hash (from fixtures/trust/ua/policy-root.json) --
+// -- Committed UA policy leaf hash (from fixtures/trust/ua/diia/policy-root.json) --
 //    buildPolicyLeafV1({
 //      policyId:       "qkb-default-ua",       // frozen protocol byte string; see specs/2026-05-03-zkqes-rename-design.md §3
 //      policyVersion:  1,

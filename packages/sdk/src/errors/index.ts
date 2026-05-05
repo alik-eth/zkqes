@@ -4,6 +4,7 @@ export type ErrorCode =
   | 'binding.jcs'
   | 'binding.pkMismatch'
   | 'cades.parse'
+  | 'cert.berInput'
   | 'qes.sigInvalid'
   | 'qes.digestMismatch'
   | 'qes.certExpired'
@@ -53,6 +54,7 @@ export const ALL_ERROR_CODES: readonly ErrorCode[] = [
   'binding.jcs',
   'binding.pkMismatch',
   'cades.parse',
+  'cert.berInput',
   'qes.sigInvalid',
   'qes.digestMismatch',
   'qes.certExpired',

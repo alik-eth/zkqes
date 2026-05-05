@@ -1,24 +1,12 @@
-import { test, expect } from '@playwright/test';
-import { injectMockWallet } from './helpers/walletMock';
-import { stubSepoliaRpc } from './helpers/rpcMock';
+import { test } from '@playwright/test';
 
-test('after deadline, mint button shows closed copy', async ({ page }) => {
-  await injectMockWallet(page, {
-    address: ('0x' + 'a'.repeat(40)) as `0x${string}`,
-    chainId: 11155111,
-  });
-  await page.addInitScript(() => {
-    const realNow = Date.now;
-    Date.now = () => realNow() + 365 * 24 * 60 * 60 * 1000 * 10;
-  });
-  await stubSepoliaRpc(page, {
-    registry: '0xd33B73EB9c78d7AcE7AB84adAF4c518573Ce47a6',
-    identityEscrowNft: '0x30E13c76D0BB02Ab4a65048B6546ABC3ADDabA48',
-    nullifierFor: () => '00'.repeat(31) + 'aa',
-    tokenIdForNullifier: () => '00'.repeat(32),
-  });
-  await page.goto('/');
-  await expect(page.getByRole('button', { name: /mint window closed/i })).toBeVisible({
-    timeout: 10_000,
-  });
+// Civic-terminal v3 (Task #87, 2026-05-05): default `/` (VITE_TARGET=app)
+// renders <HomeDocument />, which has no `mint window closed` button —
+// that V4-era state lived on <MintButton /> inside <AppRegisterLanding />,
+// retired from `/` in favor of the document landing. The mint-deadline
+// state is post-launch territory (V5 mint flow at /ua/mint when wired);
+// re-enable this spec when that surface lands.
+
+test.skip('after deadline, mint button shows closed copy — V4 LandingHero retired with v3 (#87)', () => {
+  // intentionally empty; spec re-enabled when /ua/mint lands.
 });

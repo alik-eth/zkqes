@@ -32,6 +32,7 @@ import { CeremonyIndex } from './routes/ceremony/index';
 import { CeremonyContribute } from './routes/ceremony/contribute';
 import { CeremonyStatus } from './routes/ceremony/status';
 import { CeremonyVerify } from './routes/ceremony/verify';
+import { VerifyBindingScreen } from './routes/verifyBinding';
 
 function RootLayout() {
   return <Outlet />;
@@ -84,6 +85,38 @@ const integrationsRoute = createRoute({
   component: IntegrationsScreen,
 });
 
+// Multi-QTSP facade T10: per-QTSP detail surface at
+// `/qtsp/$country/$qtsp`. Lazy-loaded via `lazyRouteComponent` so the
+// page (and its `QTSP_INDEX` import) stays out of the landing entry
+// chunk per CLAUDE.md invariant 21. Reach-tested by T15.
+const qtspPageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'qtsp/$country/$qtsp',
+  component: lazyRouteComponent(() => import('./routes/qtspPage')),
+});
+
+// Multi-QTSP facade T11: `/countries` soft-redirect to Landing's
+// `#coverage` anchor. Targeted by bronze-tile direct-loads from T10
+// and by URL-typed `/countries` arrivals. Lazy-loaded for chunk
+// hygiene (the body is tiny, but consistency-first).
+const countriesRedirectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/countries',
+  component: lazyRouteComponent(() => import('./routes/countriesRedirect')),
+});
+
+// /verify — civic-terminal v3 binding-lookup surface (founder pick
+// 2026-05-05 per Claude Design handoff). Net-new top-level route,
+// distinct from /ceremony/verify (which verifies attestation hashes
+// against the ceremony chain). Static composition — no wallet
+// connection required, no SAB context — so it's safe to ship on
+// landing target as a sharedRoute.
+const verifyBindingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/verify',
+  component: VerifyBindingScreen,
+});
+
 const sharedRoutes: AnyRoute[] = [
   indexRoute,
   ceremonyRoute,
@@ -91,6 +124,9 @@ const sharedRoutes: AnyRoute[] = [
   ceremonyStatusRoute,
   ceremonyVerifyRoute,
   integrationsRoute,
+  qtspPageRoute,
+  countriesRedirectRoute,
+  verifyBindingRoute,
 ];
 
 // ---------------------------------------------------------------- //
@@ -146,10 +182,22 @@ const appOnlyRoutes: AnyRoute[] = import.meta.env.VITE_TARGET !== 'landing'
       createRoute({
         getParentRoute: () => rootRoute,
         path: '/ua/registerV5',
-        component: lazyRouteComponent(
-          () => import('./routes/ua/registerV5'),
-          'RegisterV5Screen',
-        ),
+        // T13: switched to default-export `RegisterV5Route` wrapper
+        // which reads `?qtsp=` via `useSearch` and threads scope down
+        // to `RegisterV5Screen`. UA-default behavior preserved when
+        // `?qtsp=` is absent / malformed / bronze.
+        component: lazyRouteComponent(() => import('./routes/ua/registerV5')),
+      }),
+      // T13: alias path. `/v5/registerV5` is the canonical multi-QTSP
+      // entry point that QtspPage CTAs (T10) link to. Same component
+      // as `/ua/registerV5`; the route distinction is just URL polish
+      // for "this is the protocol-level register flow, not a
+      // UA-specific page." Future work may collapse them once the
+      // existing `/ua/registerV5` inbound links + e2e tests rotate.
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/v5/registerV5',
+        component: lazyRouteComponent(() => import('./routes/ua/registerV5')),
       }),
       createRoute({
         getParentRoute: () => rootRoute,

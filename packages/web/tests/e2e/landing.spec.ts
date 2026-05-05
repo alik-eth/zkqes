@@ -1,46 +1,27 @@
 import { test, expect } from '@playwright/test';
-import { injectMockWallet } from './helpers/walletMock';
 
-test('landing — disconnected shows ConnectButton', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: /Verified Identity/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /connect wallet/i })).toBeVisible();
-});
+// Civic-terminal v3 landing tests (post-Task-#87, 2026-05-05). The
+// default `/` (VITE_TARGET=app) renders <HomeDocument />, the
+// founder-picked Home-C-Document wireframe — a Form ZK-QES / 01
+// civic-document with UA-blue letterhead, ASCII figure, two CTAs.
+//
+// The v2 <AppRegisterLanding /> assertions retired here:
+//   - "Verified Identity" heading           → letterhead "OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR"
+//   - ConnectButton on `/`                  → no longer rendered; lives on /ua/registerV5 + /verify
+//   - "switch network" CTA on `/`           → same; not on the document landing
+//   - privacy-escrow <dl>                   → replaced by SECTION I (LEGAL BASIS) + SECTION II (WHAT YOU GET)
+//   - `landing-ceremony-link` testid        → not on v3; entry to /ceremony moves to top-nav / direct URL
 
-test('landing — connected wrong-chain shows switch CTA', async ({ page }) => {
-  await injectMockWallet(page, {
-    address: ('0x' + 'a'.repeat(40)) as `0x${string}`,
-    chainId: 8453,
-  });
+test('landing — v3 document letterhead renders', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('button', { name: /switch network/i })).toBeVisible({
-    timeout: 10_000,
-  });
-});
-
-test('landing — privacy-escrow section renders the three labels', async ({ page }) => {
-  await page.addInitScript(() => {
-    try {
-      window.localStorage.setItem('qkb.lang', 'en');
-    } catch {
-      /* ignore */
-    }
-  });
-  await page.goto('/');
-  // Each label exists once in EN locale and is the canonical signal
-  // that the privacy section rendered without falling back to default
-  // i18next strings or skipping the dl entirely.
-  await expect(page.getByText(/What is on the ledger/i)).toBeVisible();
-  await expect(page.getByText(/What is not on the ledger/i)).toBeVisible();
+  await expect(page.getByTestId('home-document-v3-shell')).toBeVisible();
+  await expect(page.getByTestId('home-document-v3-letterhead')).toBeVisible();
   await expect(
-    page.getByText(/What can be recovered, by whom, under what process/i),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: /Identity, escrowed\./i }),
+    page.getByText(/OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR/i),
   ).toBeVisible();
 });
 
-test('landing — ceremony footer link is visible and routes to /ceremony', async ({
+test('landing — v3 SECTION I (legal basis) + SECTION II (what you get) render', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -51,21 +32,33 @@ test('landing — ceremony footer link is visible and routes to /ceremony', asyn
     }
   });
   await page.goto('/');
-  // Stable testid surfaced exactly once on the landing page; the link
-  // is the only entry point to /ceremony from the public-facing flow.
-  const ceremonyEntry = page.getByTestId('landing-ceremony-link');
-  await expect(ceremonyEntry).toBeVisible();
-  const link = ceremonyEntry.getByRole('link', {
-    name: /trusted setup ceremony/i,
-  });
-  await expect(link).toHaveAttribute('href', '/ceremony');
-  await link.click();
-  await expect(page).toHaveURL(/\/ceremony$/);
-  // Task 13 atomic flip: legacy `/A trusted setup. In public./` heading
-  // retired with `LegacyCeremonyIndex`. The /ceremony route now renders
-  // the v2 `<CeremonyShell />`. Assert on the Marquee LED (always
-  // present, robust to feed-down).
-  await expect(page.getByLabel(/phase: /).first()).toBeVisible({
-    timeout: 5_000,
-  });
+  // SECTION I anchors — eIDAS reference + UA Law reference + ceremony
+  // params line (driven by useCeremonyPhase; falls back to recruiting).
+  await expect(page.getByText(/SECTION I — LEGAL BASIS/i)).toBeVisible();
+  // 910/2014 + 2155-VIII appear under the v3 panel — both in the body
+  // text and in the documentFigure aria-label, so use first() to skirt
+  // strict-mode multi-match.
+  await expect(page.getByText(/910\/2014/).first()).toBeVisible();
+  await expect(page.getByText(/2155-VIII/).first()).toBeVisible();
+  await expect(page.getByTestId('home-document-v3-ceremony-params')).toBeVisible();
+
+  // SECTION II anchors — the four bullet items.
+  await expect(page.getByText(/SECTION II — WHAT YOU GET/i)).toBeVisible();
+  await expect(page.getByText(/One nullifier per identity/i)).toBeVisible();
+  await expect(
+    page.getByText(/Rotate any wallet without revealing it was yours/i),
+  ).toBeVisible();
+});
+
+test('landing — v3 CTAs route to /ua/registerV5 and /verify', async ({ page }) => {
+  await page.goto('/');
+  // "Begin filing" → /ua/registerV5
+  const begin = page.getByTestId('home-document-v3-cta-begin');
+  await expect(begin).toBeVisible();
+  await expect(begin).toHaveAttribute('href', '/ua/registerV5');
+
+  // "Verify a binding" → /verify
+  const verify = page.getByRole('link', { name: /Verify a binding/i });
+  await expect(verify).toBeVisible();
+  await expect(verify).toHaveAttribute('href', '/verify');
 });

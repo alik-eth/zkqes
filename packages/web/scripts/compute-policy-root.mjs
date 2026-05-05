@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Deterministically re-derive the UA v1 policy root from the committed
 // fixtures/declarations/ua/policy-v1.json seed and emit
-// fixtures/trust/ua/policy-root.json.
+// fixtures/trust/ua/diia/policy-root.json.
 //
 // Usage (from repo root):
 //   pnpm -F @qkb/web compute-policy-root
@@ -22,7 +22,7 @@ import { buildPoseidon } from 'circomlibjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SEED_PATH = resolve(REPO_ROOT, 'fixtures/declarations/ua/policy-v1.json');
-const OUT_PATH = resolve(REPO_ROOT, 'fixtures/trust/ua/policy-root.json');
+const OUT_PATH = resolve(REPO_ROOT, 'fixtures/trust/ua/diia/policy-root.json');
 const UK_DECL_PATH = resolve(REPO_ROOT, 'fixtures/declarations/uk.txt');
 // Must match MERKLE_DEPTH in packages/circuits/circuits/QKBPresentationEcdsaLeafV4.circom.
 // A depth mismatch between this script and the circuit produces a policyRoot that

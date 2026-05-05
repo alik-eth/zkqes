@@ -33,6 +33,17 @@ import {
 import { useCliPresence } from '../../../hooks/useCliPresence';
 import { CliBanner } from './CliBanner';
 import { ScwPassphraseModal } from './ScwPassphraseModal';
+// Multi-QTSP facade T13: surface `cert.berInput` ZkqesErrors via the
+// scope-aware i18n templates from T6. Falls back to the generic
+// template when no QTSP scope is in effect (UA-default flow). The
+// `t as Interpolator` cast at the call sites is safe — the helper
+// only invokes `t(key, optionsObject)`, which both i18next's
+// `TFunction` and the test mock support.
+import {
+  formatCertBerInput,
+  useQtspScope,
+  type Interpolator,
+} from '../../../lib/qtspScope';
 
 export interface Step4Props {
   p7s: Uint8Array;
@@ -101,6 +112,11 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
   // render the install nudge.
   const cliPresence = useCliPresence();
   const cliPresent = cliPresence.status === 'present';
+  // T13: active QTSP scope (or null for UA-default). Drives the
+  // `cert.berInput` error template selection inside the catch
+  // blocks below — `formatCertBerInput` picks the scoped vs.
+  // generic i18n key based on this.
+  const qtspScope = useQtspScope();
 
   const [stage, setStage] = useState<V5_2PipelineProgress | null>(null);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
@@ -292,7 +308,7 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
       // and resumes through onScwPassphraseSubmit.
       await runPipelineAndSubmit(walletSecret, cliReady);
     } catch (err) {
-      setPipelineError(err instanceof Error ? err.message : String(err));
+      setPipelineError(formatCertBerInput(err, qtspScope, t as Interpolator));
     }
   };
 
@@ -329,7 +345,7 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
       await runPipelineAndSubmit(secret, observed === 'present');
     } catch (err) {
       resetScwState();
-      setPipelineError(err instanceof Error ? err.message : String(err));
+      setPipelineError(formatCertBerInput(err, qtspScope, t as Interpolator));
     }
   };
 
@@ -344,12 +360,47 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
     void navigate({ to: '/ua/mintNft' });
   }
 
+  // Civic-terminal v2 tokens — heading uses VT323 display, body/status
+  // uses IBM Plex Mono with --ct-mute for muted lines, --err for alerts.
+  const headingStyle: React.CSSProperties = {
+    fontFamily: 'var(--display)',
+    fontSize: '36px',
+    lineHeight: 1,
+    margin: 0,
+    color: 'var(--ct-ink)',
+  };
+  const bodyStyle: React.CSSProperties = {
+    fontFamily: 'var(--mono)',
+    fontSize: '14px',
+    lineHeight: 1.5,
+    maxWidth: '60ch',
+    color: 'var(--ct-ink)',
+  };
+  const statusStyle: React.CSSProperties = {
+    fontFamily: 'var(--mono)',
+    fontSize: '13px',
+    color: 'var(--ct-mute)',
+  };
+  const errStyle: React.CSSProperties = {
+    fontFamily: 'var(--mono)',
+    fontSize: '13px',
+    color: 'var(--err)',
+  };
+  const monoXsStyle: React.CSSProperties = {
+    fontFamily: 'var(--mono)',
+    fontSize: '12px',
+    color: 'var(--ct-mute)',
+  };
+
   return (
-    <section aria-labelledby="step4-heading" className="space-y-6">
-      <h2 id="step4-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+    <section
+      aria-labelledby="step4-heading"
+      style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+    >
+      <h2 id="step4-heading" style={headingStyle}>
         {t('registerV5.step4.title')}
       </h2>
-      <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+      <p style={bodyStyle}>
         {p7s.byteLength.toLocaleString()} bytes
         {address ? ` — ${address.slice(0, 6)}…${address.slice(-4)}` : ''}
       </p>
@@ -357,21 +408,15 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
           dismissed, or still detecting — see CliBanner.tsx. */}
       <CliBanner />
       {!canProve && (
-        <p
-          className="text-sm"
-          role="status"
-          data-testid="v5-ceremony-pending"
-          style={{ color: 'var(--ink)', opacity: 0.7 }}
-        >
+        <p role="status" data-testid="v5-ceremony-pending" style={statusStyle}>
           {t('registerV5.step4.ceremonyPending')}
         </p>
       )}
       {stage && (
         <p
-          className="text-sm"
           role="status"
           data-testid="v5-pipeline-stage"
-          style={{ color: 'var(--ink)' }}
+          style={{ ...statusStyle, color: 'var(--ct-ink)' }}
         >
           {stage.stage}
           {stage.message ? ` — ${stage.message}` : ''}
@@ -379,47 +424,32 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         </p>
       )}
       {pipelineError && (
-        <p className="text-sm" role="alert" style={{ color: 'var(--ink)' }}>
+        <p role="alert" style={errStyle}>
           {pipelineError}
         </p>
       )}
       {cliFallbackToast && (
-        <p
-          className="text-sm"
-          role="status"
-          data-testid="v5-cli-fallback-toast"
-          style={{ color: 'var(--ink)', opacity: 0.85 }}
-        >
+        <p role="status" data-testid="v5-cli-fallback-toast" style={statusStyle}>
           {cliFallbackToast}
         </p>
       )}
       {proofSource && (
-        <p
-          className="text-mono text-xs"
-          role="status"
-          data-testid="v5-proof-source"
-          style={{ color: 'var(--ink)', opacity: 0.55 }}
-        >
+        <p role="status" data-testid="v5-proof-source" style={monoXsStyle}>
           proved via: {proofSource}
         </p>
       )}
       {pipelineDone && submitSkippedReason && (
-        <p
-          className="text-sm"
-          role="status"
-          data-testid="v5-submit-skipped"
-          style={{ color: 'var(--ink)', opacity: 0.7 }}
-        >
+        <p role="status" data-testid="v5-submit-skipped" style={statusStyle}>
           {submitSkippedReason}
         </p>
       )}
       {txHash && (
-        <p className="text-sm text-mono" data-testid="v5-tx-hash">
+        <p data-testid="v5-tx-hash" style={monoXsStyle}>
           tx: {txHash.slice(0, 12)}…
         </p>
       )}
       {writeError && (
-        <p className="text-sm" role="alert" style={{ color: 'var(--ink)' }}>
+        <p role="alert" style={errStyle}>
           {writeError.message}
         </p>
       )}
@@ -428,16 +458,18 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         onClick={onProveAndRegister}
         disabled={!canProve || txPending}
         data-testid="v5-prove-register-cta"
-        className="px-6 py-3 text-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ background: 'var(--sovereign)', color: 'var(--bone)' }}
+        className="ct-btn"
+        style={{
+          opacity: !canProve || txPending ? 0.5 : 1,
+          cursor: !canProve || txPending ? 'not-allowed' : 'pointer',
+        }}
       >
         {t('registerV5.step4.cta')}
       </button>
       <button
         type="button"
         onClick={onBack}
-        className="px-6 py-3 text-mono text-sm"
-        style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}
+        className="ct-btn"
       >
         {t('registerV5.step4.back')}
       </button>

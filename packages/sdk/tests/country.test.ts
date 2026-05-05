@@ -3,7 +3,7 @@ import {
   SUPPORTED_COUNTRIES,
   getCountryConfig,
 } from '../src/country/index.js';
-import { QkbError } from '../src/errors/index.js';
+import { ZkqesError } from '../src/errors/index.js';
 
 describe('SUPPORTED_COUNTRIES', () => {
   it('lists at least UA', () => {
@@ -37,8 +37,8 @@ describe('getCountryConfig(UA)', () => {
     expect(cfg.ceremonyUrls.leaf.publicSignals).toBe(16);
   });
 
-  it('throws QkbError for unsupported countries', () => {
-    expect(() => getCountryConfig('XX' as 'UA')).toThrow(QkbError);
+  it('throws ZkqesError for unsupported countries', () => {
+    expect(() => getCountryConfig('XX' as 'UA')).toThrow(ZkqesError);
   });
 
   it('shallow-merges overrides without mutating the built-in', () => {

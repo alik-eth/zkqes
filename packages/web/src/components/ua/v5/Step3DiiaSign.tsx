@@ -1,3 +1,9 @@
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). Pre-v2
+// sovereign/bone tokens retired here per founder direction 2026-05-05
+// (task #84). Drop zone uses dashed --ct-rule border (the civic-
+// terminal "field" outline grammar) instead of the prior --ink dashed
+// line; ready-state filename surfaces in --ct-ink mono. testids +
+// behaviour byte-identical.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -6,21 +12,6 @@ export interface Step3Props {
   onBack: () => void;
 }
 
-/**
- * Step 3 — accept the .p7s the user produced via Diia (out-of-band).
- *
- * Civic-monumental drop zone:
- *   - Native <input type=file> hidden via inline style (Tailwind's
- *     `hidden` class occasionally races the file-chooser dialog state
- *     in HMR mode, leaking the browser's "No file chosen" UI).
- *   - Strong dashed border in --ink for clear separation from the
- *     cream paper background.
- *   - Filename surfaces inside the zone in --sovereign + small-caps
- *     fine type, so the "ready" state is visually distinct from
- *     the empty state.
- *   - Back button moved into its own row beneath a divider so it
- *     can't be misread as part of the drop zone CTA.
- */
 export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
   const { t } = useTranslation();
   const [filename, setFilename] = useState<string | null>(null);
@@ -33,23 +24,43 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
   };
 
   return (
-    <section aria-labelledby="step3-heading" className="space-y-8">
-      <h2 id="step3-heading" className="text-3xl" style={{ color: 'var(--ink)' }}>
+    <section
+      aria-labelledby="step3-heading"
+      style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+    >
+      <h2
+        id="step3-heading"
+        style={{
+          fontFamily: 'var(--display)',
+          fontSize: '36px',
+          lineHeight: 1,
+          margin: 0,
+          color: 'var(--ct-ink)',
+        }}
+      >
         {t('registerV5.step3.title')}
       </h2>
-      <p className="text-base max-w-prose" style={{ color: 'var(--ink)' }}>
+      <p
+        style={{
+          fontFamily: 'var(--mono)',
+          fontSize: '14px',
+          lineHeight: 1.5,
+          maxWidth: '60ch',
+          color: 'var(--ct-ink)',
+        }}
+      >
         {t('registerV5.step3.body')}
       </p>
 
       <label
-        className="block border-2 border-dashed p-12 text-center cursor-pointer transition-colors"
         style={{
-          borderColor: filename
-            ? 'var(--sovereign)'
-            : dragOver
-              ? 'var(--sovereign)'
-              : 'var(--ink)',
-          background: dragOver ? 'rgba(31,45,92,0.04)' : 'transparent',
+          display: 'block',
+          padding: '48px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          border: '1.5px dashed var(--ct-rule)',
+          background: dragOver ? 'var(--ct-paper-2)' : 'transparent',
+          color: 'var(--ct-ink)',
         }}
         onDragOver={(e) => {
           e.preventDefault();
@@ -79,27 +90,35 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
           }}
         />
         {filename ? (
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <p
-              className="text-fine text-sm"
               style={{
-                color: 'var(--sovereign)',
-                fontVariant: 'small-caps',
-                letterSpacing: '0.08em',
+                fontFamily: 'var(--mono)',
+                fontSize: '11px',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--ct-mute)',
               }}
             >
               {t('registerV5.step3.readyLabel', 'Loaded')}
             </p>
             <p
-              className="text-mono text-base break-all"
-              style={{ color: 'var(--ink)' }}
               data-testid="v5-p7s-filename"
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '14px',
+                wordBreak: 'break-all',
+                color: 'var(--ct-ink)',
+              }}
             >
               {filename}
             </p>
             <p
-              className="text-mono text-xs"
-              style={{ color: 'var(--ink)', opacity: 0.6 }}
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '12px',
+                color: 'var(--ct-mute)',
+              }}
             >
               {t(
                 'registerV5.step3.replaceHint',
@@ -109,8 +128,11 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
           </div>
         ) : (
           <span
-            className="text-mono text-sm"
-            style={{ color: 'var(--ink)' }}
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '14px',
+              color: 'var(--ct-ink)',
+            }}
           >
             {t(
               'registerV5.step3.drop',
@@ -120,14 +142,13 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
         )}
       </label>
 
-      <hr className="rule" />
+      <hr className="ct-divider" />
 
       <div>
         <button
           type="button"
           onClick={onBack}
-          className="px-6 py-3 text-mono text-sm"
-          style={{ border: '1px solid var(--ink)', color: 'var(--ink)' }}
+          className="ct-btn"
         >
           {t('registerV5.step3.back')}
         </button>

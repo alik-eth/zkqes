@@ -1,9 +1,11 @@
 import { createRequire } from 'node:module';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { qtspIndexPlugin } from './vite/plugin-qtsp-index';
 
 // vite-plugin-node-polyfills rewrites `import 'buffer'` (and the `Buffer`
 // global hook) to `import 'vite-plugin-node-polyfills/shims/buffer'`. With
@@ -19,6 +21,21 @@ const polyfillEntry = require.resolve('vite-plugin-node-polyfills');
 const polyfillRoot = dirname(dirname(polyfillEntry));
 const bufferShimDir = `${polyfillRoot}/shims/buffer`;
 
+// Multi-QTSP facade T5: walk `fixtures/trust/<cc>/<slug>/meta.json` and
+// emit the typed `QTSP_INDEX` consumed by the Landing tile grid +
+// per-QTSP route. Resolves the repo root from this config file's URL so
+// the plugin works whether invoked from the worktree or the main
+// checkout.
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, '../..');
+const qtspIndexOut = resolve(here, 'src/generated/qtsp-index.ts');
+// Multi-QTSP facade T10: per-QTSP runtime data files (`samples.json`,
+// `intermediates/*.pem`) get mirrored from `fixtures/trust/<cc>/<slug>/`
+// into `public/qtsp-data/<cc>/<slug>/` so Vite serves them as static
+// assets at `/qtsp-data/<cc>/<slug>/...`. Empty for QTSPs without
+// these files (UA/diia today).
+const qtspPublicData = resolve(here, 'public/qtsp-data');
+
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
   resolve: {
@@ -27,6 +44,13 @@ export default defineConfig({
     },
   },
   plugins: [
+    // qtspIndexPlugin first via `enforce: 'pre'` so the generated index
+    // is on disk before any consumer plugin reads it.
+    qtspIndexPlugin({
+      root: repoRoot,
+      outFile: qtspIndexOut,
+      publicDataDir: qtspPublicData,
+    }),
     react(),
     tailwindcss(),
     nodePolyfills({ include: ['buffer'], globals: { Buffer: true } }),

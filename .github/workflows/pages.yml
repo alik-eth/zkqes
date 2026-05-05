@@ -1,32 +1,29 @@
-# GitHub Pages deploy → zkqes.org root.
+# GitHub Pages deploy → docs.zkqes.org.
 #
-# Per BRAND.md §Domains (locked 2026-05-03), zkqes.org root serves
-# the pre-ceremony hero + recruitment CTA — i.e. the SPA built with
-# `VITE_TARGET=landing`. The slim landing entry chunk drops ~43% of
-# the app entry; see V5.21 invariant in `packages/web/CLAUDE.md`.
+# Founder direction 2026-05-05: only docs on GH Pages. Landing, app,
+# and ceremony surfaces move to Fly.io (see .github/workflows/fly-
+# deploy.yml + deploy/{landing,app}/). GH Pages serves ONE custom
+# domain per repo; that slot now belongs to docs.
 #
-# Pre-launch posture:
-#   - DNS: zkqes.org CNAME → <gh-pages-host> (lead-side, see #62).
-#   - This workflow writes a `CNAME` file at the dist root so the
-#     `actions/deploy-pages` action serves with `Host: zkqes.org`.
-#   - VITE_BASE is `/` (custom-domain root), not `/identityescroworg/`.
-#
-# Post-Sepolia-E2E §9.4 (when the register flow goes live), a SEPARATE
-# workflow will deploy `VITE_TARGET=app` to app.zkqes.org — likely as
-# a Cloudflare Pages or Vercel project pulling from the same repo.
-# This workflow stays as-is.
-#
-# Status feed: `VITE_CEREMONY_STATUS_URL` is set to the absolute URL
-# of the prove-origin status feed. Pre-DNS-migration that's
-# `prove.identityescrow.org`; post-migration (lead-side, gated on R2
-# DNS for the prove subdomain) it switches to `prove.zkqes.org` —
-# one-line config edit here, no source change required.
+# Pre-2026-05-05 history: this workflow used to deploy
+# VITE_TARGET=landing → zkqes.org. The landing build moved to Fly
+# (deploy/landing/) so the GH Pages slot was reclaimed for docs.
+# The old `pages-docs.yml` published to a `gh-pages-docs` branch as
+# a workaround for "two custom domains, one repo"; that branch is
+# now obsolete and the workflow file was deleted in the same commit
+# that introduced this repurposed pages.yml.
 
-name: Deploy web SPA to GitHub Pages
+name: Deploy docs to docs.zkqes.org
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'docs/**'
+      - 'BRAND.md'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -57,57 +54,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build dependency packages
-        run: |
-          pnpm -F @zkqes/sdk build
+      - name: Build VitePress site
+        run: pnpm docs:build
 
-      - name: Build SPA (landing target → zkqes.org root)
-        env:
-          # Landing target: hero + ceremony pages only. Per BRAND.md
-          # §Domains; the app target deploys separately to
-          # app.zkqes.org once Sepolia E2E §9.4 is green.
-          VITE_TARGET: landing
-          # Custom-domain root. Not /identityescroworg/.
-          VITE_BASE: /
-          # Absolute URL of the ceremony status feed. Update to
-          # prove.zkqes.org once the prove subdomain DNS migrates
-          # (lead-side, gated on R2 DNS for prove.*).
-          VITE_CEREMONY_STATUS_URL: https://prove.identityescrow.org/ceremony/status.json
-          # Chain selector — repo variable. Landing target excludes
-          # wallet flows so this is harmless here; threading it keeps
-          # landing/app build env parity for when the app deploy at
-          # app.zkqes.org lands post-§9.4.
-          VITE_CHAIN: ${{ vars.VITE_CHAIN }}
-          # WalletConnect project ID — repo variable (public-bundle
-          # token, not a secret). Same parity reasoning as VITE_CHAIN.
-          VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}
-        run: pnpm -F @zkqes/web build
-
-      - name: Write CNAME (zkqes.org)
-        run: echo "zkqes.org" > packages/web/dist/CNAME
-
-      - name: SPA 404 fallback (root-domain deploy serves the SPA shell)
-        # GH Pages serves `dist/404.html` for any path that doesn't map to a
-        # static asset. Copying `dist/index.html` on top makes every 404
-        # response boot the SPA, which then routes via TanStack Router.
-        #
-        # This bypasses the rafgraph/spa-github-pages query-string dance
-        # entirely — that pattern is for repo-subpath deploys
-        # (`/identityescroworg/`) and was the root cause of the infinite
-        # `?/&/~and~/...` loop seen at zkqes.org/ceremony/contribute on
-        # 2026-05-04 (a stale `segmentCount=1` from the subpath era treated
-        # `/ceremony` as a base prefix to keep, redirecting `/ceremony/foo`
-        # → `/ceremony/?/foo` which 404'd again because there is no
-        # `dist/ceremony/index.html`, looping).
-        #
-        # `dist/index.html` already includes a defensive restoration script
-        # for the rare cached tab still carrying a `?/...` URL from the
-        # broken-deploy era; that script is a no-op when the query is empty.
-        run: cp packages/web/dist/index.html packages/web/dist/404.html
+      - name: Write CNAME (docs.zkqes.org)
+        # Per BRAND.md §Domains. The CNAME file tells GH Pages to
+        # serve the deployed artifact with `Host: docs.zkqes.org` +
+        # provision a Let's Encrypt cert for that subdomain.
+        run: echo "docs.zkqes.org" > docs/.vitepress/dist/CNAME
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: packages/web/dist
+          path: docs/.vitepress/dist
 
   deploy:
     needs: build

@@ -1,0 +1,6 @@
+{
+  "spki": "3059301306072a8648ce3d020106082a8648ce3d03010703420004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "source": "synthetic-diia-template-2026-05-05",
+  "structure": "SubjectPublicKeyInfo for ECDSA-P256: AlgorithmIdentifier { id-ecPublicKey, secp256r1 } + BIT STRING { 0x04 || X(32 bytes 0xAA) || Y(32 bytes 0xBB) }. Length-byte audit: outer 0x59 = 89 (= 21 algorithm + 68 BIT STRING); algorithm 0x13 = 19 (= 9 ecPublicKey OID + 10 P-256 OID); BIT STRING 0x42 = 66 (= 1 unused-bits-count + 65 uncompressed-point). Total 91 bytes.",
+  "purpose": "DER-strict-guard round-trip fixture for `packages/sdk/src/cert/der-strict.test.ts`. Synthetic — derived from the public test cert template, not a real signer's leaf. Per multi-QTSP facade plan T3 step 5."
+}

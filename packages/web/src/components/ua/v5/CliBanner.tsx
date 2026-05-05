@@ -1,15 +1,10 @@
-// CliBanner — civic-monumental info-level banner that nudges users to
-// install the zkqes CLI for native proof generation. Renders only when
-// `useCliPresence` reports CLI absent AND the user has not dismissed
-// the banner this browser profile.
+// Civic-terminal v2 surface (BRAND.md §Surface grammar). Pre-v2
+// sovereign + --rule tokens retired here per founder direction
+// 2026-05-05 (task #84). Banner is now a `.ct-field` (civic-terminal
+// dashed-border framed block) — matches the same outline grammar
+// used elsewhere on the surface; info-level rather than --err framing.
 //
 // Plan ref: docs/superpowers/plans/2026-05-03-qkb-cli-server-web-eng.md T3.
-//
-// Aesthetic: matches the existing /v5/registerV5 aside pattern
-// (RotateWalletFlow's `rotate-warning-*` panels) — bordered block,
-// no shadow, no icon, EB Garamond display + Inter Tight body. Info
-// level uses `--rule` border (subtle separator color) rather than
-// `--seal` (which is reserved for warnings/alerts).
 //
 // Dismiss persistence: localStorage. SessionStorage would re-show on
 // every tab open, which feels pushy for an OPTIONAL upgrade. The CLI
@@ -59,20 +54,49 @@ export function CliBanner() {
 
   return (
     <aside
-      className="p-4 space-y-2 border"
-      style={{ borderColor: 'var(--rule)', color: 'var(--ink)' }}
+      className="ct-field"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        color: 'var(--ct-ink)',
+      }}
       data-testid="cli-banner"
       role="complementary"
       aria-label={t('cliBanner.title')}
     >
-      <p className="text-sm font-semibold">{t('cliBanner.title')}</p>
-      <p className="text-sm" style={{ opacity: 0.85 }}>
+      <p
+        style={{
+          fontFamily: 'var(--mono)',
+          fontSize: '13px',
+          fontWeight: 600,
+          margin: 0,
+        }}
+      >
+        {t('cliBanner.title')}
+      </p>
+      <p
+        style={{
+          fontFamily: 'var(--mono)',
+          fontSize: '13px',
+          margin: 0,
+          color: 'var(--ct-ink-2)',
+        }}
+      >
         {t('cliBanner.body')}
       </p>
-      <div className="flex items-center gap-4 text-sm">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          fontFamily: 'var(--mono)',
+          fontSize: '13px',
+        }}
+      >
         <Link
           to="/ua/cli"
-          style={{ color: 'var(--sovereign)' }}
+          className="ct-link"
           data-testid="cli-banner-cta"
         >
           {t('cliBanner.cta')}
@@ -80,8 +104,15 @@ export function CliBanner() {
         <button
           type="button"
           onClick={onDismiss}
-          className="text-mono text-xs"
-          style={{ color: 'var(--ink)', opacity: 0.6 }}
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: '12px',
+            color: 'var(--ct-mute)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+          }}
           data-testid="cli-banner-dismiss"
         >
           {t('cliBanner.dismiss')}

@@ -178,6 +178,14 @@ jobs:
         # chain-ID pinned; injected wallet — no real network.
         run: pnpm -F @zkqes/web exec playwright test --project=v5
 
+      - name: Run landing bundle-size budget (T15)
+        # Multi-QTSP facade T15: per nightly cadence, exercise the
+        # `VITE_TARGET=landing` build's entry-chunk size against the
+        # live budget. ~60-90s cold-cache; segregated from per-PR fast
+        # tier per lead's T15 dispatch (build cost too heavy for per-
+        # commit friction). Bundle drift is slow; nightly is right.
+        run: pnpm -F @zkqes/web test:bundle-size
+
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4

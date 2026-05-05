@@ -30,14 +30,14 @@ import {
 } from '../../lib/flyLauncher';
 
 const inputStyle: React.CSSProperties = {
-  border: '1px solid var(--sovereign)',
-  background: 'var(--bone)',
-  color: 'var(--ink)',
+  border: '1px solid var(--ct-ink)',
+  background: 'var(--ct-paper)',
+  color: 'var(--ct-ink)',
 };
 
 const inputErrorStyle: React.CSSProperties = {
   ...inputStyle,
-  borderColor: 'var(--brick)',
+  borderColor: 'var(--err)',
 };
 
 export function FlyLauncherForm() {
@@ -95,7 +95,7 @@ export function FlyLauncherForm() {
           type="button"
           onClick={() => setOpen(true)}
           className="text-mono text-sm underline"
-          style={{ color: 'var(--sovereign)' }}
+          style={{ color: 'var(--ct-ink)' }}
         >
           {t(
             'ceremony.contribute.flyForm.openCta',
@@ -104,7 +104,7 @@ export function FlyLauncherForm() {
         </button>
         <p
           className="text-xs max-w-prose"
-          style={{ color: 'var(--ink)', opacity: 0.7 }}
+          style={{ color: 'var(--ct-ink)', opacity: 0.7 }}
         >
           {t(
             'ceremony.contribute.flyForm.openHint',
@@ -124,7 +124,7 @@ export function FlyLauncherForm() {
       <h3
         id={formHeadingId}
         className="text-2xl"
-        style={{ color: 'var(--ink)' }}
+        style={{ color: 'var(--ct-ink)' }}
       >
         {t('ceremony.contribute.flyForm.heading', 'Generate launch command')}
       </h3>
@@ -134,15 +134,15 @@ export function FlyLauncherForm() {
         className="space-y-2 max-w-prose"
         data-testid="fly-launch-warnings"
       >
-        <p className="text-sm" style={{ color: 'var(--ink)' }}>
+        <p className="text-sm" style={{ color: 'var(--ct-ink)' }}>
           {t(
             'ceremony.contribute.flyForm.warningBrowser',
             'This form generates a command for you to paste into a terminal. The form runs entirely in your browser; nothing you type is sent anywhere. Your entropy stays local until you run the generated `flyctl secrets set` line.',
           )}
         </p>
         <p
-          className="text-fine text-sm italic"
-          style={{ color: 'var(--seal)' }}
+          className="text-sm italic"
+          style={{ color: 'var(--err)' }}
         >
           {t(
             'ceremony.contribute.flyForm.warningReceipt',
@@ -156,13 +156,13 @@ export function FlyLauncherForm() {
         <label className="block sm:col-span-2">
           <span
             className="text-mono text-xs block mb-1"
-            style={{ color: 'var(--ink)' }}
+            style={{ color: 'var(--ct-ink)' }}
           >
             {t(
               'ceremony.contribute.flyForm.signedUrlLabel',
               'Signed PUT URL',
             )}{' '}
-            <span style={{ color: 'var(--brick)' }}>*</span>
+            <span style={{ color: 'var(--err)' }}>*</span>
           </span>
           <textarea
             value={signedPutUrl}
@@ -178,10 +178,10 @@ export function FlyLauncherForm() {
         <label className="block">
           <span
             className="text-mono text-xs block mb-1"
-            style={{ color: 'var(--ink)' }}
+            style={{ color: 'var(--ct-ink)' }}
           >
             {t('ceremony.contribute.flyForm.roundLabel', 'Round number')}{' '}
-            <span style={{ color: 'var(--brick)' }}>*</span>
+            <span style={{ color: 'var(--err)' }}>*</span>
           </span>
           <input
             type="number"
@@ -198,10 +198,10 @@ export function FlyLauncherForm() {
         <label className="block">
           <span
             className="text-mono text-xs block mb-1"
-            style={{ color: 'var(--ink)' }}
+            style={{ color: 'var(--ct-ink)' }}
           >
             {t('ceremony.contribute.flyForm.nameLabel', 'Contributor name')}{' '}
-            <span style={{ color: 'var(--brick)' }}>*</span>
+            <span style={{ color: 'var(--err)' }}>*</span>
           </span>
           <input
             type="text"
@@ -218,7 +218,7 @@ export function FlyLauncherForm() {
         <label className="block sm:col-span-2">
           <span
             className="text-mono text-xs block mb-1"
-            style={{ color: 'var(--ink)' }}
+            style={{ color: 'var(--ct-ink)' }}
           >
             {t(
               'ceremony.contribute.flyForm.profileUrlLabel',
@@ -239,13 +239,13 @@ export function FlyLauncherForm() {
         <label className="block sm:col-span-2">
           <span
             className="text-mono text-xs block mb-1"
-            style={{ color: 'var(--ink)' }}
+            style={{ color: 'var(--ct-ink)' }}
           >
             {t(
               'ceremony.contribute.flyForm.entropyLabel',
               'Entropy (32 bytes, hex)',
             )}{' '}
-            <span style={{ color: 'var(--brick)' }}>*</span>
+            <span style={{ color: 'var(--err)' }}>*</span>
           </span>
           <div className="flex gap-2">
             <input
@@ -271,11 +271,7 @@ export function FlyLauncherForm() {
               type="button"
               onClick={() => setEntropy(generateEntropyHex())}
               data-testid="fly-launch-generate-entropy"
-              className="px-4 py-2 text-mono text-sm"
-              style={{
-                background: 'var(--sovereign)',
-                color: 'var(--bone)',
-              }}
+              className="ct-btn"
             >
               {t(
                 'ceremony.contribute.flyForm.generateEntropy',
@@ -288,7 +284,7 @@ export function FlyLauncherForm() {
               id="fly-launch-entropy-error"
               role="alert"
               className="text-mono text-xs mt-1"
-              style={{ color: 'var(--brick)' }}
+              style={{ color: 'var(--err)' }}
             >
               {t(
                 'ceremony.contribute.flyForm.entropyError',
@@ -302,9 +298,9 @@ export function FlyLauncherForm() {
       {/* Rendered command sequence + copy button. */}
       <div className="space-y-3">
         <h4
-          className="text-fine text-sm"
+          className="text-sm"
           style={{
-            color: 'var(--sovereign)',
+            color: 'var(--ct-ink)',
             fontVariant: 'small-caps',
             letterSpacing: '0.08em',
           }}
@@ -317,7 +313,12 @@ export function FlyLauncherForm() {
         <pre
           className="text-mono text-sm p-4 overflow-x-auto whitespace-pre-wrap break-all"
           data-testid="fly-launch-output"
-          style={{ background: 'var(--ink)', color: 'var(--bone)' }}
+          style={{
+            background: 'var(--hilite)',
+            color: 'var(--hilite-text)',
+            fontFamily: 'var(--mono)',
+            margin: 0,
+          }}
         >
 {cmd}
         </pre>
@@ -326,7 +327,7 @@ export function FlyLauncherForm() {
           {!formReady && (
             <span
               className="text-mono text-xs"
-              style={{ color: 'var(--ink)', opacity: 0.7 }}
+              style={{ color: 'var(--ct-ink)', opacity: 0.7 }}
               data-testid="fly-launch-incomplete"
             >
               {t(

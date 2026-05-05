@@ -60,9 +60,8 @@ test.describe('/integrations', () => {
     await pushRoute(page, '/integrations');
     await page.getByRole('link', { name: /^← back$/ }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(
-      page.getByRole('heading', { name: /Verified Identity/i }),
-    ).toBeVisible();
+    // v3 default `/` renders <HomeDocument /> (Task #87, 2026-05-05).
+    await expect(page.getByTestId('home-document-v3-shell')).toBeVisible();
   });
 
   test('does not throw uncaught JS errors on initial load', async ({ page }) => {

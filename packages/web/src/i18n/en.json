@@ -15,6 +15,42 @@
       "recoveryLabel": "What can be recovered, by whom, under what process",
       "recoveryBody": "by the issuing authority, under lawful order, at meaningful compute cost. Not by third parties.",
       "closing": "This is identity escrow. Every-day pseudonymity for the holder; recoverable accountability for the state. The same trust structure as the qualified electronic signature itself — preserved on-chain."
+    },
+    "v3": {
+      "letterhead": {
+        "office": "OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR",
+        "formId": "FORM ZK-QES / 01 · BINDING WALLET TO QUALIFIED IDENTITY"
+      },
+      "documentFigure": {
+        "aria": "Specimen binding statement: the holder of a qualified electronic signature certificate issued under eIDAS Regulation (EU) 910/2014 and the Law of Ukraine on Electronic Trust Services binds a wallet address to their identity, without revealing it. Signed by a qualified signature."
+      },
+      "legal": {
+        "legend": "SECTION I — LEGAL BASIS",
+        "eidas": "Regulation (EU) {{reg}} on electronic identification (eIDAS)",
+        "uaLaw": "Law of Ukraine «Про електронні довірчі послуги» (2155-VIII)",
+        "ceremonyRecruiting": "Ceremony parameters · in recruitment · round 0 of {{total}}",
+        "ceremonyLive": "Ceremony parameters · live · round {{round}} of {{total}}",
+        "ceremonyComplete": "Ceremony parameters · complete · {{total}} rounds attested"
+      },
+      "seal": {
+        "aria": "zkQES official seal",
+        "label": "QUALIFIED · ZERO-KNOWLEDGE · 2026"
+      },
+      "benefits": {
+        "legend": "SECTION II — WHAT YOU GET",
+        "oneNullifier": "One nullifier per identity (no double-use)",
+        "boundWallets": "One or more wallets bound under that nullifier",
+        "rotate": "Rotate any wallet without revealing it was yours",
+        "zeroCorrelation": "Zero correlation between QES and chain activity"
+      },
+      "cta": {
+        "beginFiling": "Begin filing",
+        "verify": "Verify a binding"
+      },
+      "revision": {
+        "supersedes": "SUPERSEDES ALL PRIOR EDITIONS",
+        "page": "PAGE 1 OF 1"
+      }
     }
   },
   "cli": {
@@ -74,6 +110,80 @@
     "dismiss": "Dismiss"
   },
   "registerV5": {
+    "v3": {
+      "letterhead": {
+        "office": "OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR",
+        "formTitle": "BINDING OF WALLET TO QUALIFIED IDENTITY",
+        "draft": "DRAFT"
+      },
+      "art1": {
+        "title": "Declarant",
+        "body": "The undersigned, holder of a qualified electronic signature certificate issued by a Trust Service Provider listed on the EU LOTL or the Ukrainian TL, identified as",
+        "tagVerified": "verified",
+        "tagAwaiting": "awaiting",
+        "tagRedacted": "redacted",
+        "nameLabel": "NAME",
+        "nameAwaiting": "awaiting QES upload — name is read locally from the .p7s in Article 3",
+        "redactedAria": "Redacted holder name. The name is read locally from the QES certificate, never transmitted, never proven on-chain.",
+        "annotation": "Read locally from the QES certificate. Never transmitted, never proven on-chain."
+      },
+      "art2": {
+        "title": "Wallet hereby bound",
+        "walletLabel": "WALLET",
+        "walletAwaiting": "awaiting wallet connection — see Step 1 below",
+        "networkLabel": "NETWORK",
+        "chainIdLabel": "CHAIN ID"
+      },
+      "art3": {
+        "title": "Qualified Trust Service Provider",
+        "recital1": "The Declarant asserts that the certificate referred to in Article 1 was issued by a QTSP currently maintained on a Member-State Trusted List under Reg. (EU) 910/2014 Art. 22, or on the Ukrainian Trusted List under Law of Ukraine 2155-VIII Art. 32.",
+        "recital2": "The Declarant does not disclose which Trust Service Provider issued the certificate. The proof asserts membership only.",
+        "qtspLabel": "QTSP",
+        "qtspWithheld": "— withheld by zero-knowledge —"
+      },
+      "art4": {
+        "title": "Statement of binding",
+        "recital1": "I hereby bind the wallet identified in Article 2 to my qualified electronic identity referenced in Article 1.",
+        "recital2": "I confirm that the binding does not constitute disclosure of my identity to any third party, including the Office of the Registrar, the network operator, or any node of the chain.",
+        "recital3": "The proof shall be generated locally on my device. The qualified signature shall not leave the device under any circumstance.",
+        "recital4": "I retain the right to bind further wallets under the same nullifier and to revoke any wallet at any time without revealing prior bindings."
+      },
+      "art5": {
+        "title": "Execution",
+        "qesLegend": "QUALIFIED ELECTRONIC SIGNATURE",
+        "qesProtocol": "Diia.Sign · CAdES-X",
+        "qesAwaiting": "awaiting…",
+        "qesUploaded": "✓ uploaded",
+        "qesPlaceholder": "the .p7s you produce in Article 3 attaches here",
+        "qesSigAria": "Stylised QES signature placeholder shown after the .p7s is uploaded.",
+        "walletLegend": "WALLET COUNTER-SIGNATURE",
+        "walletProtocol": "EIP-191",
+        "walletAwaiting": "awaiting…",
+        "walletReady": "✓ ready",
+        "walletAuto": "auto via window.ethereum",
+        "walletPlaceholder": "the connected wallet counter-signs here"
+      },
+      "marginalia": {
+        "notaryLegend": "NOTARY",
+        "notaryBody": "This is a self-notarised filing. The Office never sees which certificate was used — only that some qualified one was.",
+        "annotation1Legend": "ANNOTATION · ART. 01",
+        "annotation1Body": "Your name is read by the browser solely to render this preview. It is replaced by ████ before the proof is generated.",
+        "annotation4Legend": "ANNOTATION · ART. 04",
+        "annotation4Body": "The «nullifier» is a one-way hash of your QES public key. It cannot be reversed; it cannot be linked to your name.",
+        "fileStateLegend": "FILE STATE",
+        "articlePrefix": "Art.",
+        "state": {
+          "complete": "complete",
+          "pending": "pending",
+          "read": "read",
+          "awaiting": "awaiting"
+        }
+      },
+      "footer": {
+        "page": "PAGE 1 OF 1 · SUPERSEDES NONE",
+        "progress": "{{done}} of {{total}} articles complete"
+      }
+    },
     "title": "Register your identity",
     "lede": "Four steps. Your private credentials never leave this browser — only a zero-knowledge proof reaches the chain.",
     "indicator": {
@@ -137,6 +247,15 @@
     "optedOut": "SCW path cancelled — please connect an EOA wallet (MetaMask, Rabby, Frame, etc.) and retry."
   },
   "accountRotate": {
+    "v3": {
+      "back": "back to overview",
+      "heading": "Rotate a wallet",
+      "lede": "A rotation is just a new binding under the same nullifier. The old wallet becomes inert; on-chain, nothing ties the two together — the registry sees two unrelated nullifier-uses by the same identity.",
+      "marqueeSidebar": "rotate a wallet binding under the same nullifier",
+      "diagram": {
+        "aria": "Rotation diagram. The old wallet and the new wallet both resolve to the same nullifier from the holder's perspective, but on-chain they appear as two unrelated nullifier-uses with no link between them."
+      }
+    },
     "title": "Rotate to a new wallet",
     "lede": "Bind your verified identity to a different wallet without re-running the Diia signature flow against your old wallet. The old wallet authorises the rotation; the new wallet takes over going forward.",
     "back": "Back",
@@ -219,6 +338,27 @@
     }
   },
   "ceremony": {
+    "v3": {
+      "statusKicker": "STATUS",
+      "chainHeading": "The chain so far",
+      "tagsHashesVerified": "All hashes verified",
+      "tagsAppendOnly": "Append-only · IPFS-pinned",
+      "feedDown": "Status feed unreachable. The chain reflects the last cached payload — re-check in a minute.",
+      "recruitKicker": "WE NEED YOU",
+      "recruitHeading": "Make us trustworthy.",
+      "recruitLede": "Run four commands on a machine you'll throw away. So long as one contributor (you) honestly destroys their entropy, every binding ever produced is sound.",
+      "commandsLegend": "FOUR COMMANDS — preview",
+      "commandsAria": "Four-command snarkjs preview: download the previous round's intermediate zkey, contribute, verify locally, upload via signed URL.",
+      "commandsCaption": "Full setup, signed-URL handoff, and copy buttons live in the contributor guide.",
+      "ctaContribute": "Read the contributor guide",
+      "ctaQuestions": "I have questions",
+      "statRam": "RAM",
+      "statRamValue": "≥ 32 GB",
+      "statTime": "Time",
+      "statTimeValue": "~25 min",
+      "statCost": "Cost",
+      "statCostValue": "≈ $0.40 on Fly"
+    },
     "copy": {
       "idle": "Copy",
       "copied": "Copied",
@@ -357,6 +497,34 @@
           "heading": "RECENT",
           "empty": "no lookups yet"
         }
+      },
+      "binding": {
+        "back": "back to overview",
+        "heading": "Verify a binding",
+        "lede": "Paste a wallet address. The verifier runs locally — no server learns what you looked up. Pre-launch, the on-chain registry is gated behind the Base Sepolia deploy + ceremony close; for attestation lookups today, head to the ceremony verifier.",
+        "marqueeSidebar": "verify a wallet ↔ qualified-identity binding",
+        "queryLabel": "QUERY",
+        "placeholder": "0x… wallet address",
+        "submit": "Verify",
+        "result": {
+          "heading": "RESULT",
+          "idle": "Paste a wallet and press Verify. Lookups run locally; nothing leaves this tab.",
+          "invalidTag": "INVALID INPUT",
+          "invalidBody": "That doesn't look like a 0x-prefixed wallet address. Expected: 42-character hex string.",
+          "preLaunchTag": "AVAILABLE POST-LAUNCH",
+          "checkedLocally": "checked locally · 0 ms",
+          "preLaunchBody": "The on-chain binding registry deploys to Base Sepolia after the trusted-setup ceremony closes (task #15 / #70). Once live, this surface will report whether the wallet is bound to a qualified identity, the QTSP class (EU LOTL or UA TL), the ceremony round the proof verifies against, and how many wallets share the underlying nullifier — without revealing the identity itself.",
+          "preLaunchAttestationLink": "verify a ceremony attestation hash today →"
+        },
+        "notLearned": {
+          "heading": "WHAT YOU CAN'T LEARN",
+          "bullets": [
+            "The holder's name.",
+            "Which QTSP issued the certificate.",
+            "Which country they are in.",
+            "Whether two wallets share a holder, unless the holder tells you."
+          ]
+        }
       }
     }
   },
@@ -385,5 +553,52 @@
     "umbrellaHeading": "About zkqes",
     "umbrellaBody": "zkqes is a zero-knowledge protocol over qualified electronic signatures. Any state-issued credential exhibits a property: the issuing authority retains the ability to identify a holder under lawful process. zkqes is the first protocol that surfaces this property on-chain — every-day pseudonymity for the holder, recoverable accountability for the state, the same trust structure as the qualified electronic signature itself.",
     "docsLink": "Specs, install, reference at docs.zkqes.org →"
+  },
+  "qtsp": {
+    "state": {
+      "bronze": "Documented",
+      "silver": "In integration",
+      "gold": "Ready for testnet",
+      "live": "Live"
+    },
+    "tile": {
+      "notLive": "Click for status & contribute"
+    },
+    "drawer": {
+      "helpVerify": "Help us verify this QTSP",
+      "notifyMe": "Notify me when {{qtspName}} is ready"
+    },
+    "page": {
+      "about": "About this QTSP",
+      "signing": "Recommended signing tool",
+      "parserStatus": "Parser status",
+      "samplesLedger": "Verified samples",
+      "trustAnchors": "Trust anchors",
+      "cta": {
+        "silver": "Notify me when ready",
+        "gold": "Try on testnet",
+        "live": "Register"
+      }
+    },
+    "region": {
+      "EASTERN_EU": "Eastern Europe",
+      "NORDICS": "Nordics",
+      "SOUTHERN_EU": "Southern Europe",
+      "CENTRAL_EU": "Central Europe",
+      "WESTERN_EU": "Western Europe",
+      "OTHER": "Other"
+    },
+    "filter": {
+      "all": "All"
+    },
+    "grid": {
+      "empty": "No QTSPs yet — help us add yours."
+    }
+  },
+  "errors": {
+    "cert": {
+      "berInput": "Your {{qtspName}} certificate is non-canonically encoded ({{reason}}). zkqes currently requires strict DER. Please re-issue from {{qtspUrl}} or contact us if this persists.",
+      "berInputGeneric": "Your certificate is non-canonically encoded ({{reason}}). zkqes currently requires strict DER. See /countries for supported QTSPs."
+    }
   }
 }

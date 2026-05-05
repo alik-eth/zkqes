@@ -1,73 +1,28 @@
 @import "tailwindcss";
 
-:root {
-  /* Color tokens — civic-monumental */
-  --bone:        #F4EFE6;
-  --ink:         #14130E;
-  --sovereign:   #1F2D5C;
-  --seal:        #8B3A1B;
-  --rule:        #C8BFA8;
-  --brick:       #A0392E;
-  --olive:       #5A7A45;
+/* Civic-terminal v2 (BRAND.md §Surface grammar) is the canonical
+   theme — see `src/styles/civic-terminal.css` for the `--ct-*` token
+   set and `.ct-*` class primitives. Surfaces opt into it by wrapping
+   their root element in `<main className="ct">` and importing the
+   civic-terminal stylesheet (`import '../styles/civic-terminal.css'`).
 
-  /* Type stack */
-  --font-display:  "GT Sectra Display", "Tiempos Headline", "EB Garamond", serif;
-  --font-body:     "Söhne", "Inter Tight", "Helvetica Neue", system-ui, sans-serif;
-  --font-mono:     "Söhne Mono", "JetBrains Mono", "Courier New", monospace;
-  --font-fine:     "GT Sectra Fine", "Tiempos Fine", "EB Garamond", serif;
+   This file (styles.css) used to declare the pre-v2 "civic-monumental"
+   tokens (--bone / --ink / --sovereign / --seal / --rule / --brick /
+   --olive) + legacy heading + .doc-grid / hr.rule grammar. Founder
+   direction 2026-05-05 (task #84) retired the civic-monumental theme
+   in favor of civic-terminal-only surfaces. Every surface that used
+   the legacy tokens has been migrated; the tokens themselves are
+   deleted from this file so a future drift can't silently re-introduce
+   them.
 
-  /* Layout */
-  --margin-asymmetric: 25vw;
-  --rule-thin:         1px;
-}
-
-@layer base {
-  html, body {
-    background-color: var(--bone);
-    color: var(--ink);
-    font-family: var(--font-body);
-  }
-
-  body {
-    background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.078  0 0 0 0 0.075  0 0 0 0 0.054  0 0 0 0.04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-    background-repeat: repeat;
-  }
-
-  h1, h2, h3 {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-
-  hr.rule {
-    border: 0;
-    border-top: var(--rule-thin) solid var(--sovereign);
-    margin: 2.5rem 0;
-  }
-
-  *::selection { background: var(--sovereign); color: var(--bone); }
-
-  a { color: var(--sovereign); text-decoration: underline; text-underline-offset: 3px; }
-  a:hover { color: var(--seal); }
-
-  button { font-family: var(--font-body); }
-}
+   `.text-mono` is preserved as a Tailwind-side utility for the few
+   places that still use it as a class hook (HMR-safe input rendering
+   in Step3DiiaSign etc) — civic-terminal surfaces use `fontFamily:
+   var(--mono)` inline instead, which is the canonical path. */
 
 @layer utilities {
-  .text-mono { font-family: var(--font-mono); font-feature-settings: "tnum"; }
-  .text-fine { font-family: var(--font-fine); }
-  .doc-grid {
-    display: grid;
-    grid-template-columns: 1.25rem 1fr;
-    column-gap: 1rem;
-    padding-right: 1.25rem;
-  }
-  @media (min-width: 768px) {
-    .doc-grid {
-      grid-template-columns: var(--margin-asymmetric) 1fr;
-      column-gap: 2rem;
-      padding-right: 0;
-    }
+  .text-mono {
+    font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-feature-settings: "tnum";
   }
 }
