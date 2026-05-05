@@ -11,10 +11,10 @@
 // deferred to V1.1 — sections below say so explicitly so users on
 // brew/winget aren't left wondering when their channel will work.
 //
-// Aesthetic: civic-monumental, lifted from /ceremony/contribute —
-// PaperGrain background, doc-grid layout, hr.rule section dividers,
-// dot-marker list items, CopyButton on every code block, EB Garamond
-// headings + Inter Tight body via inherited typography.
+// Aesthetic: civic-terminal v2 (task #84), matches /ceremony/contribute —
+// .ct page chrome, .ct-divider section rules, dot-marker list items in
+// --ct-mute, CopyButton on every code block, VT323 display + IBM Plex
+// Mono body via the civic-terminal token set.
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from '../../components/CopyButton';
