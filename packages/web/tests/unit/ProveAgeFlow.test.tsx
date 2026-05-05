@@ -13,7 +13,7 @@
  * `@zkqes/sdk` `src/witness/v5_4/build-age-witness.test.ts`.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 vi.mock('@zkqes/sdk', async () => {
@@ -26,6 +26,12 @@ vi.mock('@zkqes/sdk', async () => {
     buildAgeWitness: vi.fn(),
   };
 });
+
+// V5.4 binding resolver — mocked so tests can drive N=0 / N=1 / N>1
+// branches without standing up a viem PublicClient + chain RPC.
+vi.mock('../../src/hooks/useV5_4BindingsForWallet', () => ({
+  useV5_4BindingsForWallet: vi.fn(),
+}));
 
 // Mock the chrome primitives + i18n so the component test stays focused
 // on the state machine + result rendering. Real chrome composition is
@@ -63,8 +69,26 @@ import { buildAgeWitness, MockProver, type IProver } from '@zkqes/sdk';
 import { useAccount } from 'wagmi';
 
 import { ProveAgeFlow } from '../../src/components/account/ProveAgeFlow';
+import { useV5_4BindingsForWallet } from '../../src/hooks/useV5_4BindingsForWallet';
 
 const mockedBuild = vi.mocked(buildAgeWitness);
+const mockedBindings = vi.mocked(useV5_4BindingsForWallet);
+
+// Default to "wallet owns exactly 1 binding" for the happy-path tests
+// so the binding-pick step auto-advances. Tests that exercise N=0 /
+// N>1 / loading / error branches override this in their setup.
+const STUB_BINDING_ID = ('0x' + 'cd'.repeat(32)) as `0x${string}`;
+function primeBindings(
+  override: Partial<ReturnType<typeof useV5_4BindingsForWallet>> = {},
+) {
+  mockedBindings.mockReturnValue({
+    data: [STUB_BINDING_ID],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+    ...override,
+  });
+}
 
 // JSDOM's File class lacks `arrayBuffer()` until Node 20.10+; the
 // component's onP7sChange uses it. Polyfill via the file's bytes — the
@@ -83,10 +107,14 @@ if (typeof File.prototype.arrayBuffer !== 'function') {
   };
 }
 
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
+// Test pollution defense: every test starts with a fresh mockReturnValue
+// for the bindings hook + a fresh useAccount-connected impl. Skipping
+// `vi.restoreAllMocks()` (which was undoing the module-factory wagmi
+// mock between tests, leaving useAccount returning undefined until
+// re-impl'd in afterEach — race-prone with React's render scheduler).
+beforeEach(() => {
   mockedBuild.mockReset();
+  mockedBindings.mockReset();
   vi.mocked(useAccount).mockImplementation(() => ({
     isConnected: true,
     address: ('0x' + 'a'.repeat(40)) as `0x${string}`,
@@ -94,17 +122,25 @@ afterEach(() => {
   } as any));
 });
 
+afterEach(() => {
+  cleanup();
+});
+
 describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
-  it('renders the v3 shell + Marquee + FooterRibbon + cutoff step at default state', () => {
+  it('renders the v3 shell + Marquee + FooterRibbon + cutoff step at default state', async () => {
+    primeBindings();
     render(<ProveAgeFlow prover={new MockProver()} />);
     expect(screen.getByTestId('prove-age-v3-shell')).toBeInTheDocument();
     expect(screen.getByTestId('marquee')).toBeInTheDocument();
     expect(screen.getByTestId('footer-ribbon')).toBeInTheDocument();
-    // Wallet auto-connect mock advances past 'connect' to 'cutoff'.
-    expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    // Wallet auto-connect mock + N=1 binding auto-advance lands on cutoff.
+    await waitFor(() => {
+      expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    });
   });
 
   it('renders the connect step when wallet is disconnected', () => {
+    primeBindings();
     vi.mocked(useAccount).mockImplementation(() => ({
       isConnected: false,
       address: undefined,
@@ -115,12 +151,22 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
     expect(screen.queryByTestId('prove-age-step-cutoff')).not.toBeInTheDocument();
   });
 
-  it('cutoff input defaults to today − 18 years (YYYY-MM-DD)', () => {
+  it('cutoff input defaults to today − 18 years (YYYY-MM-DD)', async () => {
+    primeBindings();
+    // Fake ONLY Date — leave setTimeout/setInterval real so
+    // `waitFor`'s polling still ticks through React's effect schedule.
+    // Faking all timers (vi.useFakeTimers() default) freezes
+    // `waitFor`'s retry interval and the cutoff step never appears
+    // before the 5s test timeout.
     const fakeNow = new Date('2026-05-05T00:00:00Z');
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(fakeNow);
     try {
       render(<ProveAgeFlow prover={new MockProver()} />);
+      // Wait for the N=1 auto-advance to land on cutoff.
+      await waitFor(() => {
+        expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+      });
       const cutoff = screen.getByTestId('prove-age-cutoff-input') as HTMLInputElement;
       expect(cutoff.value).toBe('2008-05-05');
     } finally {
@@ -128,7 +174,61 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
     }
   });
 
+  // ── V5.4 binding-pick step — N=0 / N=1 / N>1 / loading / error ────
+
+  it('binding-pick: shows loading state while resolver is in flight', () => {
+    primeBindings({ data: [], isLoading: true });
+    render(<ProveAgeFlow prover={new MockProver()} />);
+    expect(
+      screen.getByTestId('prove-age-step-binding-pick-loading'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('prove-age-step-cutoff')).not.toBeInTheDocument();
+  });
+
+  it('binding-pick: N=0 surfaces empty-state with /ua/registerV5 CTA', () => {
+    primeBindings({ data: [] });
+    render(<ProveAgeFlow prover={new MockProver()} />);
+    expect(
+      screen.getByTestId('prove-age-step-binding-pick-empty'),
+    ).toBeInTheDocument();
+    const cta = screen.getByTestId('prove-age-binding-pick-register-cta');
+    expect(cta).toHaveAttribute('href', '/ua/registerV5');
+  });
+
+  it('binding-pick: N=1 auto-advances to cutoff (vast-majority path)', async () => {
+    primeBindings({ data: [STUB_BINDING_ID] });
+    render(<ProveAgeFlow prover={new MockProver()} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    });
+  });
+
+  it('binding-pick: N>1 renders explicit picker; click selects + advances', async () => {
+    const second = ('0x' + 'ef'.repeat(32)) as `0x${string}`;
+    primeBindings({ data: [STUB_BINDING_ID, second] });
+    render(<ProveAgeFlow prover={new MockProver()} />);
+    expect(
+      screen.getByTestId('prove-age-step-binding-pick-multi'),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByTestId(`prove-age-binding-pick-option-${second}`),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    });
+  });
+
+  it('binding-pick: resolver error surfaces verbatim, blocks advancement', () => {
+    primeBindings({ data: [], error: new Error('rpc-503') });
+    render(<ProveAgeFlow prover={new MockProver()} />);
+    const errBlock = screen.getByTestId('prove-age-step-binding-pick-error');
+    expect(errBlock).toBeInTheDocument();
+    expect(errBlock).toHaveTextContent('rpc-503');
+    expect(screen.queryByTestId('prove-age-step-cutoff')).not.toBeInTheDocument();
+  });
+
   it('drives cutoff → p7s → prove → result with ageQualified=1', async () => {
+    primeBindings();
     mockedBuild.mockResolvedValue({
       witness: { ageCutoffDateIn: 20070101, nullifierCtxInput: '1', leafCertBytes: [], sdaFrameOffsetInTbs: 0 },
       publicSignals: { ageQualified: 1, ageCutoffDate: 20070101, nullifierCtx: '1' },
@@ -137,7 +237,10 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
     const prover: IProver = new MockProver();
     render(<ProveAgeFlow prover={prover} />);
 
-    // Step 2 → 3
+    // Wait for N=1 auto-advance to cutoff, then continue cutoff → p7s.
+    await waitFor(() => {
+      expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('prove-age-cutoff-advance'));
     expect(screen.getByTestId('prove-age-step-p7s')).toBeInTheDocument();
 
@@ -165,6 +268,7 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
   });
 
   it('renders the not-qualified result when ageQualified=0', async () => {
+    primeBindings();
     mockedBuild.mockResolvedValue({
       witness: { ageCutoffDateIn: 20070101, nullifierCtxInput: '1', leafCertBytes: [], sdaFrameOffsetInTbs: 0 },
       publicSignals: { ageQualified: 0, ageCutoffDate: 20070101, nullifierCtx: '1' },
@@ -172,6 +276,9 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
     });
     render(<ProveAgeFlow prover={new MockProver()} />);
 
+    await waitFor(() => {
+      expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('prove-age-cutoff-advance'));
     const file = new File([new Uint8Array([0x30])], 'fake.p7s');
     fireEvent.change(screen.getByTestId('prove-age-p7s-input'), {
@@ -190,9 +297,13 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
   });
 
   it('shows error step when buildAgeWitness throws (e.g. unsupported DOB encoding)', async () => {
+    primeBindings();
     mockedBuild.mockRejectedValue(new Error('diia-ua-extraction-failed'));
     render(<ProveAgeFlow prover={new MockProver()} />);
 
+    await waitFor(() => {
+      expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('prove-age-cutoff-advance'));
     const file = new File([new Uint8Array([0x30])], 'fake.p7s');
     fireEvent.change(screen.getByTestId('prove-age-p7s-input'), {
@@ -210,8 +321,12 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
     });
   });
 
-  it('blocks the prove button when no .p7s has been uploaded', () => {
+  it('blocks the prove button when no .p7s has been uploaded', async () => {
+    primeBindings();
     render(<ProveAgeFlow prover={new MockProver()} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('prove-age-step-cutoff')).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByTestId('prove-age-cutoff-advance'));
     const proveBtn = screen.getByTestId('prove-age-prove') as HTMLButtonElement;
     expect(proveBtn.disabled).toBe(true);

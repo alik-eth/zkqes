@@ -255,19 +255,29 @@
       "legend": "STEP 1 · CONNECT",
       "body": "Connect the wallet bound to the identity you want to prove against."
     },
+    "bindingPick": {
+      "legend": "STEP 2 · BINDING",
+      "loading": "Looking up the bindings registered to your wallet on Base Sepolia…",
+      "errorTag": "RESOLVER ERROR",
+      "emptyTag": "NO BINDINGS REGISTERED",
+      "emptyBody": "This wallet has no V5.4 bindings yet. Register one first; you can return here to prove an age threshold afterwards.",
+      "registerCta": "Register a binding",
+      "singleAutoAdvance": "Found 1 binding ({{bindingId}}). Continuing to cutoff selection.",
+      "multiBody": "This wallet owns {{count}} V5.4 bindings — V5.4 dropped the 1:1 wallet→binding constraint, so a wallet may hold multiple. Pick the one you want to prove against."
+    },
     "cutoff": {
-      "legend": "STEP 2 · CUTOFF DATE",
+      "legend": "STEP 3 · CUTOFF DATE",
       "body": "Pick the date you want to prove your DOB is on-or-before. The default is today minus 18 years (the most common age-verification threshold).",
       "label": "CUTOFF",
       "advance": "Continue to QES upload"
     },
     "p7s": {
-      "legend": "STEP 3 · QES SIGNATURE",
+      "legend": "STEP 4 · QES SIGNATURE",
       "body": "Upload the same .p7s envelope you used to register the binding. The DOB is read locally from the leaf certificate — never transmitted, never proven on-chain.",
       "advance": "Generate proof"
     },
     "prove": {
-      "legend": "STEP 4 · PROVING",
+      "legend": "STEP 5 · PROVING",
       "working": "Building the V5.4 witness and running the AgeDiiaUA prover. This takes ~30–90 s in the browser; ~14 s with the zkqes CLI."
     },
     "result": {
@@ -287,7 +297,8 @@
       "unknown": "An unknown error occurred while building the witness or running the prover."
     },
     "errors": {
-      "missingP7s": "Upload your .p7s before generating the proof."
+      "missingP7s": "Upload your .p7s before generating the proof.",
+      "missingBinding": "Pick a binding before generating the proof."
     }
   },
   "accountRotate": {

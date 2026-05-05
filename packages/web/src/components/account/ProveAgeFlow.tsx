@@ -46,6 +46,7 @@ import {
 import { Marquee } from '../civic-terminal/Marquee';
 import { FooterRibbon } from '../civic-terminal/FooterRibbon';
 import { useCeremonyPhase } from '../../hooks/useCeremonyPhase';
+import { useV5_4BindingsForWallet } from '../../hooks/useV5_4BindingsForWallet';
 
 const BUILD_SHA = (import.meta.env.VITE_BUILD_SHA as string | undefined) ?? 'dev';
 const BUILD_DATE =
@@ -104,6 +105,7 @@ function computeNullifierCtxV5_4(
 
 type FlowStep =
   | 'connect'
+  | 'binding-pick'
   | 'cutoff'
   | 'p7s'
   | 'prove'
@@ -117,21 +119,10 @@ interface ProveAgeFlowProps {
    * routes/accountProveAge.tsx wires the real prover in T4.
    */
   readonly prover?: IProver;
-  /**
-   * Stub bindingId for Phase A development. Phase C replaces this with
-   * a binding-picker that calls `getBinding(connectedAddress)` against
-   * the deployed ZKQES_REGISTRY_UA registry. The picker UI lands when
-   * the address pump from contracts-eng arrives at T5.
-   */
-  readonly bindingIdStub?: `0x${string}`;
 }
-
-const ZERO_BINDING: `0x${string}` =
-  ('0x' + '00'.repeat(32)) as `0x${string}`;
 
 export function ProveAgeFlow({
   prover = new MockProver(),
-  bindingIdStub = ZERO_BINDING,
 }: ProveAgeFlowProps = {}) {
   const { t } = useTranslation();
   const { phase, status } = useCeremonyPhase();
@@ -139,11 +130,12 @@ export function ProveAgeFlow({
   const effectiveRound = status?.round ?? 0;
   const effectiveTotal = status?.totalRounds ?? 1;
 
-  const { isConnected } = useAccount();
+  const { address: connectedAddress, isConnected } = useAccount();
 
   const [step, setStep] = useState<FlowStep>(
-    isConnected ? 'cutoff' : 'connect',
+    isConnected ? 'binding-pick' : 'connect',
   );
+  const [bindingId, setBindingId] = useState<`0x${string}` | null>(null);
   const [ageCutoffDate, setAgeCutoffDate] = useState<number>(() =>
     defaultCutoffYmd(),
   );
@@ -153,14 +145,32 @@ export function ProveAgeFlow({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
 
+  // V5.4 cardinality (per the cross-broadcast): walletX MAY own
+  // multiple bindings. Resolver hook returns the active set; picker
+  // UX auto-selects N=1, lists N>1, empty-states N=0.
+  const {
+    data: ownedBindings,
+    isLoading: bindingsLoading,
+    error: bindingsError,
+  } = useV5_4BindingsForWallet(connectedAddress);
+
   // The connect step auto-advances when wagmi reports the wallet
   // connected — same affordance as Step1 in the register flow. The
   // user can step back via the back link in the chrome.
   useEffect(() => {
-    if (step === 'connect' && isConnected) setStep('cutoff');
+    if (step === 'connect' && isConnected) setStep('binding-pick');
   }, [step, isConnected]);
 
-  const bindingId = bindingIdStub;
+  // Binding-pick step auto-advances on N=1 (vast-majority path) so the
+  // common-case user never sees a picker. N=0 / N>1 stop here for the
+  // empty-state CTA / multi-select picker respectively.
+  useEffect(() => {
+    if (step !== 'binding-pick' || bindingsLoading || bindingsError) return;
+    if (ownedBindings.length === 1) {
+      setBindingId(ownedBindings[0]!);
+      setStep('cutoff');
+    }
+  }, [step, bindingsLoading, bindingsError, ownedBindings]);
 
   const onP7sChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -174,6 +184,13 @@ export function ProveAgeFlow({
   const onProve = async () => {
     if (!p7s) {
       setErrorMsg(t('accountAgeProof.errors.missingP7s'));
+      return;
+    }
+    if (!bindingId) {
+      // Defensive — the binding-pick step blocks advancing to p7s
+      // without a bindingId set; this guards against a future state-
+      // machine refactor regressing the invariant.
+      setErrorMsg(t('accountAgeProof.errors.missingBinding'));
       return;
     }
     setIsWorking(true);
@@ -298,6 +315,19 @@ export function ProveAgeFlow({
             </p>
             <ConnectButton />
           </div>
+        )}
+
+        {step === 'binding-pick' && (
+          <BindingPickerStep
+            t={t}
+            isLoading={bindingsLoading}
+            error={bindingsError}
+            bindings={ownedBindings}
+            onPick={(id) => {
+              setBindingId(id);
+              setStep('cutoff');
+            }}
+          />
         )}
 
         {step === 'cutoff' && (
@@ -450,6 +480,158 @@ export function ProveAgeFlow({
       </div>
       <FooterRibbon buildSha={BUILD_SHA} buildDate={BUILD_DATE} />
     </main>
+  );
+}
+
+/** Truncate a 0x-prefixed hex value for display: `0x91A2…fE`. */
+function shortHex(v: `0x${string}`, head = 6, tail = 4): string {
+  if (v.length <= head + tail + 1) return v;
+  return `${v.slice(0, head)}…${v.slice(-tail)}`;
+}
+
+interface BindingPickerStepProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly t: any;
+  readonly isLoading: boolean;
+  readonly error: Error | null;
+  readonly bindings: readonly `0x${string}`[];
+  readonly onPick: (id: `0x${string}`) => void;
+}
+
+/**
+ * V5.4 binding-picker step.
+ *
+ * Substates:
+ *   - loading: spinner + "checking your bindings"
+ *   - error:   surfaces the resolver error verbatim (RPC failure
+ *              etc.); doesn't block the user, just stops the flow
+ *   - N=0:     empty-state with CTA to /ua/registerV5
+ *   - N=1:     auto-advance handled UPSTREAM via useEffect — this
+ *              substate is reached transiently before the parent's
+ *              effect commits the bindingId + setStep('cutoff'); we
+ *              render a brief "found 1 binding" tag so users with
+ *              slow rerenders aren't staring at a blank panel
+ *   - N>1:     list with a click-to-select interaction
+ */
+function BindingPickerStep({
+  t,
+  isLoading,
+  error,
+  bindings,
+  onPick,
+}: BindingPickerStepProps) {
+  if (isLoading) {
+    return (
+      <div
+        className="ct-panel"
+        style={{ padding: 'var(--ct-pad)' }}
+        data-testid="prove-age-step-binding-pick-loading"
+      >
+        <span className="ct-legend">{t('accountAgeProof.bindingPick.legend')}</span>
+        <p style={{ fontSize: 12.5, margin: '6px 0 0' }}>
+          {t('accountAgeProof.bindingPick.loading')}
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="ct-field"
+        style={{ padding: 'var(--ct-pad)' }}
+        data-testid="prove-age-step-binding-pick-error"
+      >
+        <span className="ct-tag ct-tag--err">
+          {t('accountAgeProof.bindingPick.errorTag')}
+        </span>
+        <p style={{ fontSize: 12.5, marginTop: 10 }}>{error.message}</p>
+      </div>
+    );
+  }
+
+  if (bindings.length === 0) {
+    return (
+      <div
+        className="ct-field"
+        style={{ padding: 'var(--ct-pad)' }}
+        data-testid="prove-age-step-binding-pick-empty"
+      >
+        <span className="ct-tag ct-tag--warn">
+          {t('accountAgeProof.bindingPick.emptyTag')}
+        </span>
+        <p style={{ fontSize: 12.5, margin: '10px 0 14px' }}>
+          {t('accountAgeProof.bindingPick.emptyBody')}
+        </p>
+        <Link
+          to="/ua/registerV5"
+          className="ct-btn ct-btn--primary"
+          data-testid="prove-age-binding-pick-register-cta"
+        >
+          ▶ {t('accountAgeProof.bindingPick.registerCta')}
+        </Link>
+      </div>
+    );
+  }
+
+  if (bindings.length === 1) {
+    return (
+      <div
+        className="ct-panel"
+        style={{ padding: 'var(--ct-pad)' }}
+        data-testid="prove-age-step-binding-pick-single"
+      >
+        <span className="ct-legend">{t('accountAgeProof.bindingPick.legend')}</span>
+        <p style={{ fontSize: 12.5, margin: '6px 0 0' }}>
+          {t('accountAgeProof.bindingPick.singleAutoAdvance', {
+            bindingId: shortHex(bindings[0]!),
+          })}
+        </p>
+      </div>
+    );
+  }
+
+  // N > 1 — explicit picker.
+  return (
+    <div
+      className="ct-panel ct-panel--inset"
+      style={{ padding: 'var(--ct-pad)' }}
+      data-testid="prove-age-step-binding-pick-multi"
+    >
+      <span className="ct-legend">{t('accountAgeProof.bindingPick.legend')}</span>
+      <p style={{ fontSize: 12.5, margin: '6px 0 12px' }}>
+        {t('accountAgeProof.bindingPick.multiBody', { count: bindings.length })}
+      </p>
+      <ul
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        {bindings.map((id) => (
+          <li key={id}>
+            <button
+              type="button"
+              className="ct-btn"
+              data-testid={`prove-age-binding-pick-option-${id}`}
+              onClick={() => onPick(id)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                fontFamily: 'var(--mono)',
+              }}
+            >
+              {shortHex(id, 10, 8)}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
