@@ -26,18 +26,13 @@ function findCuratedMeta(row: QtspSummary): QtspMetaLike | undefined {
 
 type DobKind = 'standard' | 'custom' | 'absent';
 
-function dobKindFor(meta: QtspMetaLike | undefined, country: string): { kind: DobKind; label: string } {
+function dobKindFor(meta: QtspMetaLike | undefined): { kind: DobKind; label: string } {
   if (!meta?.dobEncoding) {
-    // Ukraine — Diia uses a custom OID under DSTU; explicitly absent
-    // info for non-curated EU TSPs (no national-trust-list discovery
-    // surface yet).
-    return country === 'UA'
-      ? { kind: 'absent', label: 'absent info' }
-      : { kind: 'absent', label: 'absent info' };
+    return { kind: 'absent', label: 'absent info' };
   }
-  const enc = meta.dobEncoding.toLowerCase();
-  // ETSI EN 319 412-1 §natural-person attributes: dateOfBirth = 1.3.6.1.5.5.7.9.1
+  // ETSI EN 319 412-1 §natural-person attributes: dateOfBirth = 1.3.6.1.5.5.7.9.1.
   // Anything else is a national-custom encoding.
+  const enc = meta.dobEncoding.toLowerCase();
   if (enc === 'etsi' || enc.startsWith('rfc') || enc === 'standard') {
     return { kind: 'standard', label: 'standard (ETSI)' };
   }
@@ -54,6 +49,26 @@ const COUNTRY_NAMES: Record<string, string> = {
   SK: 'Slovakia', UA: 'Ukraine',
 };
 
+// Stylized tile-map of EU + Ukraine. (col, row) coordinates for each
+// supported territory — geographic-ish, not cartographically accurate.
+// Schematic on purpose: every country gets the same tile size so small
+// states (LU, MT, LI) read at the same weight as DE/FR. Grid origin
+// is top-left.
+const TILE_POS: Record<string, readonly [number, number]> = {
+  IS: [0, 0],
+  NO: [9, 0], SE: [10, 0], FI: [11, 0],
+  IE: [4, 1], NL: [8, 1], DK: [9, 1], EE: [11, 1],
+  LU: [8, 2], DE: [9, 2], LV: [11, 2], LT: [12, 2],
+  PT: [4, 3], FR: [7, 3], BE: [8, 3], PL: [11, 3], UA: [14, 3],
+  ES: [5, 4], LI: [9, 4], AT: [10, 4], CZ: [11, 4], SK: [12, 4], HU: [13, 4], RO: [14, 4],
+  IT: [9, 5], SI: [10, 5], HR: [11, 5], BG: [13, 5],
+  MT: [11, 6], EL: [13, 6], CY: [14, 6],
+};
+const TILE_SIZE = 52;
+const TILE_GAP = 4;
+const TILE_COLS = 16;
+const TILE_ROWS = 7;
+
 interface DirectoryRow extends QtspSummary {
   meta: QtspMetaLike | undefined;
   dobKind: DobKind;
@@ -65,7 +80,7 @@ export function AllQtspsScreen() {
   const allRows: ReadonlyArray<DirectoryRow> = useMemo(() => {
     return QTSP_SUMMARY.map((row) => {
       const meta = findCuratedMeta(row);
-      const dob = dobKindFor(meta, row.country);
+      const dob = dobKindFor(meta);
       const state = meta?.state ?? 'queued';
       return { ...row, meta, dobKind: dob.kind, dobLabel: dob.label, state };
     }).slice().sort((a, b) => {
@@ -96,6 +111,21 @@ export function AllQtspsScreen() {
   }, [allRows, q, countryFilter, p256Only]);
 
   const p256Count = allRows.filter((r) => r.p256).length;
+  const uaCount = allRows.filter((r) => r.country === 'UA').length;
+  const euCount = allRows.length - uaCount;
+
+  // Per-country aggregates for the tile-map. Keyed by country code.
+  const byCountry = useMemo(() => {
+    const m = new Map<string, { total: number; p256: number; live: number }>();
+    for (const r of allRows) {
+      const e = m.get(r.country) ?? { total: 0, p256: 0, live: 0 };
+      e.total += 1;
+      if (r.p256) e.p256 += 1;
+      if (r.meta) e.live += 1;
+      m.set(r.country, e);
+    }
+    return m;
+  }, [allRows]);
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
@@ -122,8 +152,8 @@ export function AllQtspsScreen() {
             <span className="cv-ix">▦</span>
             <span>QTSP DIRECTORY · EU LOTL + UA TL-EC · {QTSP_SUMMARY_META.totalTsps} listed</span>
             <span style={{ flex: 1 }} />
-            <span className="cv-pill is-eu">EU · {countries.filter((c) => c !== 'UA').length}</span>
-            <span className="cv-pill is-ua">UA · 1</span>
+            <span className="cv-pill is-eu">EU · {euCount}</span>
+            <span className="cv-pill is-ua">UA · {uaCount}</span>
             <span className="cv-pill is-ok">{p256Count} support P-256</span>
           </div>
           <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
@@ -137,8 +167,8 @@ export function AllQtspsScreen() {
                 every entry on the EU List-of-Trusted-Lists snapshot
                 ({QTSP_SUMMARY_META.lotlSnapshot.slice(0, 10)}) plus Ukraine's TL-EC.
                 Each row shows whether at least one of the TSP's CAs advertises
-                ECDSA secp256r1 (the curve zkqes verifies in-circuit) and how
-                they encode date-of-birth in subject attributes.
+                ECDSA secp256r1 (verified on-chain via EIP-7212 P256Verify, not
+                in-circuit) and how they encode date-of-birth in subject attributes.
                 <br /><br />
                 Every QTSP listed here is on the roadmap. We're shipping
                 <b> ECDSA-P-256 capable QTSPs first</b> ({p256Count} of {QTSP_SUMMARY_META.totalTsps}) — those
@@ -150,6 +180,108 @@ export function AllQtspsScreen() {
               <span className="cv-sticker">{p256Count} ship first</span>
               <Link to="/integrations" className="cv-btn is-blue">↗ How to integrate</Link>
             </div>
+          </div>
+        </section>
+
+        {/* MAP · EU + Ukraine tile grid */}
+        <section className="cv-card is-paper" style={{ padding: '14px 16px' }}>
+          <div className="cv-cardhead">
+            <span className="cv-ix">▥</span>
+            <span>MAP · EU + UA · click a tile to filter</span>
+            <span style={{ flex: 1 }} />
+            <span className="cv-pill is-ok">P-256 · ships first</span>
+            <span className="cv-pill" style={{ background: 'var(--cv-card)' }}>RSA · queued</span>
+            {countryFilter && (
+              <button onClick={() => setCountryFilter('')} className="cv-btn is-sm is-ghost">
+                ✕ clear {countryFilter}
+              </button>
+            )}
+          </div>
+          <div style={{ overflow: 'auto' }}>
+            <svg
+              viewBox={`0 0 ${TILE_COLS * (TILE_SIZE + TILE_GAP)} ${TILE_ROWS * (TILE_SIZE + TILE_GAP) + 4}`}
+              width="100%"
+              style={{ minWidth: 700, display: 'block' }}
+              role="img"
+              aria-label="EU + Ukraine QTSP coverage map"
+            >
+              {Object.entries(TILE_POS).map(([cc, pos]) => {
+                const [col, row] = pos;
+                const x = col * (TILE_SIZE + TILE_GAP);
+                const y = row * (TILE_SIZE + TILE_GAP);
+                const agg = byCountry.get(cc) ?? { total: 0, p256: 0, live: 0 };
+                const isUA = cc === 'UA';
+                const isSelected = countryFilter === cc;
+                const hasAny = agg.total > 0;
+                const hasP256 = agg.p256 > 0;
+                const hasLive = agg.live > 0;
+                // Fill: live=UA-blue · P-256=UA-yellow · RSA-only=paper · empty=very faint
+                const fill = !hasAny
+                  ? '#e8e2d2'
+                  : hasLive
+                    ? 'var(--cv-ua-blue)'
+                    : hasP256
+                      ? 'var(--cv-ua-yellow)'
+                      : 'var(--cv-card)';
+                const stroke = isSelected ? 'var(--cv-ua-blue)' : 'var(--cv-ink)';
+                const strokeWidth = isSelected ? 4 : 2;
+                const textColor = hasLive ? '#fff' : 'var(--cv-ink)';
+                const subColor = hasLive ? 'var(--cv-ua-yellow)' : 'var(--cv-mute)';
+                return (
+                  <g
+                    key={cc}
+                    transform={`translate(${x}, ${y})`}
+                    style={{ cursor: hasAny ? 'pointer' : 'default' }}
+                    onClick={() => hasAny && setCountryFilter(isSelected ? '' : cc)}
+                  >
+                    <title>{`${COUNTRY_NAMES[cc] ?? cc} · ${agg.total} QTSPs · ${agg.p256} P-256${hasLive ? ' · live integration' : ''}`}</title>
+                    <rect
+                      width={TILE_SIZE} height={TILE_SIZE}
+                      fill={fill} stroke={stroke} strokeWidth={strokeWidth}
+                    />
+                    {/* UA flag stripes corner */}
+                    {isUA && (
+                      <>
+                        <rect x={TILE_SIZE - 12} y={0} width={12} height={6} fill="#0057B7" />
+                        <rect x={TILE_SIZE - 12} y={6} width={12} height={6} fill="#FFD700" />
+                      </>
+                    )}
+                    {/* country code */}
+                    <text
+                      x={TILE_SIZE / 2} y={TILE_SIZE / 2 - 2}
+                      textAnchor="middle"
+                      fontFamily="var(--cv-display)"
+                      fontSize="22"
+                      fill={textColor}
+                      fontWeight="bold"
+                    >
+                      {cc}
+                    </text>
+                    {/* count badge */}
+                    <text
+                      x={TILE_SIZE / 2} y={TILE_SIZE - 8}
+                      textAnchor="middle"
+                      fontFamily="var(--cv-mono)"
+                      fontSize="9.5"
+                      fill={subColor}
+                      letterSpacing="0.5"
+                    >
+                      {agg.total}{hasP256 ? ` · ${agg.p256}P` : ''}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap', fontSize: 11, color: 'var(--cv-mute)' }}>
+            <Legend swatch="var(--cv-ua-blue)" label="live integration (curated)" />
+            <Legend swatch="var(--cv-ua-yellow)" label="ECDSA P-256 · ships first" />
+            <Legend swatch="var(--cv-card)" label="RSA-only · queued" />
+            <Legend swatch="#e8e2d2" label="not in supported set" />
+            <span style={{ flex: 1 }} />
+            <span style={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>
+              digit pair = total · P-256 capable
+            </span>
           </div>
         </section>
 
@@ -254,9 +386,9 @@ export function AllQtspsScreen() {
         {/* META FOOTER */}
         <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="QTSPs" value={String(QTSP_SUMMARY_META.totalTsps)} />
-          <FooterStat label="CAs flattened" value={String(QTSP_SUMMARY_META.totalCas)} yellow />
+          <FooterStat label="current certs" value={String(QTSP_SUMMARY_META.totalCas)} yellow />
           <FooterStat label="P-256 capable" value={String(p256Count)} />
-          <FooterStat label="snapshot" value={QTSP_SUMMARY_META.lotlSnapshot.slice(0, 10)} blue />
+          <FooterStat label="EU snapshot" value={QTSP_SUMMARY_META.lotlSnapshot.slice(0, 10)} blue />
         </section>
 
         <p style={{ fontSize: 11, color: 'var(--cv-mute)', maxWidth: '90ch', lineHeight: 1.5 }}>
@@ -265,12 +397,27 @@ export function AllQtspsScreen() {
           P-256 — many TSPs issue both RSA and ECDSA leaves under the same chain. DOB-format column
           is curated against a small set of QTSPs (currently UA Diia's <code>1.2.804.2.1.1.1.11.1.4.11.1</code>);
           most rows show "absent info" until the per-country meta surface is filled in. Source of
-          truth: trust-list snapshot {QTSP_SUMMARY_META.lotlSnapshot.slice(0, 10)} —
+          truth: live trust-list snapshots ({QTSP_SUMMARY_META.trustSources.join(' · ')}) —
           {' '}<a href="https://eur-lex.europa.eu/eli/reg_impl/2015/1505/oj" rel="noopener noreferrer" className="cv-link">eIDAS Implementing Regulation 2015/1505</a>
-          {' '}+ Ukraine's TL-EC (Article 15, Law 2155-VIII).
+          {' '}+ Ukraine's TL-EC (Article 15, Law 2155-VIII). Where a national TL host is
+          temporarily unreachable from the build environment, rows fall back to the
+          DSS browser export or the previous successful snapshot — see
+          dssFallbackCountries / cachedFallbackCountries in QTSP_SUMMARY_META.
         </p>
       </div>
     </main>
+  );
+}
+
+function Legend({ swatch, label }: { swatch: string; label: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{
+        width: 14, height: 14, background: swatch, border: '2px solid var(--cv-ink)',
+        display: 'inline-block',
+      }} />
+      {label}
+    </span>
   );
 }
 
