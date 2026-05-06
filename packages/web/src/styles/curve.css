@@ -133,3 +133,67 @@ body { font-family: var(--cv-mono); color: var(--cv-ink); margin: 0; }
 
 .cv-link { color: var(--cv-ua-blue); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .cv-link:hover { background: var(--cv-ua-yellow); }
+
+/* Desktop-only CTA wrapper. Always-visible diagonal ribbon flagging
+ * that the destination requires desktop (Firefox + 38 GB RAM, OR a
+ * locally-running @zkqes/cli). Apply to every link/button pointing
+ * at app.zkqes.org or any in-app prove flow. */
+.cv-cta-wrap { position: relative; display: inline-flex; }
+.cv-cta-wrap[data-desktop-only]::after {
+  content: "DESKTOP ONLY";
+  position: absolute; top: -11px; right: -10px;
+  background: var(--cv-err); color: var(--cv-ink);
+  border: 2px solid var(--cv-ink);
+  padding: 2px 7px;
+  font-family: var(--cv-mono); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .14em; line-height: 1;
+  transform: rotate(4deg);
+  pointer-events: none; z-index: 2;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 var(--cv-ink);
+}
+.cv-cta-wrap[data-desktop-only][data-variant="sm"]::after {
+  content: "DESKTOP";
+  font-size: 8.5px; padding: 1px 5px; top: -8px; right: -6px;
+  box-shadow: 1px 1px 0 var(--cv-ink);
+}
+
+/* Responsive: any grid carrying .cv-resp collapses to a single column
+ * on narrow viewports. !important is required to defeat inline
+ * gridTemplateColumns set by component props. */
+@media (max-width: 720px) {
+  .cv-resp { grid-template-columns: 1fr !important; }
+
+  .cv-hero { font-size: 64px !important; line-height: .9 !important; }
+  .cv-num { font-size: 38px !important; }
+  .cv-num.sm { font-size: 26px !important; }
+
+  .cv-card { padding: 12px 12px !important; box-shadow: 3px 3px 0 var(--cv-ink) !important; }
+  .cv-card.is-yellow, .cv-card.is-blue { box-shadow: 3px 3px 0 var(--cv-ua-blue) !important; }
+
+  .cv-btn.is-lg { padding: 10px 14px !important; font-size: 14px !important; }
+  .cv-btn { width: 100%; justify-content: center; }
+  .cv-btn.is-sm { width: auto; }
+
+  .cv-stamp { display: none !important; }
+  .cv-sticker { font-size: 16px !important; padding: 3px 8px !important; }
+
+  /* Topbar collapses: flag row stays, nav row wraps under */
+  .cv-topbar {
+    flex-wrap: wrap !important;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+  .cv-topbar .cv-topbar-brand { font-size: 22px !important; }
+  .cv-topbar .cv-topbar-spacer { display: none !important; }
+  .cv-topbar a { font-size: 12px !important; padding: 3px 6px !important; }
+  .cv-topbar .cv-pill { font-size: 9.5px !important; }
+
+  /* Hide v0 + status pills on very narrow */
+  .cv-hide-mobile { display: none !important; }
+}
+
+@media (max-width: 480px) {
+  .cv-hero { font-size: 48px !important; }
+  h1.cv-hero, h2 { word-break: break-word; }
+}

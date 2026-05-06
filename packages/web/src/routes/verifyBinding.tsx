@@ -262,7 +262,7 @@ export function VerifyBindingScreen() {
             <span className="cv-pill" style={{ fontFamily: 'var(--cv-mono)' }}>{REGISTRY_V5_4.slice(0, 8)}…{REGISTRY_V5_4.slice(-4)}</span>
             <span className="cv-pill">{now.toLocaleTimeString('en-GB', { hour12: false })}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div>
               <h1 className="cv-hero" style={{ fontSize: 138 }}>
                 IS IT<br />
@@ -286,7 +286,7 @@ export function VerifyBindingScreen() {
 
         {/* PASTE STRIP */}
         <section className="cv-card is-paper" style={{ padding: '18px 22px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 18, alignItems: 'center', marginBottom: 12 }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 18, alignItems: 'center', marginBottom: 12 }}>
             <div className="cv-cardhead" style={{ margin: 0 }}>
               <span className="dot live" />
               <span>QUERY</span>
@@ -318,7 +318,7 @@ export function VerifyBindingScreen() {
         </section>
 
         {/* RESULT + WHAT-YOU-(WONT)-LEARN */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
           <ResultCard stage={stage} results={results} error={error} query={query} />
           <PrivacyCard />
         </section>
@@ -366,7 +366,7 @@ export function VerifyBindingScreen() {
         </section>
 
         {/* FOOTER STATS */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat
             label="registry · ↗ basescan"
             value={`${REGISTRY_V5_4.slice(0, 6)}…${REGISTRY_V5_4.slice(-4)}`}

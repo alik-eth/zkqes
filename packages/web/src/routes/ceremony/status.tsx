@@ -106,7 +106,7 @@ export function CeremonyStatus() {
 
         {/* FOOTER STATS */}
         {feed.kind === 'ok' && (
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+          <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
             <FooterStat label="round" value={String(feed.payload.round)} suffix={feed.payload.round === 1 ? 'contribution' : 'contributions'} />
             <FooterStat label="contributors" value={String(feed.payload.contributors.length)} suffix="attested" yellow />
             <FooterStat label="final hash" value={feed.payload.finalZkeySha256?.slice(0, 8) ?? '—'} suffix={feed.payload.finalZkeySha256 ? '…' : 'pending'} mono />

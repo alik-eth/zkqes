@@ -62,7 +62,7 @@ export function CeremonyShell() {
             <span className="cv-pill is-ua">round {round}</span>
             <span className="cv-pill">coord · alik.eth</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div>
               <h1 className="cv-hero" style={{ fontSize: 132 }}>
                 ONE HONEST.<br />
@@ -101,7 +101,7 @@ export function CeremonyShell() {
 
 
         {/* BIG STATUS ROW — 3 cards */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
           {/* Progress */}
           <div className="cv-card is-blue">
             <div className="cv-cardhead" style={{ color: '#fff' }}>
@@ -267,7 +267,7 @@ export function CeremonyShell() {
           round of contributions; both must complete before parameters
           ship.
         </p>
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           {(['v5.3-identity', 'v5.4-age-diia-ua'] as const).map((key) => {
             const c = circuits[key];
             return (
@@ -302,7 +302,7 @@ export function CeremonyShell() {
         <p style={{ fontSize: 13, color: 'var(--cv-mute)', maxWidth: '70ch', margin: 0 }}>
           Three ways to run the four commands. Pick whichever has least friction.
         </p>
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <PathCard n="01" label="Local snarkjs" time="~25 min" req="38 GB RAM" cost="free" body="On your own machine. Five commands, twenty-five minutes wall-clock. Snarkjs holds the intermediate zkey at ~38 GB peak." accent="paper" />
           <PathCard n="02" label="Rented VPS" time="~25 min" req="any 38 GB" cost="≈ €0.10" body="Hetzner CCX43 or any 38 GB Linux box. Same commands. Spin up, run, attest, destroy." accent="yellow" />
           <PathCard n="03" label="Fly.io launcher" time="~25 min" req="Fly token" cost="≈ $0.30" body="One form, your handle, your Fly token. We boot a 48 GB performance-4x machine, run snarkjs, attest, tear down." accent="blue" />
@@ -358,7 +358,7 @@ export function CeremonyShell() {
         </section>
 
         {/* FOOTER STATS */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="round" value={String(round)} suffix={round === 1 ? 'contribution' : 'contributions'} />
           <FooterStat label="contributors" value={String(contributors.length)} suffix="attested" yellow />
           <FooterStat label="latest hash" value={contributors[contributors.length - 1]?.attestation?.slice(0, 8) ?? '—'} suffix="…" mono />

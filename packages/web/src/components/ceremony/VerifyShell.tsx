@@ -152,7 +152,7 @@ export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProp
 
         {/* PASTE STRIP */}
         <section className="cv-card is-paper" style={{ padding: '18px 22px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 18, alignItems: 'center', marginBottom: 12 }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 18, alignItems: 'center', marginBottom: 12 }}>
             <div className="cv-cardhead" style={{ margin: 0 }}>
               <span className="dot live" />
               <span>QUERY</span>
@@ -184,7 +184,7 @@ export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProp
         </section>
 
         {/* RESULT + EXPLAINER */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
           <ResultCard result={result} query={hashInput} />
           <ExplainerCard />
         </section>
@@ -233,7 +233,7 @@ export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProp
         </section>
 
         {/* FOOTER STATS */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="contributors" value={String(status?.contributors.length ?? 0)} suffix="attested" />
           <FooterStat label="final hash" value={status?.finalZkeySha256?.slice(0, 8) ?? '—'} suffix={status?.finalZkeySha256 ? '…' : 'pending'} mono yellow />
           <FooterStat label="lookups" value={String(recent.length)} suffix="this session" />

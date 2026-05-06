@@ -78,7 +78,7 @@ export function CeremonyContribute() {
             <span className="cv-pill is-ua">~25 min wall-clock</span>
             <span className="cv-pill">snarkjs ≥ 0.7.4</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div>
               <h1 className="cv-hero" style={{ fontSize: 138 }}>
                 FOUR.<br /><span className="b">COMMANDS</span><span className="y">.</span>
@@ -117,7 +117,7 @@ export function CeremonyContribute() {
           Phones, tablets, and Chromebooks <b>cannot contribute</b> — heap caps are too low and the
           disk requirement exceeds typical mobile-class storage.
         </p>
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           {REQUIREMENTS.map((r) => (
             <div key={r.label} className={`cv-card ${r.critical ? 'is-yellow' : 'is-paper'}`}>
               <div className="cv-cardhead">
@@ -137,7 +137,7 @@ export function CeremonyContribute() {
           Run them in order. Each panel has a copy button and a "what could go wrong" note. Do not skip step 03.
         </p>
 
-        <section style={{ display: 'grid', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gap: 14 }}>
           {STEPS.map((s, i) => {
             const accent: 'paper' | 'yellow' | 'blue' = i === 1 ? 'yellow' : i === 3 ? 'blue' : 'paper';
             return (
@@ -178,7 +178,7 @@ export function CeremonyContribute() {
         </section>
 
         {/* FOOTER STATS */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="ram" value="38" suffix="GB" />
           <FooterStat label="time" value="~25" suffix="min" yellow />
           <FooterStat label="cost" value="0" suffix="paths 1+3 free" />

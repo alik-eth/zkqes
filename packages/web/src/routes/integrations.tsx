@@ -74,7 +74,7 @@ export function IntegrationsScreen() {
             <span className="cv-pill">~20 KB proof</span>
             <span className="cv-pill is-ok">MIT</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div>
               <h1 className="cv-hero" style={{ fontSize: 138 }}>
                 INTEGRATE<span className="b">.</span><br />
@@ -109,7 +109,7 @@ export function IntegrationsScreen() {
           The lookup is one read on the deployed registry. Same primitive across all stacks.
         </p>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <CodeCard n="01" lang="Solidity" subtitle="onchain · forge" code={SOLIDITY} accent="paper" status="ready" />
           <CodeCard n="02" lang="TypeScript" subtitle="client · viem" code={TYPESCRIPT} accent="yellow" status="ready" />
           <CodeCard n="03" lang="Rust" subtitle="planned · contributions welcome" code={RUST} accent="blue" status="planned" />
@@ -163,7 +163,7 @@ export function IntegrationsScreen() {
         <h2 style={{ fontFamily: 'var(--cv-display)', fontSize: 56, lineHeight: 1, margin: '12px 0 0' }}>
           BUILT FOR.
         </h2>
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           {USECASES.map(([title, body, tag], i) => (
             <div key={title} className={`cv-card ${i === 0 ? 'is-yellow' : 'is-paper'}`}>
               <div className="cv-cardhead">
@@ -183,7 +183,7 @@ export function IntegrationsScreen() {
         <h2 style={{ fontFamily: 'var(--cv-display)', fontSize: 56, lineHeight: 1, margin: '12px 0 0' }}>
           COSTS.
         </h2>
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           <FooterStat label="proof size" value="~20" suffix="KB" />
           <FooterStat label="verify gas" value="~230" suffix="k base" yellow />
           <FooterStat label="register gas" value="~600" suffix="k base" />

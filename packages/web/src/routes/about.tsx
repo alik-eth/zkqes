@@ -85,7 +85,7 @@ export function AboutScreen() {
         </section>
 
         {/* TRUST PROPERTY · binary */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div className="cv-card is-yellow">
             <div className="cv-cardhead">
               <span className="cv-ix">←</span>
@@ -130,7 +130,7 @@ export function AboutScreen() {
           Four stages. Every byte deterministic. Every check verifiable from the public LOTL.
         </p>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           <StageCard n="01" label="Sign locally" body="You sign a canonical binding statement (RFC 8785 JCS) with your QES tool — Diia.Sign, DigiDoc4, Szafir. Output: a detached CAdES-X .p7s." />
           <StageCard n="02" label="Parse + verify" body="The browser parses the .p7s, walks the cert chain, validates the QTSP signature, and checks the issuer against the EU LOTL Merkle root. All client-side." accent="yellow" />
           <StageCard n="03" label="Prove" body="A Groth16 prover (browser snarkjs or rapidsnark CLI) emits a 20 KB proof over a 2.1M-constraint circuit. The proof says: I hold a valid QES from a listed QTSP. Nothing else." accent="blue" />
@@ -241,7 +241,7 @@ export function AboutScreen() {
         </section>
 
         {/* CONTRIBUTORS · who builds */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div className="cv-card is-paper">
             {usingDummyContribCount && <DummyBadge />}
             <div className="cv-cardhead">
@@ -342,7 +342,7 @@ export function AboutScreen() {
         </section>
 
         {/* CONTACT + DISCLOSURE */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div className="cv-card is-blue">
             <div className="cv-cardhead" style={{ color: '#fff' }}>
               <span>CONTACT · we read everything</span>
@@ -387,7 +387,9 @@ export function AboutScreen() {
             <span>PROVE.</span> <span style={{ color: 'var(--cv-ua-blue)' }}>DON'T</span> <span style={{ color: 'var(--cv-ua-yellow)', WebkitTextStroke: '2px var(--cv-ink)' as never }}>REVEAL.</span>
           </h3>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18 }}>
-            <a href="https://app.zkqes.org" className="cv-btn is-lg">▶ Open the app</a>
+            <span className="cv-cta-wrap" data-desktop-only>
+              <a href="https://app.zkqes.org" className="cv-btn is-lg">▶ Open the app</a>
+            </span>
             <Link to="/ceremony/contribute" className="cv-btn is-blue is-lg">↳ Contribute to the ceremony</Link>
           </div>
         </section>

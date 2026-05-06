@@ -83,7 +83,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
             <span className={`cv-pill ${meta.country === 'UA' ? 'is-ua' : ''}`}>{meta.country}</span>
             <span className={`cv-pill ${STATE_PILL[meta.state] ?? ''}`}>{meta.state.toUpperCase()}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'flex-end' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div style={{ fontSize: 80, lineHeight: 1 }} aria-label={countryName(meta.country)}>
               {flagEmoji(meta.country)}
             </div>
@@ -110,7 +110,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
         </section>
 
         {/* QUICK FACTS */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />
@@ -169,7 +169,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
         )}
 
         {/* SAMPLES + TRUST ANCHORS */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
           {/* Verified samples ledger */}
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
@@ -282,7 +282,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
         )}
 
         {/* FOOTER STATS */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="country" value={meta.country} suffix={countryName(meta.country)} />
           <FooterStat label="state" value={meta.state} suffix="phase" yellow />
           <FooterStat label="samples" value={samples ? String(samples.length) : '—'} suffix="verified" />

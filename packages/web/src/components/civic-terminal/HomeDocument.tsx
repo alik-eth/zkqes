@@ -81,7 +81,7 @@ export function HomeDocument() {
             </span>
             <span className="cv-pill">{now.toLocaleTimeString('en-GB', { hour12: false })}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div>
               <h1 className="cv-hero" style={{ fontSize: 138 }}>
                 READY <span className="b">TO</span><br />
@@ -112,7 +112,7 @@ export function HomeDocument() {
         </section>
 
         {/* READINESS — 3 cards */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {/* WALLET */}
           <div className={`cv-card ${isConnected ? 'is-paper' : 'is-yellow'}`}>
             <div className="cv-cardhead">
@@ -214,7 +214,7 @@ export function HomeDocument() {
           Every operation that touches the registry. Each card opens its own flow — runs in this tab.
         </p>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <ActionCard
             n="01"
             title="Register a binding"
@@ -253,7 +253,7 @@ export function HomeDocument() {
           />
         </section>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <ActionCard
             n="04"
             title="Verify a binding"
@@ -376,7 +376,7 @@ export function HomeDocument() {
         </section>
 
         {/* FOOTER STATS */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="proof size" value="~20" suffix="KB" />
           <FooterStat label="verify gas" value="~230" suffix="k" yellow />
           <FooterStat label="wallet" value={addrShort ?? '—'} suffix={isConnected ? 'connected' : 'idle'} />
@@ -420,14 +420,16 @@ function ActionCard({
       </div>
       <div className="cv-hatch" style={{ margin: '0 -16px 12px', ...(isBlue ? { borderColor: 'var(--cv-ua-yellow)' } : {}) }} />
       {available
-        ? <Link to={to} className={btnCls}
-                style={primary
-                  ? { width: '100%', justifyContent: 'center' }
-                  : isBlue
-                    ? { background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)', width: '100%', justifyContent: 'center' }
-                    : { width: '100%', justifyContent: 'center' }}>
-            {cta}
-          </Link>
+        ? <span className="cv-cta-wrap" data-desktop-only data-variant="sm" style={{ width: '100%' }}>
+            <Link to={to} className={btnCls}
+                  style={primary
+                    ? { width: '100%', justifyContent: 'center' }
+                    : isBlue
+                      ? { background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)', width: '100%', justifyContent: 'center' }
+                      : { width: '100%', justifyContent: 'center' }}>
+              {cta}
+            </Link>
+          </span>
         : <button disabled className="cv-btn" style={{
             width: '100%', justifyContent: 'center',
             background: '#ddd', color: '#888', cursor: 'not-allowed', boxShadow: 'none',

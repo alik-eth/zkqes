@@ -80,7 +80,7 @@ export function LandingHero() {
             <span className={`cv-pill ${phase === 'live' ? 'is-ok' : 'is-warn'}`}>CEREMONY · {(phase ?? 'recruiting').toUpperCase()}</span>
             <div className="cv-stamp">QES<br />2026</div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div>
               <h1 className="cv-hero">
                 PROVE.<br />
@@ -95,7 +95,9 @@ export function LandingHero() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
               <span className="cv-sticker">free · forever</span>
-              <a href="https://app.zkqes.org" className="cv-btn is-lg">▶ Begin · 4 steps</a>
+              <span className="cv-cta-wrap" data-desktop-only>
+                <a href="https://app.zkqes.org" className="cv-btn is-lg">▶ Begin · 4 steps</a>
+              </span>
               <Link to="/ceremony/contribute" className="cv-btn is-blue is-lg">↳ Help with the ceremony</Link>
               <span style={{ fontSize: 10.5, color: 'var(--cv-mute)', letterSpacing: '.12em', textTransform: 'uppercase' }}>
                 phase 2 · trusted setup in progress
@@ -105,7 +107,7 @@ export function LandingHero() {
         </section>
 
         {/* CEREMONY STRIP — the actual call to action */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gap: 14 }}>
           <div className="cv-card is-blue">
             <div className="cv-cardhead" style={{ color: '#fff' }}>
               <span className="dot live" />
@@ -194,7 +196,7 @@ export function LandingHero() {
           ceremony for everyone.
         </p>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <PathCard
             n="01"
             label="Local snarkjs"
@@ -228,7 +230,7 @@ export function LandingHero() {
         </section>
 
         {/* QTSP DIRECTORY + ABOUT */}
-        <section id="coverage" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, scrollMarginTop: 80 }}>
+        <section id="coverage" className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, scrollMarginTop: 80 }}>
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />
@@ -303,7 +305,7 @@ export function LandingHero() {
         </section>
 
         {/* FOOTER STATS STRIP */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="proof size" value="~20" suffix="KB" />
           <FooterStat label="verify gas" value="~230" suffix="k" yellow />
           <FooterStat label="curve" value="BN254" />

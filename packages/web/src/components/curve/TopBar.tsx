@@ -27,15 +27,14 @@ export function TopBar({ active, statusPill, extraNav }: TopBarProps) {
   const navItem = (slot: TopBarSlot) => slot === active ? activeStyle : baseStyle;
 
   return (
-    <div style={{
+    <div className="cv-topbar" style={{
       display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px',
       background: 'var(--cv-ink)', color: '#f4f0e0', borderBottom: '4px solid var(--cv-ua-yellow)',
     }}>
-      <FlagUA /><FlagEU />
-      <span style={{ fontFamily: 'var(--cv-display)', fontSize: 30, letterSpacing: '.04em', color: 'var(--cv-ua-yellow)' }}>zkQES</span>
-      <span className="cv-pill is-ua">v0 · BASE-SEPOLIA</span>
-      {statusPill}
-      <span style={{ flex: 1 }} />
+      <span className="cv-topbar-brand" style={{ fontFamily: 'var(--cv-display)', fontSize: 30, letterSpacing: '.04em', color: 'var(--cv-ua-yellow)' }}>zkQES</span>
+      <span className="cv-pill is-ua cv-hide-mobile">v0 · BASE-SEPOLIA</span>
+      <span className="cv-hide-mobile">{statusPill}</span>
+      <span className="cv-topbar-spacer" style={{ flex: 1 }} />
       <Link to="/" style={navItem('home')}>Home</Link>
       <Link to="/about" style={navItem('about')}>About</Link>
       <Link to="/ceremony" style={navItem('ceremony')}>Ceremony</Link>
@@ -50,26 +49,10 @@ export function TopBar({ active, statusPill, extraNav }: TopBarProps) {
       >
         ✈ Telegram
       </a>
-      <a href="https://app.zkqes.org" className="cv-btn is-sm">▶ Open app</a>
+      <span className="cv-cta-wrap" data-desktop-only data-variant="sm">
+        <a href="https://app.zkqes.org" className="cv-btn is-sm">▶ Open app</a>
+      </span>
     </div>
   );
 }
 
-function FlagUA() {
-  return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', width: 28, height: 18, border: '1.5px solid #f4f0e0' }}>
-      <span style={{ flex: 1, background: '#0057B7' }} />
-      <span style={{ flex: 1, background: '#FFD700' }} />
-    </span>
-  );
-}
-function FlagEU() {
-  return (
-    <span style={{
-      display: 'inline-flex', width: 28, height: 18, background: '#003399',
-      border: '1.5px solid #f4f0e0', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <span style={{ color: '#FFCC00', fontSize: 11, lineHeight: 1 }}>★</span>
-    </span>
-  );
-}
