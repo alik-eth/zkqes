@@ -9,13 +9,6 @@ import { QTSP_INDEX } from '../generated/qtsp-index';
 import { QTSP_SUMMARY, QTSP_SUMMARY_META } from '../generated/qtsp-summary';
 import '../styles/curve.css';
 
-// Dummy data shown when live source is empty. Each card with potential
-// dummy data renders the <DummyBadge /> ribbon when fallback is in use.
-const DUMMY_CONTRIBUTORS: ReadonlyArray<readonly [string, number]> = [
-  ['UA', 12], ['DE', 7], ['FR', 5], ['NL', 4], ['US', 4],
-  ['UK', 3], ['ES', 3], ['IT', 3], ['other', 6],
-];
-
 function countByCountry(contributors: ReadonlyArray<{ name: string }>): Array<[string, number]> {
   const map = new Map<string, number>();
   for (const c of contributors) {
@@ -26,24 +19,12 @@ function countByCountry(contributors: ReadonlyArray<{ name: string }>): Array<[s
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-function DummyBadge() {
-  return (
-    <span className="cv-corner" style={{
-      background: 'var(--cv-err)', color: 'var(--cv-ink)',
-      letterSpacing: '.18em', fontWeight: 700,
-    }}>
-      DUMMY
-    </span>
-  );
-}
-
 export function LandingHero() {
   const { phase, status } = useCeremonyPhase();
   const contributors = status?.contributors ?? [];
   const ceremonyCount = contributors.length;
-  const liveByCountry = countByCountry(contributors);
-  const usingDummyContributors = liveByCountry.length === 0;
-  const byCountry = usingDummyContributors ? DUMMY_CONTRIBUTORS : liveByCountry;
+  const byCountry = countByCountry(contributors);
+  const empty = byCountry.length === 0;
   const maxByCountry = byCountry.reduce<number>((m, [, n]) => Math.max(m, n), 1);
 
   // QTSP directory: shown card lists the deploy-priority cohort —
@@ -136,7 +117,7 @@ export function LandingHero() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14, fontSize: 11 }}>
               <Stat label="phase" value={phase ?? 'recruiting'} accent />
-              <Stat label="countries" value={String(liveByCountry.length)} />
+              <Stat label="countries" value={String(byCountry.length)} />
             </div>
             <div className="cv-hatch" style={{ margin: '12px -16px', borderColor: 'var(--cv-ua-yellow)' }} />
             <div style={{ fontSize: 12, marginBottom: 10 }}>
@@ -149,31 +130,43 @@ export function LandingHero() {
           </div>
 
           <div className="cv-card is-paper">
-            {usingDummyContributors && <DummyBadge />}
             <div className="cv-cardhead">
-              <span className={`dot ${usingDummyContributors ? '' : 'live'}`} />
+              <span className={`dot ${empty ? '' : 'live'}`} />
               <span>CONTRIBUTORS · by country</span>
+              <span style={{ flex: 1 }} />
+              <span className="cv-pill">{empty ? '0 so far' : `${contributors.length} total`}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
-              {byCountry.map(([c, n]) => (
-                <div key={c} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 30px', gap: 8, alignItems: 'center' }}>
-                  <span className={`cv-pill ${c === 'UA' ? 'is-ua' : ''}`}>{c}</span>
-                  <div style={{ height: 14, border: '2px solid var(--cv-ink)', background: '#fff' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${(n / maxByCountry) * 100}%`,
-                      background: c === 'UA' ? 'var(--cv-ua-yellow)' : 'var(--cv-ua-blue)',
-                    }} />
-                  </div>
-                  <b style={{ textAlign: 'right', fontFamily: 'var(--cv-display)', fontSize: 18 }}>{n}</b>
+            {empty ? (
+              <div style={{
+                fontSize: 12, color: 'var(--cv-mute)', lineHeight: 1.5,
+                padding: '24px 8px', textAlign: 'center',
+              }}>
+                <div style={{ fontFamily: 'var(--cv-display)', fontSize: 56, color: 'var(--cv-ink)', lineHeight: 1 }}>0</div>
+                <div style={{ marginTop: 6 }}>contributions so far</div>
+                <div style={{ marginTop: 10 }}>
+                  Be the first. <Link to="/ceremony/contribute" className="cv-link">Run the ceremony →</Link>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
+                {byCountry.map(([c, n]) => (
+                  <div key={c} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 30px', gap: 8, alignItems: 'center' }}>
+                    <span className={`cv-pill ${c === 'UA' ? 'is-ua' : ''}`}>{c}</span>
+                    <div style={{ height: 14, border: '2px solid var(--cv-ink)', background: '#fff' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${(n / maxByCountry) * 100}%`,
+                        background: c === 'UA' ? 'var(--cv-ua-yellow)' : 'var(--cv-ua-blue)',
+                      }} />
+                    </div>
+                    <b style={{ textAlign: 'right', fontFamily: 'var(--cv-display)', fontSize: 18 }}>{n}</b>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="cv-hatch" style={{ margin: '12px -16px' }} />
             <div style={{ fontSize: 11, color: 'var(--cv-mute)' }}>
-              {usingDummyContributors
-                ? 'Placeholder distribution — real data populates from the ceremony status feed once contributors land.'
-                : '"1-of-N honest" soundness — geographic diversity ↑ adversarial coordination ↓.'}
+              "1-of-N honest" soundness — geographic diversity ↑ adversarial coordination ↓.
             </div>
           </div>
 
