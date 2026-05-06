@@ -99,7 +99,7 @@ const qtspPageRoute = createRoute({
 // `/qtsps` — full QTSP directory (founder ask 2026-05-06): every
 // EU LOTL + UA TL-EC trust-service provider, one row per (country,
 // tspName), with ECDSA-P-256 + DOB-format columns. Lazy-loaded so
-// the 189-row generated TS table doesn't enter the landing entry
+// the generated TS table doesn't enter the landing entry
 // chunk.
 const allQtspsRoute = createRoute({
   getParentRoute: () => rootRoute,

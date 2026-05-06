@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 
 import { TopBar } from '../components/curve/TopBar';
+import { EuMap } from '../components/qtsp/EuMap';
 import { QTSP_SUMMARY, QTSP_SUMMARY_META, type QtspSummary } from '../generated/qtsp-summary';
 import { QTSP_INDEX } from '../generated/qtsp-index';
 import '../styles/curve.css';
@@ -49,25 +50,6 @@ const COUNTRY_NAMES: Record<string, string> = {
   SK: 'Slovakia', UA: 'Ukraine',
 };
 
-// Stylized tile-map of EU + Ukraine. (col, row) coordinates for each
-// supported territory — geographic-ish, not cartographically accurate.
-// Schematic on purpose: every country gets the same tile size so small
-// states (LU, MT, LI) read at the same weight as DE/FR. Grid origin
-// is top-left.
-const TILE_POS: Record<string, readonly [number, number]> = {
-  IS: [0, 0],
-  NO: [9, 0], SE: [10, 0], FI: [11, 0],
-  IE: [4, 1], NL: [8, 1], DK: [9, 1], EE: [11, 1],
-  LU: [8, 2], DE: [9, 2], LV: [11, 2], LT: [12, 2],
-  PT: [4, 3], FR: [7, 3], BE: [8, 3], PL: [11, 3], UA: [14, 3],
-  ES: [5, 4], LI: [9, 4], AT: [10, 4], CZ: [11, 4], SK: [12, 4], HU: [13, 4], RO: [14, 4],
-  IT: [9, 5], SI: [10, 5], HR: [11, 5], BG: [13, 5],
-  MT: [11, 6], EL: [13, 6], CY: [14, 6],
-};
-const TILE_SIZE = 52;
-const TILE_GAP = 4;
-const TILE_COLS = 16;
-const TILE_ROWS = 7;
 
 interface DirectoryRow extends QtspSummary {
   meta: QtspMetaLike | undefined;
@@ -183,11 +165,11 @@ export function AllQtspsScreen() {
           </div>
         </section>
 
-        {/* MAP · EU + Ukraine tile grid */}
+        {/* MAP · real-geography Mercator of EU + Ukraine */}
         <section className="cv-card is-paper" style={{ padding: '14px 16px' }}>
           <div className="cv-cardhead">
             <span className="cv-ix">▥</span>
-            <span>MAP · EU + UA · click a tile to filter</span>
+            <span>MAP · EU + UA · Mercator · click a country to filter</span>
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-ok">P-256 · ships first</span>
             <span className="cv-pill" style={{ background: 'var(--cv-card)' }}>RSA · queued</span>
@@ -197,81 +179,8 @@ export function AllQtspsScreen() {
               </button>
             )}
           </div>
-          <div style={{ overflow: 'auto' }}>
-            <svg
-              viewBox={`0 0 ${TILE_COLS * (TILE_SIZE + TILE_GAP)} ${TILE_ROWS * (TILE_SIZE + TILE_GAP) + 4}`}
-              width="100%"
-              style={{ minWidth: 700, display: 'block' }}
-              role="img"
-              aria-label="EU + Ukraine QTSP coverage map"
-            >
-              {Object.entries(TILE_POS).map(([cc, pos]) => {
-                const [col, row] = pos;
-                const x = col * (TILE_SIZE + TILE_GAP);
-                const y = row * (TILE_SIZE + TILE_GAP);
-                const agg = byCountry.get(cc) ?? { total: 0, p256: 0, live: 0 };
-                const isUA = cc === 'UA';
-                const isSelected = countryFilter === cc;
-                const hasAny = agg.total > 0;
-                const hasP256 = agg.p256 > 0;
-                const hasLive = agg.live > 0;
-                // Fill: live=UA-blue · P-256=UA-yellow · RSA-only=paper · empty=very faint
-                const fill = !hasAny
-                  ? '#e8e2d2'
-                  : hasLive
-                    ? 'var(--cv-ua-blue)'
-                    : hasP256
-                      ? 'var(--cv-ua-yellow)'
-                      : 'var(--cv-card)';
-                const stroke = isSelected ? 'var(--cv-ua-blue)' : 'var(--cv-ink)';
-                const strokeWidth = isSelected ? 4 : 2;
-                const textColor = hasLive ? '#fff' : 'var(--cv-ink)';
-                const subColor = hasLive ? 'var(--cv-ua-yellow)' : 'var(--cv-mute)';
-                return (
-                  <g
-                    key={cc}
-                    transform={`translate(${x}, ${y})`}
-                    style={{ cursor: hasAny ? 'pointer' : 'default' }}
-                    onClick={() => hasAny && setCountryFilter(isSelected ? '' : cc)}
-                  >
-                    <title>{`${COUNTRY_NAMES[cc] ?? cc} · ${agg.total} QTSPs · ${agg.p256} P-256${hasLive ? ' · live integration' : ''}`}</title>
-                    <rect
-                      width={TILE_SIZE} height={TILE_SIZE}
-                      fill={fill} stroke={stroke} strokeWidth={strokeWidth}
-                    />
-                    {/* UA flag stripes corner */}
-                    {isUA && (
-                      <>
-                        <rect x={TILE_SIZE - 12} y={0} width={12} height={6} fill="#0057B7" />
-                        <rect x={TILE_SIZE - 12} y={6} width={12} height={6} fill="#FFD700" />
-                      </>
-                    )}
-                    {/* country code */}
-                    <text
-                      x={TILE_SIZE / 2} y={TILE_SIZE / 2 - 2}
-                      textAnchor="middle"
-                      fontFamily="var(--cv-display)"
-                      fontSize="22"
-                      fill={textColor}
-                      fontWeight="bold"
-                    >
-                      {cc}
-                    </text>
-                    {/* count badge */}
-                    <text
-                      x={TILE_SIZE / 2} y={TILE_SIZE - 8}
-                      textAnchor="middle"
-                      fontFamily="var(--cv-mono)"
-                      fontSize="9.5"
-                      fill={subColor}
-                      letterSpacing="0.5"
-                    >
-                      {agg.total}{hasP256 ? ` · ${agg.p256}P` : ''}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+          <div style={{ overflow: 'auto', border: '2px solid var(--cv-ink)' }}>
+            <EuMap byCountry={byCountry} selected={countryFilter} onSelect={setCountryFilter} />
           </div>
           <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap', fontSize: 11, color: 'var(--cv-mute)' }}>
             <Legend swatch="var(--cv-ua-blue)" label="live integration (curated)" />
@@ -280,7 +189,7 @@ export function AllQtspsScreen() {
             <Legend swatch="#e8e2d2" label="not in supported set" />
             <span style={{ flex: 1 }} />
             <span style={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              digit pair = total · P-256 capable
+              real borders · world-atlas 110m
             </span>
           </div>
         </section>

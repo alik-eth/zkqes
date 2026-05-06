@@ -15,5 +15,9 @@
   "lastVerified": "2026-05-05",
   "notes": "Ukrainian Ministry of Digital Transformation; ECDSA-P256 leaves with subjectSerialNumber TIN/PNO prefix per ETSI EN 319 412-1. Silver per multi-QTSP facade spec §gold-rules: V5.4 ZKQESRegistryUA is deployed to Base Sepolia at 0x262D017051196F8C686BFBa00Cbbe2BD5B055491 with stub identity + age verifiers, but Phase B ceremony hasn't fired (no witnessGen:pass sample). State promotes to gold post-ceremony (real verifiers + real witness-gen evidence), live post-mainnet-deploy. The V5.4 register + proveAge UI surfaces (web-eng `feat/v5_4-web` arc) ship in this state.",
   "dobEncoding": "diia-ua",
-  "dobAttributeOid": "1.2.804.2.1.1.1.11.1.4.11.1"
+  "dobAttributeOid": "1.2.804.2.1.1.1.11.1.4.11.1",
+  "supportedFormats": [
+    "CAdES",
+    "CMS detached .p7s"
+  ]
 }

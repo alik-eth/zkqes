@@ -52,6 +52,7 @@ const baseMeta: QtspMeta = {
   // accurate for a bronze IT entry but null pairing reads odd).
   dobEncoding: 'diia-ua',
   dobAttributeOid: '1.2.804.2.1.1.1.11.1.4.11.1',
+  supportedFormats: ['CAdES'],
 };
 
 describe('QtspTile', () => {

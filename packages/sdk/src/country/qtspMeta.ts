@@ -70,6 +70,15 @@ export const SignerToolMetaSchema = z.object({
 });
 export type SignerToolMeta = z.infer<typeof SignerToolMetaSchema>;
 
+/**
+ * User-facing signing container / document formats a QTSP is known to
+ * support. Kept as free-form strings for now because providers publish
+ * product-facing labels inconsistently (`CAdES`, `CMS detached .p7s`,
+ * `PAdES`, `XAdES`, etc.). If the list stabilizes, we can tighten this
+ * into an enum later without changing the outer metadata shape.
+ */
+const SupportedFormats = z.array(z.string().min(1)).max(16);
+
 // Dotted-decimal ASN.1 OID (e.g., "1.2.804.2.1.1.1.11.1.4.11.1"). Two or
 // more arcs, each non-negative; the trailing-arc-only regex `[\d]+(\.\d+)+`
 // requires the dot-separated form (single-arc strings are rejected).
@@ -102,6 +111,11 @@ export const QtspMetaSchema = z
      * below.
      */
     dobAttributeOid: Oid.nullable(),
+    /**
+     * Public signing artifact / container formats supported by this QTSP.
+     * Examples: `CAdES`, `PAdES`, `XAdES`, `CMS detached .p7s`.
+     */
+    supportedFormats: SupportedFormats,
   })
   .superRefine((meta, ctx) => {
     // V5.4 cross-field invariant: dobAttributeOid presence is keyed off

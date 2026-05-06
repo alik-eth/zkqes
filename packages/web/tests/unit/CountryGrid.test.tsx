@@ -50,6 +50,7 @@ function meta(country: string, slug: string, state: QtspMeta['state']): QtspMeta
     // a non-null OID when dobEncoding !== 'none'.
     dobEncoding: 'diia-ua' as const,
     dobAttributeOid: '1.2.804.2.1.1.1.11.1.4.11.1',
+    supportedFormats: ['CAdES'],
   };
 }
 

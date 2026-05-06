@@ -17,6 +17,7 @@ describe('QtspMeta', () => {
     // V5.4 fields — required on every QtspMeta document going forward.
     dobEncoding: 'diia-ua' as const,
     dobAttributeOid: '1.2.804.2.1.1.1.11.1.4.11.1',
+    supportedFormats: ['CAdES'],
   };
 
   it('accepts canonical valid input', () => {
@@ -110,5 +111,13 @@ describe('QtspMeta', () => {
         dobAttributeOid: '1',
       }),
     ).toThrow();
+  });
+
+  it('accepts supportedFormats as a string array', () => {
+    const parsed = QtspMetaSchema.parse({
+      ...valid,
+      supportedFormats: ['CAdES', 'PAdES'],
+    });
+    expect(parsed.supportedFormats).toEqual(['CAdES', 'PAdES']);
   });
 });
