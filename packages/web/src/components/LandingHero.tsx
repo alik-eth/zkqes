@@ -320,7 +320,7 @@ export function LandingHero() {
           <FooterStat label="proof size" value="~20" suffix="KB" />
           <FooterStat label="verify gas" value="~230" suffix="k" yellow />
           <FooterStat label="signature" value="ECDSA" suffix="P-256" />
-          <FooterStat label="constraints" value="~10.8" suffix="M (leaf+chain)" />
+          <FooterStat label="constraints" value="~3.9" suffix="M (V5.3)" />
           <FooterStat label="audit" value="2026-Q3" suffix="planned" blue />
         </section>
 
