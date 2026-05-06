@@ -50,7 +50,7 @@ export function HomeDocument() {
   const ceremonyRound = ceremonyStatus?.round ?? 0;
 
   const proverReady = cliStatus === 'present';
-  const proverMode = proverReady ? 'CLI · 22s' : 'Browser · ~5min';
+  const proverMode = proverReady ? 'CLI · ~14s' : 'Firefox · ~5min · 38 GB RAM';
 
   const bindingsCount = bindings?.length ?? 0;
 
@@ -73,7 +73,7 @@ export function HomeDocument() {
         <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
           <div className="cv-cardhead" style={{ marginBottom: 12 }}>
             <span className="cv-ix">▶</span>
-            <span>FILE A NEW BINDING · 4 STEPS · RUNS IN THIS TAB · ~5 MIN</span>
+            <span>FILE A NEW BINDING · DESKTOP ONLY · FIREFOX + 38 GB OR @zkqes/cli</span>
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-ua">app.zkqes.org</span>
             <span className={`cv-pill ${onCorrectChain ? 'is-ok' : 'is-err'}`}>
@@ -90,8 +90,10 @@ export function HomeDocument() {
               <p style={{ maxWidth: 700, fontSize: 14, marginTop: 18, lineHeight: 1.55 }}>
                 Bind your wallet to a qualified electronic signature.
                 Four steps — connect wallet, sign QES, generate Groth16 proof,
-                anchor onchain. Every step runs locally. Nothing leaves this tab
-                except a 20 KB proof and a context-bound nullifier.
+                anchor onchain. Proving needs <b>Firefox + 38 GB RAM</b> in-tab,
+                or the <code style={{ background: 'var(--cv-ua-yellow)', padding: '1px 5px', border: '1.5px solid var(--cv-ink)' }}>@zkqes/cli</code> running on
+                localhost (~14 s, 3.7 GiB peak). No mobile path. Nothing leaves
+                this tab except a 20 KB proof and a context-bound nullifier.
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
@@ -162,11 +164,12 @@ export function HomeDocument() {
               <>
                 <div className="cv-hatch" style={{ margin: '12px -16px' }} />
                 <div style={{ fontSize: 11, color: 'var(--cv-mute)', lineHeight: 1.5 }}>
-                  Browser path runs Groth16 in-tab against a 38 GB peak.
-                  Install the CLI for a 22 s prove on M2.
+                  Firefox-only browser path: Groth16 in-tab, 38 GB RAM peak,
+                  ~5 min. Chrome/Safari hit the 4 GB WASM heap cap and abort.
+                  Install <code>@zkqes/cli</code> for a 14 s prove via rapidsnark.
                 </div>
                 <Link to="/ua/cli" className="cv-btn is-sm" style={{ marginTop: 8 }}>
-                  $ install qkb cli
+                  $ npm i -g @zkqes/cli
                 </Link>
               </>
             )}
@@ -264,21 +267,23 @@ export function HomeDocument() {
           />
           <ActionCard
             n="05"
-            title="Install the CLI"
-            subtitle="rapidsnark fast-path · ~22s prove"
-            body={`The browser path needs ${proverReady ? 'no install — your CLI is already detected' : '38 GB peak RAM. The CLI server proves locally with rapidsnark in ~22 s on M2.'}`}
-            steps={proverReady ? ['✓ detected · localhost:9080'] : ['install', 'qkb serve', 'browser detects']}
-            cta={proverReady ? '✓ CLI ready' : '$ install qkb cli'}
+            title="Install @zkqes/cli"
+            subtitle="rapidsnark fast-path · ~14s prove · 3.7 GiB peak"
+            body={proverReady
+              ? 'Already detected at localhost:9080. The browser path is now backup; this tab uses your CLI for proving.'
+              : 'Browser proving needs Firefox + 38 GB RAM. The CLI proves locally with rapidsnark in ~14 s and 3.7 GiB peak — works on any laptop. Localhost-bound, origin-pinned to app.zkqes.org.'}
+            steps={proverReady ? ['✓ detected · localhost:9080'] : ['npm i -g @zkqes/cli', 'zkqes serve', 'browser auto-detects']}
+            cta={proverReady ? '✓ CLI ready' : '$ npm i -g @zkqes/cli'}
             to="/ua/cli"
             accent="paper"
             available
           />
           <ActionCard
             n="06"
-            title="Need a desktop?"
-            subtitle="for sub-flagship phones"
-            body="Browser proving needs 38 GB RAM peak. Sub-flagship phones can't run it. We route mobile-class devices to a 'use desktop' page."
-            steps={['device check', 'safe-state']}
+            title="Mobile? Use desktop"
+            subtitle="proving needs Firefox + 38 GB or the CLI"
+            body="No mobile path. Browser proving demands Firefox + 38 GB RAM peak; phones, tablets, Chromebooks can't run it. Either come back from a desktop, or run the CLI on a laptop and use this tab as the wallet client."
+            steps={['device check', 'route mobile → desktop']}
             cta="↗ Use-desktop info"
             to="/ua/use-desktop"
             accent="paper"
