@@ -66,8 +66,12 @@ export function AllQtspsScreen() {
     return QTSP_SUMMARY.map((row) => {
       const meta = findCuratedMeta(row);
       const dob = dobKindFor(meta, row.country);
-      const state = meta?.state ?? 'unsupported';
+      const state = meta?.state ?? 'queued';
       return { ...row, meta, dobKind: dob.kind, dobLabel: dob.label, state };
+    }).slice().sort((a, b) => {
+      // ECDSA-P-256 capable QTSPs come first — that's deploy priority.
+      if (a.p256 !== b.p256) return a.p256 ? -1 : 1;
+      return a.country.localeCompare(b.country) || a.tspName.localeCompare(b.tspName);
     });
   }, []);
 
@@ -80,20 +84,17 @@ export function AllQtspsScreen() {
   const [q, setQ] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
   const [p256Only, setP256Only] = useState(false);
-  const [supportedOnly, setSupportedOnly] = useState(false);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return allRows.filter((r) => {
       if (countryFilter && r.country !== countryFilter) return false;
       if (p256Only && !r.p256) return false;
-      if (supportedOnly && r.state === 'unsupported') return false;
       if (needle && !r.tspName.toLowerCase().includes(needle) && !r.country.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [allRows, q, countryFilter, p256Only, supportedOnly]);
+  }, [allRows, q, countryFilter, p256Only]);
 
-  const supportedCount = allRows.filter((r) => r.state !== 'unsupported').length;
   const p256Count = allRows.filter((r) => r.p256).length;
 
   return (
@@ -139,14 +140,14 @@ export function AllQtspsScreen() {
                 ECDSA secp256r1 (the curve zkqes verifies in-circuit) and how
                 they encode date-of-birth in subject attributes.
                 <br /><br />
-                Status legend: <b style={{ color: '#2e7d32' }}>live</b> ready end-to-end ·
-                <b style={{ color: 'var(--cv-ua-blue)' }}> gold</b> ceremony done, awaiting deploy ·
-                <b style={{ color: '#a87b00' }}> silver</b> circuit shipped, ceremony pending ·
-                <b style={{ color: 'var(--cv-mute)' }}> unsupported</b> in directory only.
+                Every QTSP listed here is on the roadmap. We're shipping
+                <b> ECDSA-P-256 capable QTSPs first</b> ({p256Count} of {QTSP_SUMMARY_META.totalTsps}) — those
+                roll into the existing circuit with no curve change. RSA-only
+                QTSPs need a separate verifier; they queue behind the P-256 wave.
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-              <span className="cv-sticker">{supportedCount} on roadmap</span>
+              <span className="cv-sticker">{p256Count} ship first</span>
               <Link to="/integrations" className="cv-btn is-blue">↗ How to integrate</Link>
             </div>
           </div>
@@ -181,10 +182,6 @@ export function AllQtspsScreen() {
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
               <input type="checkbox" checked={p256Only} onChange={(e) => setP256Only(e.target.checked)} />
               ECDSA P-256 only
-            </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-              <input type="checkbox" checked={supportedOnly} onChange={(e) => setSupportedOnly(e.target.checked)} />
-              on roadmap only
             </label>
             <span style={{ flex: 1 }} />
             <span style={{ fontSize: 11, color: 'var(--cv-mute)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
@@ -234,13 +231,13 @@ export function AllQtspsScreen() {
                           : <span className="cv-pill" style={{ color: 'var(--cv-mute)' }}>{r.dobLabel}</span>}
                     </td>
                     <td>
-                      {r.state === 'unsupported'
-                        ? <span className="cv-pill" style={{ color: 'var(--cv-mute)' }}>—</span>
-                        : r.meta
-                          ? <Link to="/qtsp/$country/$qtsp" params={{ country: r.country.toLowerCase(), qtsp: r.meta.qtspSlug }} className="cv-pill is-ok" style={{ textDecoration: 'none' }}>
-                              {r.state} ↗
-                            </Link>
-                          : <span className="cv-pill is-ok">{r.state}</span>}
+                      {r.meta
+                        ? <Link to="/qtsp/$country/$qtsp" params={{ country: r.country.toLowerCase(), qtsp: r.meta.qtspSlug }} className="cv-pill is-ok" style={{ textDecoration: 'none' }}>
+                            {r.state} ↗
+                          </Link>
+                        : <span className="cv-pill" style={{ background: r.p256 ? 'var(--cv-ok)' : 'transparent', color: r.p256 ? 'var(--cv-ink)' : 'var(--cv-mute)' }}>
+                            {r.p256 ? 'queued · P-256' : 'queued · RSA'}
+                          </span>}
                     </td>
                   </tr>
                 ))}
