@@ -156,9 +156,9 @@ export function HomeDocument() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', rowGap: 8, columnGap: 12, fontSize: 13 }}>
               <ReadoutRow label="mode" value={proverMode} />
-              <ReadoutRow label="circuit" value={cliPayload?.circuit ?? 'zkqes_v5'} mono />
-              <ReadoutRow label="zkey" value={proverReady ? 'loaded · 4.2 GB' : 'fetched on demand'} />
-              <ReadoutRow label="constraints" value="2.1M" />
+              <ReadoutRow label="circuit" value={cliPayload?.circuit ?? 'zkqes_v5.4'} mono />
+              <ReadoutRow label="zkey" value={proverReady ? 'loaded' : 'fetched on demand'} />
+              <ReadoutRow label="constraints" value="~3.9M" />
             </div>
             {!proverReady && (
               <>
