@@ -7,27 +7,17 @@ import { Link } from '@tanstack/react-router';
 import { TopBar } from '../components/curve/TopBar';
 import { useCeremonyPhase } from '../hooks/useCeremonyPhase';
 import { QTSP_INDEX } from '../generated/qtsp-index';
+import { QTSP_SUMMARY_META } from '../generated/qtsp-summary';
 import '../styles/curve.css';
 
 const TIMELINE = [
   ['Q4 2025', 'Spec', 'V1 protocol spec frozen', 'done'],
-  ['Q1 2026', 'V1 build', '14 packages, 2.1M circuit constraints, end-to-end', 'done'],
+  ['Q1 2026', 'V1 build', 'V5.3 circuit ~3.9M constraints, end-to-end', 'done'],
   ['Q2 2026', 'Phase 2 ceremony', 'Multi-contributor trusted setup · recruiting', 'active'],
   ['Q3 2026', 'Audit', 'External Groth16 + circuit audit', 'planned'],
   ['Q3 2026', 'Mainnet', 'Base mainnet deploy · post-audit', 'planned'],
   ['Q4 2026', 'Multi-network', 'Optimism · zkSync · Solana verifiers', 'planned'],
 ] as const;
-
-function DummyBadge() {
-  return (
-    <span className="cv-corner" style={{
-      background: 'var(--cv-err)', color: 'var(--cv-ink)',
-      letterSpacing: '.18em', fontWeight: 700,
-    }}>
-      DUMMY
-    </span>
-  );
-}
 
 const FAQ = [
   ['Does the chain see my QES?',
@@ -35,17 +25,17 @@ const FAQ = [
   ['Can I switch wallets later?',
     'Yes. Bind a new wallet under the same nullifier — onchain, the two look unrelated. Rotate / revoke / multi-bind are first-class.'],
   ['What if I lose my QES?',
-    'Re-issue with your QTSP. The nullifier is a hash of the public key — a new key gives a new nullifier. The old binding remains historical.'],
+    'Re-issue with your QTSP. The nullifier is bound to your QES public key — a new key gives a new nullifier. The old binding remains historical.'],
   ['Why a ceremony?',
-    'Groth16 needs a trusted setup. As long as ONE contributor honestly destroyed their entropy, soundness holds. We need 50.'],
+    'Groth16 needs a trusted setup. As long as ONE contributor honestly destroyed their entropy, soundness holds. We are recruiting now — every additional contributor strengthens the guarantee.'],
   ['Why Ukraine first?',
     'Diia is one of very few mature, public-issuer QES infrastructures with broad citizen adoption. EU expansion follows the same pattern; nothing about V1 is UA-locked.'],
   ['Is this anonymous?',
     'No — and that is the point. zkqes surfaces the exact trust property of every state-issued credential: every-day pseudonymity for the holder; recoverable accountability for the state under lawful process.'],
   ['Is the proof browser or mobile?',
-    'Desktop browser primary (38 GB peak; works on any modern laptop). CLI fast-path drops it to ~22 s on M2. Sub-flagship phones routed to "use desktop".'],
+    'Desktop only. The browser path needs Firefox + 38 GB RAM (Chrome / Safari hit the 4 GB WASM heap cap). The @zkqes/cli fast-path needs ~14 s + 3.7 GiB peak — works on any modern laptop. No mobile path.'],
   ['Why Base?',
-    'EIP-7212 P-256 precompile + cheap calldata. Verify gas ~230k vs ~600k on mainnet. Multi-network deploys planned post-audit.'],
+    'EIP-7212 P-256 precompile lets us verify the QES signature on-chain instead of in-circuit. Verify gas drops to ~230k. Multi-network deploys planned post-audit.'],
 ];
 
 export function AboutScreen() {
@@ -56,7 +46,6 @@ export function AboutScreen() {
   const liveCountriesCount = new Set(
     ceremonyContributors.map((c) => c.name.match(/\(([A-Z]{2})\)/)?.[1] ?? '?'),
   ).size;
-  const usingDummyContribCount = liveContribCount === 0;
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
       <TopBar active="about" />
@@ -132,29 +121,29 @@ export function AboutScreen() {
 
         <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           <StageCard n="01" label="Sign locally" body="You sign a canonical binding statement (RFC 8785 JCS) with your QES tool — Diia.Sign, DigiDoc4, Szafir. Output: a detached CAdES-X .p7s." />
-          <StageCard n="02" label="Parse + verify" body="The browser parses the .p7s, walks the cert chain, validates the QTSP signature, and checks the issuer against the EU LOTL Merkle root. All client-side." accent="yellow" />
-          <StageCard n="03" label="Prove" body="A Groth16 prover (browser snarkjs or rapidsnark CLI) emits a 20 KB proof over a 2.1M-constraint circuit. The proof says: I hold a valid QES from a listed QTSP. Nothing else." accent="blue" />
+          <StageCard n="02" label="Parse + verify" body="The browser parses the .p7s, walks the cert chain, validates the QTSP signature, and checks the issuer against the per-country trust-list Merkle root. All client-side." accent="yellow" />
+          <StageCard n="03" label="Prove" body="A Groth16 prover (Firefox snarkjs or @zkqes/cli rapidsnark) emits a 20 KB proof over a ~3.9M-constraint circuit. The proof says: I hold a valid QES from a listed QTSP. Nothing else." accent="blue" />
           <StageCard n="04" label="Anchor" body="Proof + nullifier go on-chain via your wallet. ~230k gas. Your wallet is now bound to a qualified identity — without disclosing it." />
         </section>
 
         <section className="cv-card is-paper">
           <div className="cv-cardhead">
             <span className="dot live" />
-            <span>CIRCUIT · zkqes_v1 · the proving graph</span>
+            <span>CIRCUIT · zkqes_v5.4 · the proving graph</span>
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-ok">audit · pending Q3</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, fontSize: 11, marginBottom: 10 }}>
-            <CircuitStat label="constraints" value="2.1M" />
+            <CircuitStat label="constraints" value="~3.9M" />
             <CircuitStat label="public in" value="22" />
-            <CircuitStat label="private in" value="1.2k" />
+            <CircuitStat label="signature" value="ECDSA P-256" />
             <CircuitStat label="curve" value="BN254" />
           </div>
           <svg viewBox="0 0 760 180" width="100%" style={{ border: '2px solid var(--cv-ink)', background: '#fff' }}>
             {([
               [60, 50, 'CMS\n.p7s'], [60, 130, 'cert\nchain'],
               [240, 90, 'parse\n+ verify\nCAdES'],
-              [420, 50, 'merkle\nLOTL'], [420, 130, 'hash\nQ-pk'],
+              [420, 50, 'merkle\nTSL'], [420, 130, 'hash\nQ-pk'],
               [600, 50, 'nullifier\nctx-bound'], [600, 130, 'binding\nstatement'],
               [720, 90, 'proof'],
             ] as const).map((n, i) => (
@@ -216,7 +205,7 @@ export function AboutScreen() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, fontSize: 13.5, lineHeight: 1.6 }}>
             <p style={{ margin: 0 }}>
               EU eIDAS (Reg. 910/2014) is the largest deployment of qualified electronic
-              signatures in the world. 27 member states, 224 listed QTSPs, ~50M citizens
+              signatures in the world. 27 member states, {QTSP_SUMMARY_META.totalTsps} listed QTSPs, ~50M citizens
               with active QES credentials. Every signature carries a state-grade trust
               property — and every issuer is bound by the same legal framework.
               Building a ZK protocol over QES means every onboarded country adds 1M+
@@ -243,35 +232,34 @@ export function AboutScreen() {
         {/* CONTRIBUTORS · who builds */}
         <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div className="cv-card is-paper">
-            {usingDummyContribCount && <DummyBadge />}
             <div className="cv-cardhead">
-              <span className={`dot ${usingDummyContribCount ? '' : 'live'}`} />
+              <span className={`dot ${liveContribCount > 0 ? 'live' : ''}`} />
               <span>WHO BUILDS THIS · contributors</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, fontSize: 12 }}>
               {[
-                ['founder · protocol · circuits', '@alik-eth', 'UA', false],
-                ['cryptography · review', 'pending audit', '—', false],
+                ['founder · protocol · circuits', '@alik-eth', 'UA'],
+                ['cryptography · review', 'pending audit', '—'],
                 [
                   'ceremony contributors',
-                  usingDummyContribCount ? '47 across 18 countries' : `${liveContribCount} across ${liveCountriesCount} countr${liveCountriesCount === 1 ? 'y' : 'ies'}`,
-                  usingDummyContribCount ? 'dummy' : 'live',
-                  usingDummyContribCount,
+                  liveContribCount === 0
+                    ? 'recruiting — be the first'
+                    : `${liveContribCount} across ${liveCountriesCount} countr${liveCountriesCount === 1 ? 'y' : 'ies'}`,
+                  liveContribCount === 0 ? '0' : String(liveContribCount),
                 ],
-                ['translators', 'EN · UK', String(QTSP_INDEX.length === 1 ? 2 : QTSP_INDEX.length + 1), false],
+                ['translators', 'EN · UK', '2'],
                 [
                   'QTSP integrators',
                   QTSP_INDEX.map((q) => q.displayName).join(' · '),
                   String(realQtspCount),
-                  false,
                 ],
               ].map((r, i) => {
-                const [label, value, tag, dummy] = r as [string, string, string, boolean];
+                const [label, value, tag] = r;
                 return (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 70px', gap: 8, padding: '6px 0', borderBottom: '1px dashed rgba(0,0,0,.2)', alignItems: 'center' }}>
                     <span style={{ color: 'var(--cv-mute)', letterSpacing: '.04em' }}>{label}</span>
                     <span style={{ fontFamily: 'var(--cv-mono)' }}>{value}</span>
-                    <span className={`cv-pill ${dummy ? 'is-err' : ''}`} style={{ justifySelf: 'end' }}>{tag}</span>
+                    <span className="cv-pill" style={{ justifySelf: 'end' }}>{tag}</span>
                   </div>
                 );
               })}
@@ -294,7 +282,7 @@ export function AboutScreen() {
             </div>
             <div className="cv-hatch" style={{ margin: '14px -16px' }} />
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 10, fontSize: 12 }}>
-              <span style={{ color: 'var(--cv-mute)' }}>V1 (now)</span><span>QKB — qualified key binding · Sepolia · ceremony</span>
+              <span style={{ color: 'var(--cv-mute)' }}>V1 (now)</span><span>QKB — qualified key binding · Base Sepolia · ceremony recruiting</span>
               <span style={{ color: 'var(--cv-mute)' }}>V2 (Q4)</span><span>QIE — escrow + arbitrator + recovery</span>
               <span style={{ color: 'var(--cv-mute)' }}>V3 (2027)</span><span>Identity-Escrow ERC-721 · pan-EU TLs · multi-chain</span>
             </div>
