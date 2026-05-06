@@ -15,42 +15,6 @@
       "recoveryLabel": "What can be recovered, by whom, under what process",
       "recoveryBody": "by the issuing authority, under lawful order, at meaningful compute cost. Not by third parties.",
       "closing": "This is identity escrow. Every-day pseudonymity for the holder; recoverable accountability for the state. The same trust structure as the qualified electronic signature itself — preserved on-chain."
-    },
-    "v3": {
-      "letterhead": {
-        "office": "OFFICE OF THE ZERO-KNOWLEDGE REGISTRAR",
-        "formId": "FORM ZK-QES / 01 · BINDING WALLET TO QUALIFIED IDENTITY"
-      },
-      "documentFigure": {
-        "aria": "Specimen binding statement: the holder of a qualified electronic signature certificate issued under eIDAS Regulation (EU) 910/2014 and the Law of Ukraine on Electronic Trust Services binds a wallet address to their identity, without revealing it. Signed by a qualified signature."
-      },
-      "legal": {
-        "legend": "SECTION I — LEGAL BASIS",
-        "eidas": "Regulation (EU) {{reg}} on electronic identification (eIDAS)",
-        "uaLaw": "Law of Ukraine «Про електронні довірчі послуги» (2155-VIII)",
-        "ceremonyRecruiting": "Ceremony parameters · in recruitment · round 0 of {{total}}",
-        "ceremonyLive": "Ceremony parameters · live · round {{round}} of {{total}}",
-        "ceremonyComplete": "Ceremony parameters · complete · {{total}} rounds attested"
-      },
-      "seal": {
-        "aria": "zkQES official seal",
-        "label": "QUALIFIED · ZERO-KNOWLEDGE · 2026"
-      },
-      "benefits": {
-        "legend": "SECTION II — WHAT YOU GET",
-        "oneNullifier": "One nullifier per identity (no double-use)",
-        "boundWallets": "One or more wallets bound under that nullifier",
-        "rotate": "Rotate any wallet without revealing it was yours",
-        "zeroCorrelation": "Zero correlation between QES and chain activity"
-      },
-      "cta": {
-        "beginFiling": "Begin filing",
-        "verify": "Verify a binding"
-      },
-      "revision": {
-        "supersedes": "SUPERSEDES ALL PRIOR EDITIONS",
-        "page": "PAGE 1 OF 1"
-      }
     }
   },
   "cli": {
@@ -592,32 +556,6 @@
         }
       }
     }
-  },
-  "zkqes": {
-    "eyebrow": "Trusted setup ceremony in progress",
-    "headline": "zk-QES.",
-    "lede": "A zero-knowledge protocol over qualified electronic signatures. Prove you hold a state-issued QES — without revealing it, the cert behind it, or the document it signed.",
-    "framing": "zkqes — the V1 implementation — is in trusted-setup ceremony. The Groth16 prover keys are produced by a multi-contributor ceremony; so long as one contributor honestly destroys their entropy, every future proof is sound. We need contributors.",
-    "pathsHeading": "Three ways to contribute",
-    "pathSnarkjs": {
-      "label": "Local snarkjs",
-      "body": "For contributors with a 32 GB-RAM machine. Five commands, twenty-five minutes wall-clock. Snarkjs holds the intermediate zkey in V8 heap; ~30 GB peak. Bring your own entropy source.",
-      "cta": "Read the snarkjs runbook →"
-    },
-    "pathVps": {
-      "label": "Rented VPS",
-      "body": "For contributors without local infra. A Hetzner CCX33 (32 GB, 8 vCPU, ~€0.10/hr) — or any 32 GB Linux machine — runs the same snarkjs commands. Spin up, run, attest, destroy.",
-      "cta": "Same commands; any 32 GB host →"
-    },
-    "pathFly": {
-      "label": "Fly.io launcher",
-      "body": "For everyone else. One form, your handle, your Fly token; we boot a 32 GB performance-2x machine, run snarkjs against the latest round, attest, and tear it down. Roughly $0.30/round and Fly’s free tier covers it.",
-      "cta": "Open the Fly launcher →"
-    },
-    "statusLink": "Live ceremony status — every contributor, every round →",
-    "umbrellaHeading": "About zkqes",
-    "umbrellaBody": "zkqes is a zero-knowledge protocol over qualified electronic signatures. Any state-issued credential exhibits a property: the issuing authority retains the ability to identify a holder under lawful process. zkqes is the first protocol that surfaces this property on-chain — every-day pseudonymity for the holder, recoverable accountability for the state, the same trust structure as the qualified electronic signature itself.",
-    "docsLink": "Specs, install, reference at docs.zkqes.org →"
   },
   "qtsp": {
     "state": {

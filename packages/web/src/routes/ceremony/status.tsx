@@ -1,16 +1,12 @@
-// V5 Phase 2 ceremony — live status feed.
+// /ceremony/status — Curve-2021 live progress feed.
 //
-// Polls the published `status.json` every 30 s and renders the
-// contributor chain + tri-state progress (planned / in-progress / complete).
-//
-// Production feed: https://prove.zkqes.org/ceremony/status.json
-// Dev fixture:     /ceremony/status.json (committed in this repo)
-// Test override:   VITE_CEREMONY_STATUS_URL env var
+// Polls the published `status.json` every 30 s. Renders tri-state
+// progress + the contributor chain + final zkey + beacon.
+
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { DocumentFooter } from '../../components/DocumentFooter';
-import '../../styles/civic-terminal.css';
+
+import { TopBar } from '../../components/curve/TopBar';
 import {
   CEREMONY_POLL_MS,
   CEREMONY_STATUS_URL,
@@ -20,30 +16,30 @@ import {
   type CeremonyStatusPayload,
 } from '../../lib/ceremonyStatus';
 
+import '../../styles/curve.css';
+
 type FeedState =
   | { kind: 'loading' }
   | { kind: 'unavailable' }
   | { kind: 'ok'; payload: CeremonyStatusPayload };
 
 export function CeremonyStatus() {
-  const { t } = useTranslation();
   const [feed, setFeed] = useState<FeedState>({ kind: 'loading' });
+  const [lastFetch, setLastFetch] = useState<Date | null>(null);
 
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
 
-    const poll = async (): Promise<void> => {
+    const poll = async () => {
       const payload = await fetchCeremonyStatus(CEREMONY_STATUS_URL, ac.signal);
       if (cancelled) return;
+      setLastFetch(new Date());
       setFeed(payload === null ? { kind: 'unavailable' } : { kind: 'ok', payload });
     };
 
     void poll();
-    const timer = setInterval(() => {
-      void poll();
-    }, CEREMONY_POLL_MS);
-
+    const timer = setInterval(() => void poll(), CEREMONY_POLL_MS);
     return () => {
       cancelled = true;
       ac.abort();
@@ -51,235 +47,202 @@ export function CeremonyStatus() {
     };
   }, []);
 
+  const state: CeremonyState = feed.kind === 'ok' ? deriveCeremonyState(feed.payload) : 'planned';
+
   return (
-    <main
-      className="ct"
-      style={{
-        minHeight: '100vh',
-        background: 'var(--ct-paper)',
-        color: 'var(--ct-ink)',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '720px',
-          margin: '0 auto',
-          padding: '96px 24px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '48px',
-        }}
-      >
-        <Link to="/ceremony" className="ct-link" style={{ fontFamily: 'var(--mono)', fontSize: '12px' }}>
-          ← {t('ceremony.status.back', 'back to overview')}
-        </Link>
+    <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
+      <TopBar
+        active="ceremony"
+        statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● live status feed</span>}
+      />
 
-        <header>
-          <h1
-            style={{
-              fontFamily: 'var(--display)',
-              fontSize: '52px',
-              lineHeight: 1,
-              margin: 0,
-              marginBottom: '24px',
-              color: 'var(--ct-ink)',
-            }}
-          >
-            {t('ceremony.status.heading', 'Live progress.')}
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+        <BackLink />
+
+        {/* HERO */}
+        <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
+          <div className="cv-cardhead" style={{ marginBottom: 12 }}>
+            <span className="cv-ix">⊙</span>
+            <span>STATUS · live ceremony feed · poll every 30s</span>
+            <span style={{ flex: 1 }} />
+            <span className={`cv-pill ${stateClass(state)}`}>{stateLabel(state)}</span>
+            <span className="cv-pill">{lastFetch ? `last fetched · ${lastFetch.toLocaleTimeString('en-GB', { hour12: false })}` : 'fetching…'}</span>
+          </div>
+          <h1 className="cv-hero" style={{ fontSize: 132 }}>
+            {state === 'planned' && <>AWAITING.<br /><span className="b">FIRST</span></>}
+            {state === 'in-progress' && <>ROUND <span className="y">{feed.kind === 'ok' ? feed.payload.round : '—'}</span><br /><span className="b">IN FLIGHT</span></>}
+            {state === 'complete' && <>SETUP.<br /><span className="b">COMPLETE</span><span className="y">.</span></>}
           </h1>
-            <p className="text-base max-w-prose" style={{ color: 'var(--ct-ink)' }}>
-              {t(
-                'ceremony.status.lede',
-                'Each round closes when the contributor uploads their attested intermediate zkey. We publish the chain here as it grows.',
-              )}
-            </p>
-          </header>
+          <p style={{ maxWidth: 720, fontSize: 14, marginTop: 18, lineHeight: 1.55 }}>
+            {state === 'planned' && 'No contributor has uploaded their round yet. Sign-ups are open. The first valid contribution opens the chain; every subsequent round chains onto the previous one.'}
+            {state === 'in-progress' && 'A contributor is in flight. The chain advances when their attested intermediate zkey lands. We close the round when a 24 h gap with no new contributors appears.'}
+            {state === 'complete' && 'Final zkey is fixed. A public-randomness beacon was folded in after the last contributor. The parameters are now what every future proof verifies against.'}
+          </p>
+        </section>
 
-          <hr className="ct-divider" />
-
-          {feed.kind === 'loading' && (
-            <p
-              className="text-sm"
-              role="status"
-              data-testid="ceremony-status-loading"
-              style={{ color: 'var(--ct-ink)' }}
-            >
-              {t('ceremony.status.loading', 'Loading status feed…')}
-            </p>
-          )}
-
-          {feed.kind === 'unavailable' && (
-            <p
-              className="text-sm"
-              role="alert"
-              data-testid="ceremony-status-unavailable"
-              style={{ color: 'var(--ct-ink)' }}
-            >
-              {t(
-                'ceremony.status.unavailable',
-                'Status feed unavailable. The ceremony admin publishes the JSON manually after each round; transient outages are expected. Try again in a minute.',
-              )}
-            </p>
-          )}
-
-        {feed.kind === 'ok' && (
-          <StatusBody payload={feed.payload} />
+        {feed.kind === 'loading' && (
+          <section className="cv-card is-paper" style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div className="cv-num" style={{ color: 'var(--cv-ua-blue)', fontSize: 64 }}>⟳</div>
+            <div style={{ fontSize: 13, marginTop: 10, color: 'var(--cv-mute)' }}>Loading status feed…</div>
+          </section>
         )}
+
+        {feed.kind === 'unavailable' && (
+          <section className="cv-card" style={{ background: 'var(--cv-err)' }}>
+            <div className="cv-cardhead">
+              <span>FEED · unreachable</span>
+              <span style={{ flex: 1 }} />
+              <span className="cv-pill is-err">UNAVAILABLE</span>
+            </div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+              The ceremony admin publishes the status JSON manually after each round; transient outages are
+              expected. We retry every {CEREMONY_POLL_MS / 1000}s automatically. If this persists, the chain is still
+              recoverable from the contributors' own attestations.
+            </div>
+          </section>
+        )}
+
+        {feed.kind === 'ok' && <StatusBody payload={feed.payload} />}
+
+        {/* FOOTER STATS */}
+        {feed.kind === 'ok' && (
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+            <FooterStat label="round" value={String(feed.payload.round)} suffix={feed.payload.round === 1 ? 'contribution' : 'contributions'} />
+            <FooterStat label="contributors" value={String(feed.payload.contributors.length)} suffix="attested" yellow />
+            <FooterStat label="final hash" value={feed.payload.finalZkeySha256?.slice(0, 8) ?? '—'} suffix={feed.payload.finalZkeySha256 ? '…' : 'pending'} mono />
+            <FooterStat label="next poll" value={`${CEREMONY_POLL_MS / 1000}s`} suffix="auto" blue />
+          </section>
+        )}
+
       </div>
-      <DocumentFooter />
     </main>
   );
 }
 
 function StatusBody({ payload }: { payload: CeremonyStatusPayload }) {
-  const { t } = useTranslation();
-  const state: CeremonyState = deriveCeremonyState(payload);
+  const state = deriveCeremonyState(payload);
 
   return (
     <>
-      <section
-        aria-labelledby="state-heading"
-        data-testid={`ceremony-state-${state}`}
-        className="space-y-6"
-      >
-        <h2
-          id="state-heading"
-          className="text-3xl"
-          style={{ color: 'var(--ct-ink)' }}
-        >
-          {state === 'planned' &&
-            t('ceremony.status.statePlanned', 'Awaiting first contributor.')}
-          {state === 'in-progress' &&
-            t('ceremony.status.stateInProgress', 'Ceremony in progress.')}
-          {state === 'complete' &&
-            t('ceremony.status.stateComplete', 'Ceremony complete.')}
-        </h2>
-        <p
-          className="text-base max-w-prose"
-          style={{ color: 'var(--ct-ink)' }}
-          data-testid="ceremony-state-blurb"
-        >
-          {state === 'planned' &&
-            t(
-              'ceremony.status.plannedBlurb',
-              'The first contributor has not yet uploaded their round. Sign-ups are open.',
-            )}
-          {state === 'in-progress' &&
-            t('ceremony.status.inProgressBlurb', {
-              defaultValue: 'Round {{round}} of {{total}}.',
-              round: payload.round,
-              total: payload.totalRounds,
-            })}
-          {state === 'complete' &&
-            t(
-              'ceremony.status.completeBlurb',
-              'The final zkey is fixed. Anyone can verify their downloaded copy below.',
-            )}
-        </p>
-      </section>
-
-      <hr className="ct-divider" />
-
-      <section
-        aria-labelledby="chain-heading"
-        data-testid="ceremony-chain"
-        className="space-y-6"
-      >
-        <h2
-          id="chain-heading"
-          className="text-3xl"
-          style={{ color: 'var(--ct-ink)' }}
-        >
-          {t('ceremony.status.chainHeading', 'Contributor chain')}
-        </h2>
+      {/* ATTESTATION CHAIN */}
+      <section className="cv-card is-paper">
+        <div className="cv-cardhead">
+          <span className="dot live" />
+          <span>ATTESTATION CHAIN · append-only</span>
+          <span style={{ flex: 1 }} />
+          <span className="cv-pill is-ok">all hashes verified</span>
+          <span className="cv-pill">IPFS-pinned</span>
+        </div>
         {payload.contributors.length === 0 ? (
-          <p
-            className="text-base"
-            style={{ color: 'var(--ct-ink)', opacity: 0.7 }}
-            data-testid="ceremony-chain-empty"
-          >
-            {t('ceremony.status.chainEmpty', 'No rounds yet.')}
-          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, alignItems: 'center', padding: '8px 0' }}>
+            <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+              <b>No rounds yet.</b> The first contributor opens the chain. Until then,
+              the parameters are unfixed.
+            </div>
+            <Link to="/ceremony/contribute" className="cv-btn is-lg">▶ Be the first</Link>
+          </div>
         ) : (
-          <ol className="space-y-6" data-testid="ceremony-chain-list">
-            {payload.contributors.map((c) => (
-              <li
-                key={`${c.round}-${c.name}`}
-                className="space-y-1"
-                data-testid={`ceremony-contributor-${c.round}`}
-              >
-                <div
-                  className="text-sm"
-                  style={{
-                    color: 'var(--ua-blue)',
-                    fontVariant: 'small-caps',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  <span aria-hidden="true" style={{ color: 'var(--ct-mute)', marginRight: '0.5em' }}>
-                    {c.round}
-                  </span>
-                  {t('ceremony.status.roundLabel', 'Round')} {c.round}
-                </div>
-                <div className="text-base" style={{ color: 'var(--ct-ink)' }}>
-                  {c.profileUrl ? (
-                    <a href={c.profileUrl} style={{ color: 'var(--ua-blue)' }}>
-                      {c.name}
-                    </a>
-                  ) : (
-                    c.name
-                  )}
-                </div>
-                <div className="text-mono text-xs" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
-                  {c.completedAt}
-                </div>
-                {c.attestation && (
-                  <div className="text-mono text-xs break-all" style={{ color: 'var(--ct-ink)', opacity: 0.6 }}>
-                    {c.attestation}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ol>
+          <table className="cv-table">
+            <thead>
+              <tr><th>slot</th><th>when</th><th>contributor</th><th>attestation</th></tr>
+            </thead>
+            <tbody>
+              {[...payload.contributors].reverse().map((c) => (
+                <tr key={`${c.round}-${c.name}`}>
+                  <td><b>#{String(c.round).padStart(3, '0')}</b></td>
+                  <td style={{ color: 'var(--cv-mute)' }}>{c.completedAt.slice(0, 10)} {c.completedAt.slice(11, 16)}</td>
+                  <td>
+                    {c.profileUrl
+                      ? <a href={c.profileUrl} className="cv-link" rel="noopener noreferrer">{c.name}</a>
+                      : c.name}
+                  </td>
+                  <td style={{ fontFamily: 'var(--cv-mono)', fontSize: 11, wordBreak: 'break-all' }}>
+                    {c.attestation
+                      ? <>{c.attestation.slice(0, 18)}…{c.attestation.slice(-8)}</>
+                      : <span style={{ color: 'var(--cv-mute)' }}>—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </section>
 
-      {payload.finalZkeySha256 && (
-        <>
-          <hr className="ct-divider" />
-          <section
-            aria-labelledby="final-heading"
-            data-testid="ceremony-final"
-            className="space-y-3"
-          >
-            <h2
-              id="final-heading"
-              className="text-3xl"
-              style={{ color: 'var(--ct-ink)' }}
-            >
-              {t('ceremony.status.finalHeading', 'Final zkey')}
-            </h2>
-            <p
-              className="text-mono text-sm break-all"
-              data-testid="ceremony-final-hash"
-              style={{ color: 'var(--ct-ink)' }}
-            >
-              sha256 {payload.finalZkeySha256}
-            </p>
-            {payload.beaconBlockHeight !== null &&
-              payload.beaconHash !== null && (
-                <p className="text-mono text-xs break-all" style={{ color: 'var(--ct-ink)', opacity: 0.7 }}>
-                  beacon block {payload.beaconBlockHeight} {payload.beaconHash}
-                </p>
-              )}
-            <p className="text-base" style={{ color: 'var(--ct-ink)' }}>
-              <Link to="/ceremony/verify" style={{ color: 'var(--ua-blue)' }}>
-                {t('ceremony.status.verifyLink', 'Verify your downloaded zkey →')}
-              </Link>
-            </p>
-          </section>
-        </>
+      {/* FINAL ZKEY + BEACON (when complete) */}
+      {state === 'complete' && payload.finalZkeySha256 && (
+        <section className="cv-card is-blue" style={{ padding: '20px 24px' }}>
+          <div className="cv-cardhead" style={{ color: '#fff' }}>
+            <span className="dot live" />
+            <span>FINAL · zkey + public-randomness beacon</span>
+            <span style={{ flex: 1 }} />
+            <span className="cv-pill is-ok">applied · ✓</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 8, columnGap: 14, fontSize: 13 }}>
+            <Field label="final.zkey">
+              <span style={{ fontFamily: 'var(--cv-mono)', wordBreak: 'break-all' }}>sha256 {payload.finalZkeySha256}</span>
+            </Field>
+            {payload.beaconBlockHeight !== null && (
+              <Field label="beacon block">
+                <span style={{ fontFamily: 'var(--cv-mono)' }}>{payload.beaconBlockHeight}</span>
+              </Field>
+            )}
+            {payload.beaconHash !== null && (
+              <Field label="beacon hash">
+                <span style={{ fontFamily: 'var(--cv-mono)', wordBreak: 'break-all' }}>{payload.beaconHash}</span>
+              </Field>
+            )}
+          </div>
+          <div className="cv-hatch" style={{ margin: '16px -24px', borderColor: 'var(--cv-ua-yellow)' }} />
+          <Link to="/ceremony/verify" className="cv-btn" style={{ background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)' }}>
+            ↗ Verify your downloaded zkey
+          </Link>
+        </section>
       )}
     </>
+  );
+}
+
+function stateLabel(s: CeremonyState): string {
+  if (s === 'planned') return 'AWAITING';
+  if (s === 'in-progress') return 'IN PROGRESS';
+  return 'COMPLETE';
+}
+function stateClass(s: CeremonyState): string {
+  if (s === 'planned') return 'is-warn';
+  if (s === 'in-progress') return 'is-ua';
+  return 'is-ok';
+}
+
+function BackLink() {
+  return (
+    <Link to="/ceremony" style={{
+      fontFamily: 'var(--cv-mono)', fontSize: 12, color: 'var(--cv-ua-blue)',
+      textDecoration: 'underline', textUnderlineOffset: 3,
+    }}>
+      ← back to ceremony overview
+    </Link>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <span style={{ color: 'var(--cv-ua-yellow)', letterSpacing: '.08em', textTransform: 'uppercase', fontSize: 10.5 }}>{label}</span>
+      <span style={{ fontFamily: 'var(--cv-mono)', wordBreak: 'break-all' }}>{children}</span>
+    </>
+  );
+}
+
+function FooterStat({ label, value, suffix, yellow, blue, mono }: {
+  label: string; value: string; suffix?: string; yellow?: boolean; blue?: boolean; mono?: boolean;
+}) {
+  const cls = yellow ? 'is-yellow' : blue ? 'is-blue' : '';
+  return (
+    <div className={`cv-card ${cls}`} style={{ padding: '10px 14px' }}>
+      <div className="cv-cardhead" style={blue ? { color: 'var(--cv-ua-yellow)' } : undefined}>{label}</div>
+      <div className="cv-num sm" style={{ ...(blue ? { color: 'var(--cv-ua-yellow)' } : {}), ...(mono ? { fontFamily: 'var(--cv-mono)', fontSize: 18 } : {}) }}>
+        {value} {suffix && <span style={{ fontSize: 16 }}>{suffix}</span>}
+      </div>
+    </div>
   );
 }

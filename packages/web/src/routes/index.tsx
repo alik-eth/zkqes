@@ -2,6 +2,7 @@ import { CivicTerminalLanding } from '../components/CivicTerminalLanding';
 import { HomeDocument } from '../components/civic-terminal/HomeDocument';
 import { LandingHero } from '../components/LandingHero';
 import '../styles/civic-terminal.css';
+import '../styles/curve.css';
 
 /**
  * Root `/` route — surface depends on a runtime variant flag, then on

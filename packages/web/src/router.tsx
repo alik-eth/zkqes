@@ -33,6 +33,7 @@ import { CeremonyContribute } from './routes/ceremony/contribute';
 import { CeremonyStatus } from './routes/ceremony/status';
 import { CeremonyVerify } from './routes/ceremony/verify';
 import { VerifyBindingScreen } from './routes/verifyBinding';
+import { AboutScreen } from './routes/about';
 
 function RootLayout() {
   return <Outlet />;
@@ -117,6 +118,12 @@ const verifyBindingRoute = createRoute({
   component: VerifyBindingScreen,
 });
 
+const aboutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/about',
+  component: AboutScreen,
+});
+
 const sharedRoutes: AnyRoute[] = [
   indexRoute,
   ceremonyRoute,
@@ -127,6 +134,7 @@ const sharedRoutes: AnyRoute[] = [
   qtspPageRoute,
   countriesRedirectRoute,
   verifyBindingRoute,
+  aboutRoute,
 ];
 
 // ---------------------------------------------------------------- //
