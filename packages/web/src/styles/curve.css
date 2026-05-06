@@ -1,0 +1,135 @@
+/* Curve-2021 brutalist dashboard tokens. Inline-style-friendly:
+ * components carry per-element styles; this file just hosts the
+ * keyframes + reusable visual primitives that need pseudo-elements
+ * or animations. */
+
+:root {
+  --cv-page: #ece8d8;
+  --cv-card: #f4f0e0;
+  --cv-paper: #ffffff;
+  --cv-ink: #1a1a1a;
+  --cv-mute: #6b6558;
+  --cv-ua-blue: #0057B7;
+  --cv-ua-yellow: #FFD700;
+  --cv-eu-blue: #003399;
+  --cv-eu-yellow: #FFCC00;
+  --cv-ok: #cfe9d2;
+  --cv-warn: #FFD700;
+  --cv-err: #f3c5c5;
+  --cv-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --cv-display: 'VT323', 'IBM Plex Mono', monospace;
+}
+
+html, body, #root { background: var(--cv-page); }
+body { font-family: var(--cv-mono); color: var(--cv-ink); margin: 0; }
+
+.cv-card {
+  background: var(--cv-card);
+  border: 2px solid var(--cv-ink);
+  box-shadow: 4px 4px 0 var(--cv-ink);
+  padding: 14px 16px;
+  position: relative;
+}
+.cv-card.is-paper { background: var(--cv-paper); }
+.cv-card.is-yellow { background: var(--cv-ua-yellow); color: var(--cv-ink); box-shadow: 4px 4px 0 var(--cv-ua-blue); }
+.cv-card.is-blue { background: var(--cv-ua-blue); color: #fff; box-shadow: 4px 4px 0 var(--cv-ua-yellow); }
+.cv-card.is-eu { background: var(--cv-eu-blue); color: var(--cv-eu-yellow); box-shadow: 4px 4px 0 var(--cv-eu-yellow); }
+.cv-card.is-stripe::before {
+  content: ""; position: absolute; left: -2px; right: -2px; top: -2px; height: 6px;
+  background: repeating-linear-gradient(90deg, var(--cv-ua-blue) 0 12px, var(--cv-ua-yellow) 12px 24px);
+}
+.cv-card .cv-corner {
+  position: absolute; top: -10px; right: 10px;
+  background: var(--cv-ua-yellow); color: var(--cv-ink);
+  border: 2px solid var(--cv-ink);
+  padding: 1px 8px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+}
+.cv-cardhead {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.cv-cardhead .dot { width: 8px; height: 8px; border: 1.5px solid currentColor; background: transparent; flex: none; }
+.cv-cardhead .dot.live { background: #2e7d32; border-color: var(--cv-ink); box-shadow: 0 0 0 2px #fff; }
+
+.cv-num { font-family: var(--cv-display); font-size: 56px; line-height: .9; letter-spacing: .02em; }
+.cv-num.sm { font-size: 36px; }
+
+.cv-btn {
+  font-family: var(--cv-mono); font-size: 14px; font-weight: 600;
+  border: 2px solid var(--cv-ink); background: var(--cv-ua-yellow); color: var(--cv-ink);
+  padding: 8px 16px; cursor: pointer; box-shadow: 3px 3px 0 var(--cv-ink);
+  display: inline-flex; align-items: center; gap: 8px; letter-spacing: .04em;
+  transition: transform .04s, box-shadow .04s;
+  text-decoration: none;
+}
+.cv-btn:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--cv-ink); }
+.cv-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--cv-ink); }
+.cv-btn.is-blue { background: var(--cv-ua-blue); color: var(--cv-ua-yellow); }
+.cv-btn.is-ghost { background: transparent; box-shadow: none; }
+.cv-btn.is-sm { padding: 4px 10px; font-size: 12px; box-shadow: 2px 2px 0 var(--cv-ink); }
+.cv-btn.is-lg { padding: 12px 22px; font-size: 18px; }
+
+.cv-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1.5px solid var(--cv-ink);
+  padding: 1px 8px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+  background: #fff;
+  color: var(--cv-ink);
+}
+.cv-pill.is-ok { background: var(--cv-ok); }
+.cv-pill.is-warn { background: var(--cv-warn); }
+.cv-pill.is-err { background: var(--cv-err); }
+.cv-pill.is-ua { background: var(--cv-ua-yellow); color: var(--cv-ua-blue); }
+.cv-pill.is-eu { background: var(--cv-eu-blue); color: var(--cv-eu-yellow); border-color: var(--cv-eu-yellow); }
+.cv-pill.is-blue { background: var(--cv-ua-blue); color: #fff; }
+
+.cv-hatch {
+  height: 8px;
+  background: repeating-linear-gradient(45deg, var(--cv-ink) 0 4px, transparent 4px 8px);
+  border-top: 2px solid var(--cv-ink); border-bottom: 2px solid var(--cv-ink);
+}
+
+.cv-bar { height: 18px; border: 2px solid var(--cv-ink); background: #fff; position: relative; overflow: hidden; }
+.cv-bar > i {
+  display: block; height: 100%;
+  background: repeating-linear-gradient(135deg, var(--cv-ua-blue) 0 10px, var(--cv-ua-yellow) 10px 20px);
+  animation: cv-bar-march 1.6s linear infinite;
+}
+.cv-bar.static > i { animation: none; }
+@keyframes cv-bar-march { from { background-position: 0 0; } to { background-position: 40px 0; } }
+
+.cv-hero {
+  font-family: var(--cv-display);
+  font-size: 148px; line-height: .82; letter-spacing: .01em;
+  color: var(--cv-ink); margin: 0;
+}
+.cv-hero .b { color: var(--cv-ua-blue); }
+.cv-hero .y { color: var(--cv-ua-yellow); -webkit-text-stroke: 2px var(--cv-ink); }
+
+.cv-ix { font-family: var(--cv-display); font-size: 22px; line-height: 1; color: var(--cv-ua-yellow); -webkit-text-stroke: 1px var(--cv-ink); }
+
+.cv-stamp {
+  width: 54px; height: 54px; border: 3px solid var(--cv-ua-blue); border-radius: 50%;
+  display: grid; place-items: center; transform: rotate(-8deg);
+  color: var(--cv-ua-blue); font-family: var(--cv-display); font-size: 11px;
+  letter-spacing: .1em; text-align: center;
+  box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px var(--cv-ua-blue);
+  flex: none;
+}
+
+.cv-sticker {
+  transform: rotate(-4deg);
+  background: var(--cv-ua-yellow); color: var(--cv-ua-blue);
+  border: 2px solid var(--cv-ink); box-shadow: 3px 3px 0 var(--cv-ink);
+  padding: 4px 10px; font-family: var(--cv-display); font-size: 22px;
+  letter-spacing: .06em; display: inline-block;
+}
+
+.cv-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cv-table th, .cv-table td { padding: 6px 8px; text-align: left; border-bottom: 1px dashed rgba(26, 26, 26, .3); }
+.cv-table th { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--cv-mute); border-bottom: 2px solid var(--cv-ink); font-weight: 600; }
+.cv-table tbody tr:hover { background: rgba(255, 215, 0, .25); cursor: default; }
+
+.cv-link { color: var(--cv-ua-blue); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.cv-link:hover { background: var(--cv-ua-yellow); }

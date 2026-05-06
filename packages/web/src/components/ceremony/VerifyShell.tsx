@@ -1,86 +1,41 @@
-// VerifyShell — /verify 3-col civic-terminal inspector.
+// /ceremony/verify — Curve-2021 hash inspector.
 //
-// Plan: docs/superpowers/plans/2026-05-04-zkqes-civic-terminal-v2-web.md Task 11.
-// Spec: 2026-05-04-zkqes-civic-terminal-v2-design.md §5.3.
+// Lookup a SHA-256 attestation hash against the published ceremony chain:
+//   1. matches-final     → identical to status.finalZkeySha256
+//   2. matches-contributor → identical to a contributor's attestation
+//   3. unknown           → not part of this ceremony
+//   4. invalid           → not a 64-hex string
 //
-// Two-tab inspector composition (per spec §5.3):
-//
-//   left   — "WHAT THIS VERIFIES" explainer panel.
-//   middle — tab pair (`by attestation` / `by wallet`) + input + result panel.
-//            Result rendered as a labeled-row <dl> per the civic-document
-//            tone. Recent lookups persisted to localStorage so the user
-//            can scroll back through their session.
-//   right  — "RECENT" log panel reading the last 10 lookups.
-//
-// Tab semantics:
-//   by attestation — paste a SHA-256 hash; look up in
-//                    `status.contributors[].attestation` (membership +
-//                    ordering) AND against `status.finalZkeySha256`. This
-//                    is the union of the v1 PasteAttestation widget on
-//                    /ceremony + the legacy verify.tsx zkey-hash check.
-//   by wallet      — paste a wallet address; intended to look up the
-//                    registered binding on-chain. PRE-PUMP gate per
-//                    lead's "don't add new on-chain reads": shows a
-//                    polite "available after Sepolia acceptance" stub
-//                    with the FROZEN tooltip pattern. Wires to the
-//                    real registry-read helper post-Task-13 atomic flip.
-//
-// Reuses Marquee + FooterRibbon + PreviewModeBanner from civic-terminal/
-// + app/ chrome work (Tasks 2 + 7). Variant-gated at the route level —
-// legacy `CeremonyVerify` stays the default until Task 13 atomic flip,
-// matching the /ceremony rollout pattern.
+// The by-wallet path lives at /verify (live on-chain via viem) so this
+// surface is single-purpose: ceremony attestation lookup. Recent
+// lookups persist to localStorage.
 
 import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Marquee } from '../civic-terminal/Marquee';
-import { FooterRibbon } from '../civic-terminal/FooterRibbon';
-import { PreviewModeBanner } from '../app/PreviewModeBanner';
-import { useCeremonyPhase } from '../../hooks/useCeremonyPhase';
-import {
-  type CeremonyPhase,
-  type CeremonyStatusPayload,
-} from '../../lib/ceremonyStatus';
+import { Link } from '@tanstack/react-router';
 
-type VerifyTab = 'attestation' | 'wallet';
+import { TopBar } from '../curve/TopBar';
+import { useCeremonyPhase } from '../../hooks/useCeremonyPhase';
+import type { CeremonyStatusPayload } from '../../lib/ceremonyStatus';
+
+import '../../styles/curve.css';
+
+const RECENT_KEY = 'qkb.demo.verify.recent.v2';
+const RECENT_MAX = 10;
+const HEX64_RE = /^0x?[0-9a-f]{64}$/i;
+
+type Kind = 'idle' | 'invalid' | 'matches-final' | 'matches-contributor' | 'unknown' | 'feed-down';
 
 interface AttestationResult {
-  readonly kind:
-    | 'idle'
-    | 'empty'
-    | 'matches-final'
-    | 'matches-contributor'
-    | 'unknown';
+  readonly kind: Kind;
   readonly hash?: string;
   readonly contributorName?: string;
   readonly round?: number;
 }
 
-interface WalletResult {
-  readonly kind: 'idle' | 'empty' | 'invalid' | 'pre-launch';
-  readonly address?: string;
-}
-
 interface RecentLookup {
-  readonly kind: VerifyTab;
   readonly query: string;
   readonly verdict: string;
   readonly at: string;
-}
-
-const RECENT_KEY = 'qkb.demo.verify.recent.v1';
-const RECENT_MAX = 10;
-const HEX64_RE = /^0x?[0-9a-f]{64}$/i;
-const HEX_ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
-
-const BUILD_SHA = (import.meta.env.VITE_BUILD_SHA as string | undefined) ?? 'dev';
-const BUILD_DATE =
-  (import.meta.env.VITE_BUILD_DATE as string | undefined) ??
-  new Date().toISOString().slice(0, 10);
-
-function sidebarTextForVerifyPhase(phase: CeremonyPhase): string {
-  if (phase === 'recruiting') return 'inspector · pre-launch';
-  if (phase === 'ceremony-live') return 'inspector · ceremony in progress';
-  return 'inspector · live registry';
 }
 
 function readRecent(): readonly RecentLookup[] {
@@ -90,17 +45,7 @@ function readRecent(): readonly RecentLookup[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(
-        (e): e is RecentLookup =>
-          typeof e === 'object' &&
-          e !== null &&
-          (e.kind === 'attestation' || e.kind === 'wallet') &&
-          typeof e.query === 'string' &&
-          typeof e.verdict === 'string' &&
-          typeof e.at === 'string',
-      )
-      .slice(0, RECENT_MAX);
+    return parsed.slice(0, RECENT_MAX);
   } catch {
     return [];
   }
@@ -109,484 +54,369 @@ function readRecent(): readonly RecentLookup[] {
 function pushRecent(entry: RecentLookup): readonly RecentLookup[] {
   const next = [entry, ...readRecent()].slice(0, RECENT_MAX);
   if (typeof localStorage !== 'undefined') {
-    try {
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-    } catch {
-      // localStorage may be quota-full or disabled in some browsers
-      // (private mode in Safari historically). Recent log is a nice-
-      // to-have, not load-bearing; swallow the error.
-    }
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); }
+    catch { /* quota or disabled — recent log is best-effort */ }
   }
   return next;
 }
 
-function lookupAttestation(
-  hash: string,
-  status: CeremonyStatusPayload | null,
-): AttestationResult {
+function lookup(hash: string, status: CeremonyStatusPayload | null): AttestationResult {
   const trimmed = hash.trim().toLowerCase();
-  if (!trimmed) return { kind: 'empty' };
-  // Allow callers to omit the leading 0x.
+  if (!trimmed) return { kind: 'idle' };
+  if (!HEX64_RE.test(trimmed)) return { kind: 'invalid', hash: trimmed };
   const normalized = trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`;
-  if (!status) {
-    return { kind: 'unknown', hash: normalized };
-  }
-  // Final zkey hash check (the legacy verify.tsx flow's primary purpose).
-  if (
-    status.finalZkeySha256 &&
-    status.finalZkeySha256.toLowerCase().replace(/^0x/, '') ===
-      normalized.replace(/^0x/, '')
-  ) {
+  if (!status) return { kind: 'feed-down', hash: normalized };
+
+  const stripped = normalized.replace(/^0x/, '');
+
+  if (status.finalZkeySha256?.toLowerCase().replace(/^0x/, '') === stripped) {
     return { kind: 'matches-final', hash: normalized };
   }
-  // Contributor-attestation lookup (mirrors PasteAttestation on /ceremony).
   const match = status.contributors.find(
-    (c) =>
-      c.attestation?.toLowerCase().replace(/^0x/, '') ===
-      normalized.replace(/^0x/, ''),
+    (c) => c.attestation?.toLowerCase().replace(/^0x/, '') === stripped,
   );
   if (match) {
-    return {
-      kind: 'matches-contributor',
-      hash: normalized,
-      contributorName: match.name,
-      round: match.round,
-    };
+    return { kind: 'matches-contributor', hash: normalized, contributorName: match.name, round: match.round };
   }
   return { kind: 'unknown', hash: normalized };
 }
 
-interface VerifyShellProps {
-  /** Test seam: pre-seed the recent-lookups log. */
+export interface VerifyShellProps {
   readonly initialRecent?: readonly RecentLookup[];
-  /**
-   * Test seam: skip localStorage reads on initial mount. Useful in unit
-   * tests where vitest's jsdom can't be guaranteed to have a clean key.
-   */
   readonly skipLocalStorage?: boolean;
 }
 
-export function VerifyShell({
-  initialRecent,
-  skipLocalStorage,
-}: VerifyShellProps = {}) {
-  const { t } = useTranslation();
-  const { phase, status } = useCeremonyPhase();
-  const effectivePhase: CeremonyPhase = phase ?? 'recruiting';
-  const [tab, setTab] = useState<VerifyTab>('attestation');
+export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProps = {}) {
+  const { status } = useCeremonyPhase();
   const [hashInput, setHashInput] = useState('');
-  const [walletInput, setWalletInput] = useState('');
-  const [hashResult, setHashResult] = useState<AttestationResult>({
-    kind: 'idle',
-  });
-  const [walletResult, setWalletResult] = useState<WalletResult>({
-    kind: 'idle',
-  });
-  const [recent, setRecent] = useState<readonly RecentLookup[]>(
-    initialRecent ?? [],
-  );
+  const [result, setResult] = useState<AttestationResult>({ kind: 'idle' });
+  const [recent, setRecent] = useState<readonly RecentLookup[]>(initialRecent ?? []);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    if (skipLocalStorage) return;
-    setRecent(readRecent());
+    if (!skipLocalStorage) setRecent(readRecent());
   }, [skipLocalStorage]);
 
-  function handleVerifyAttestation(): void {
-    const result = lookupAttestation(hashInput, status);
-    setHashResult(result);
-    if (result.kind === 'empty') return;
-    // Verdict line for the RECENT panel. Template literal rather than
-    // i18next's options-form interpolation so the rendered text doesn't
-    // depend on a configured react-i18next provider — keeps the recent-log
-    // assertion deterministic in unit tests AND avoids a "round {{round}}"
-    // leak if interpolation silently fails. The localized verdict in the
-    // result panel above stays via t().
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  function onVerify() {
+    const r = lookup(hashInput, status);
+    setResult(r);
+    if (r.kind === 'idle') return;
     const verdict =
-      result.kind === 'matches-final'
-        ? t('ceremony.verify.v2.verdict.final', 'matches published final zkey')
-        : result.kind === 'matches-contributor'
-          ? `round ${result.round} · ${result.contributorName}`
-          : status === null
-            ? t('ceremony.verify.v2.verdict.feedDown', 'status feed unreachable')
-            : t('ceremony.verify.v2.verdict.unknown', 'not part of this ceremony');
-    const next = pushRecent({
-      kind: 'attestation',
+      r.kind === 'matches-final' ? 'matches published final zkey' :
+      r.kind === 'matches-contributor' ? `round ${r.round} · ${r.contributorName}` :
+      r.kind === 'feed-down' ? 'status feed unreachable' :
+      r.kind === 'invalid' ? 'invalid hash format' :
+      'not part of this ceremony';
+    setRecent(pushRecent({
       query: hashInput.trim(),
       verdict,
       at: new Date().toISOString(),
-    });
-    setRecent(next);
-  }
-
-  function handleVerifyWallet(): void {
-    const trimmed = walletInput.trim();
-    if (!trimmed) {
-      setWalletResult({ kind: 'empty' });
-      return;
-    }
-    if (!HEX_ADDR_RE.test(trimmed)) {
-      setWalletResult({ kind: 'invalid', address: trimmed });
-      return;
-    }
-    // Lead direction: do NOT add new on-chain reads in Task 11. The
-    // by-wallet flow is wired to the Sepolia registry helper post-pump
-    // (Task 13 atomic flip). For now, surface a polite pre-launch state
-    // so the tab is reachable but doesn't claim verification it can't
-    // perform.
-    setWalletResult({ kind: 'pre-launch', address: trimmed });
-    const verdict = t(
-      'ceremony.verify.v2.verdict.preLaunch',
-      'available after trusted setup ceremony + Base Sepolia testnet deploy',
-    );
-    const next = pushRecent({
-      kind: 'wallet',
-      query: trimmed,
-      verdict,
-      at: new Date().toISOString(),
-    });
-    setRecent(next);
+    }));
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--ct-paper)',
-      }}
-    >
-      <Marquee
-        phase={effectivePhase}
-        round={status?.round ?? 0}
-        totalRounds={status?.totalRounds ?? 0}
-        sidebarText={sidebarTextForVerifyPhase(effectivePhase)}
+    <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
+      <TopBar
+        active="ceremony"
+        statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● attestation inspector</span>}
       />
-      <PreviewModeBanner />
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '260px 1fr 260px',
-          gap: 'var(--ct-gap)',
-          padding: 'var(--ct-pad)',
-          flex: 1,
-        }}
-      >
-        <aside
-          className="ct-panel"
-          style={{
-            padding: 'var(--ct-pad)',
-            fontFamily: 'var(--mono)',
-            fontSize: 'var(--ct-fs)',
-          }}
-        >
-          <h3 className="ct-tag">
-            {t('ceremony.verify.v2.explainer.heading', 'WHAT THIS VERIFIES')}
-          </h3>
-          <p>
-            {t(
-              'ceremony.verify.v2.explainer.body',
-              'Looks up an attestation hash against the published ceremony chain, or a wallet against the on-chain registry once Base Sepolia is live.',
-            )}
+
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+        <BackLink />
+
+        {/* HERO */}
+        <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
+          <div className="cv-cardhead" style={{ marginBottom: 12 }}>
+            <span className="cv-ix">#</span>
+            <span>VERIFY · paste an attestation hash, see its place in the chain</span>
+            <span style={{ flex: 1 }} />
+            <span className="cv-pill is-ua">SHA-256</span>
+            <span className="cv-pill">{now.toLocaleTimeString('en-GB', { hour12: false })}</span>
+          </div>
+          <h1 className="cv-hero" style={{ fontSize: 138 }}>
+            DID THIS<br />
+            <span className="b">HASH</span> <span className="y">SHIP?</span>
+          </h1>
+          <p style={{ maxWidth: 700, fontSize: 14, marginTop: 18, lineHeight: 1.55 }}>
+            Drop a 64-hex SHA-256 attestation. We check it against the ceremony chain
+            in your browser — both the per-round contributor attestations and the
+            final zkey hash. Looking up a wallet binding instead?
+            {' '}<Link to="/verify" className="cv-link">go to /verify ↗</Link>
           </p>
-        </aside>
-        <section
-          style={{ display: 'grid', gap: 'var(--ct-gap)' }}
-          aria-labelledby="verify-tabs-heading"
-        >
-          <h2 id="verify-tabs-heading" className="sr-only">
-            {t('ceremony.verify.v2.heading', 'Verify')}
-          </h2>
-          <div role="tablist" aria-label="verify-mode" style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'attestation'}
-              className={tab === 'attestation' ? 'ct-tab' : 'ct-tab ct-tab--off'}
-              onClick={() => setTab('attestation')}
-              data-testid="verify-tab-attestation"
-            >
-              {t('ceremony.verify.v2.tab.attestation', 'by attestation')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'wallet'}
-              className={tab === 'wallet' ? 'ct-tab' : 'ct-tab ct-tab--off'}
-              onClick={() => setTab('wallet')}
-              data-testid="verify-tab-wallet"
-            >
-              {t('ceremony.verify.v2.tab.wallet', 'by wallet')}
+        </section>
+
+        {/* PASTE STRIP */}
+        <section className="cv-card is-paper" style={{ padding: '18px 22px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 18, alignItems: 'center', marginBottom: 12 }}>
+            <div className="cv-cardhead" style={{ margin: 0 }}>
+              <span className="dot live" />
+              <span>QUERY</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--cv-mute)' }}>
+              Accepts: <code style={{ background: '#FFD700', padding: '1px 5px', border: '1.5px solid var(--cv-ink)' }}>0x…64 hex</code> with or without the leading <code>0x</code>
+            </div>
+            <span className="cv-pill is-blue">runs in this tab</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
+            <input
+              data-testid="ceremony-verify-input"
+              placeholder="0x9f81…  paste a SHA-256 attestation"
+              value={hashInput}
+              onChange={(e) => setHashInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onVerify(); }}
+              autoComplete="off"
+              spellCheck={false}
+              style={{
+                padding: '14px 16px', border: '2px solid var(--cv-ink)',
+                fontFamily: 'var(--cv-mono)', fontSize: 18, background: '#fff',
+                boxShadow: 'inset 3px 3px 0 rgba(0,0,0,.06)',
+              }}
+            />
+            <button data-testid="ceremony-verify-submit" className="cv-btn is-lg" onClick={onVerify}>
+              ▶ Verify
             </button>
           </div>
+        </section>
 
-          {tab === 'attestation' && (
-            <div className="ct-panel" style={{ padding: 'var(--ct-pad)' }}>
-              <input
-                value={hashInput}
-                onChange={(e) => setHashInput(e.target.value)}
-                placeholder={t(
-                  'ceremony.verify.v2.input.attestation',
-                  'paste attestation sha-256 (with or without 0x)',
-                )}
-                aria-label={t(
-                  'ceremony.verify.v2.input.attestation',
-                  'paste attestation sha-256 (with or without 0x)',
-                )}
-                style={{
-                  fontFamily: 'var(--mono)',
-                  padding: '8px',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-                data-testid="verify-input-attestation"
-              />
-              <button
-                type="button"
-                className="ct-tab"
-                onClick={handleVerifyAttestation}
-                style={{ marginTop: '8px' }}
-                data-testid="verify-submit-attestation"
-              >
-                {t('ceremony.verify.v2.submit', 'verify')}
-              </button>
-              {hashResult.kind !== 'idle' && (
-                <dl
-                  data-testid="verify-result-attestation"
-                  style={{
-                    marginTop: '12px',
-                    fontFamily: 'var(--mono)',
-                    fontSize: '12px',
-                  }}
-                >
-                  {hashResult.kind === 'empty' && (
-                    <p style={{ color: 'var(--err)' }}>
-                      {t('ceremony.verify.v2.result.empty', '✗ empty input')}
-                    </p>
-                  )}
-                  {hashResult.kind === 'unknown' && (
-                    <>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.hash', 'hash')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0 }}>{hashResult.hash}</dd>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.verdict', 'verdict')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0, color: 'var(--err)' }}>
-                        {status === null
-                          ? t(
-                              'ceremony.verify.v2.result.feedDown',
-                              '✗ status feed unreachable; cannot determine.',
-                            )
-                          : t(
-                              'ceremony.verify.v2.result.unknown',
-                              '✗ not part of this ceremony',
-                            )}
-                      </dd>
-                    </>
-                  )}
-                  {hashResult.kind === 'matches-final' && (
-                    <>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.verdict', 'verdict')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0, color: 'var(--ok)' }}>
-                        {t(
-                          'ceremony.verify.v2.result.final',
-                          '✓ matches published final zkey',
-                        )}
-                      </dd>
-                    </>
-                  )}
-                  {hashResult.kind === 'matches-contributor' && (
-                    <>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.round', 'round')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0 }}>{hashResult.round}</dd>
-                      <dt>
-                        <strong>
-                          {t(
-                            'ceremony.verify.v2.result.label.contributor',
-                            'contributor',
-                          )}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0 }}>
-                        {hashResult.contributorName}
-                      </dd>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.verdict', 'verdict')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0, color: 'var(--ok)' }}>
-                        {t(
-                          'ceremony.verify.v2.result.contributor',
-                          '✓ matches a published attestation',
-                        )}
-                      </dd>
-                    </>
-                  )}
-                </dl>
-              )}
-              {hashInput && !HEX64_RE.test(hashInput.trim()) && (
-                <p
-                  style={{
-                    marginTop: '6px',
-                    color: 'var(--ct-mute)',
-                    fontSize: '11px',
-                  }}
-                >
-                  {t(
-                    'ceremony.verify.v2.input.format',
-                    'expected: 64 hex chars (sha-256), with or without 0x prefix',
-                  )}
-                </p>
-              )}
-            </div>
-          )}
+        {/* RESULT + EXPLAINER */}
+        <section style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+          <ResultCard result={result} query={hashInput} />
+          <ExplainerCard />
+        </section>
 
-          {tab === 'wallet' && (
-            <div className="ct-panel" style={{ padding: 'var(--ct-pad)' }}>
-              <input
-                value={walletInput}
-                onChange={(e) => setWalletInput(e.target.value)}
-                placeholder={t(
-                  'ceremony.verify.v2.input.wallet',
-                  'paste wallet address 0x…',
-                )}
-                aria-label={t(
-                  'ceremony.verify.v2.input.wallet',
-                  'paste wallet address 0x…',
-                )}
-                style={{
-                  fontFamily: 'var(--mono)',
-                  padding: '8px',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-                data-testid="verify-input-wallet"
-              />
+        {/* RECENT LOOKUPS */}
+        <section className="cv-card is-paper">
+          <div className="cv-cardhead">
+            <span>RECENT LOOKUPS · last {recent.length} this session</span>
+            <span style={{ flex: 1 }} />
+            {recent.length > 0 && (
               <button
-                type="button"
-                className="ct-tab"
-                onClick={handleVerifyWallet}
-                style={{ marginTop: '8px' }}
-                data-testid="verify-submit-wallet"
+                className="cv-btn is-sm is-ghost"
+                onClick={() => {
+                  setRecent([]);
+                  if (typeof localStorage !== 'undefined') localStorage.removeItem(RECENT_KEY);
+                }}
               >
-                {t('ceremony.verify.v2.submit', 'verify')}
+                clear
               </button>
-              {walletResult.kind !== 'idle' && (
-                <dl
-                  data-testid="verify-result-wallet"
-                  style={{
-                    marginTop: '12px',
-                    fontFamily: 'var(--mono)',
-                    fontSize: '12px',
-                  }}
-                >
-                  {walletResult.kind === 'empty' && (
-                    <p style={{ color: 'var(--err)' }}>
-                      {t('ceremony.verify.v2.result.empty', '✗ empty input')}
-                    </p>
-                  )}
-                  {walletResult.kind === 'invalid' && (
-                    <>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.verdict', 'verdict')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0, color: 'var(--err)' }}>
-                        {t(
-                          'ceremony.verify.v2.result.invalidAddress',
-                          '✗ not a valid 0x-prefixed wallet address',
-                        )}
-                      </dd>
-                    </>
-                  )}
-                  {walletResult.kind === 'pre-launch' && (
-                    <>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.address', 'address')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0 }}>{walletResult.address}</dd>
-                      <dt>
-                        <strong>
-                          {t('ceremony.verify.v2.result.label.verdict', 'verdict')}
-                        </strong>
-                      </dt>
-                      <dd style={{ marginLeft: 0, color: 'var(--warn)' }}>
-                        {t(
-                          'ceremony.verify.v2.result.preLaunch',
-                          '◐ available after trusted setup ceremony + Base Sepolia testnet deploy',
-                        )}
-                      </dd>
-                    </>
-                  )}
-                </dl>
-              )}
+            )}
+          </div>
+          {recent.length === 0 ? (
+            <div style={{ padding: '18px 4px', fontSize: 13, color: 'var(--cv-mute)', textAlign: 'center' }}>
+              No lookups yet. Verified hashes get logged here in your browser only.
             </div>
+          ) : (
+            <table className="cv-table">
+              <thead>
+                <tr><th>at</th><th>query</th><th>verdict</th></tr>
+              </thead>
+              <tbody>
+                {recent.map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ color: 'var(--cv-mute)' }}>{r.at.slice(11, 19)}</td>
+                    <td style={{ fontFamily: 'var(--cv-mono)' }}>{r.query.slice(0, 18)}…{r.query.slice(-6)}</td>
+                    <td>
+                      <span className={`cv-pill ${r.verdict.includes('matches') ? 'is-ok' : r.verdict.includes('not part') || r.verdict.includes('invalid') ? 'is-err' : ''}`}>
+                        {r.verdict}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
-        <aside
-          className="ct-panel"
-          style={{
-            padding: 'var(--ct-pad)',
-            fontFamily: 'var(--mono)',
-            fontSize: 'var(--ct-fs)',
-          }}
-        >
-          <h3 className="ct-tag">
-            {t('ceremony.verify.v2.recent.heading', 'RECENT')}
-          </h3>
-          {recent.length === 0 ? (
-            <p style={{ color: 'var(--ct-mute)', fontSize: '11px' }}>
-              {t('ceremony.verify.v2.recent.empty', 'no lookups yet')}
-            </p>
-          ) : (
-            <ul
-              style={{
-                listStyle: 'none',
-                padding: 0,
-                margin: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-              }}
-              data-testid="verify-recent-list"
-            >
-              {recent.map((r) => (
-                <li
-                  key={r.at}
-                  style={{
-                    fontSize: '11px',
-                    borderTop: '1px solid var(--ct-rule-soft)',
-                    paddingTop: '4px',
-                  }}
-                >
-                  <strong>{r.kind}</strong> ·{' '}
-                  {r.query.length > 18 ? `${r.query.slice(0, 18)}…` : r.query}
-                  <div style={{ color: 'var(--ct-mute)' }}>{r.verdict}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
+
+        {/* FOOTER STATS */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+          <FooterStat label="contributors" value={String(status?.contributors.length ?? 0)} suffix="attested" />
+          <FooterStat label="final hash" value={status?.finalZkeySha256?.slice(0, 8) ?? '—'} suffix={status?.finalZkeySha256 ? '…' : 'pending'} mono yellow />
+          <FooterStat label="lookups" value={String(recent.length)} suffix="this session" />
+          <FooterStat label="local" value="this tab" suffix="no server" blue />
+        </section>
+
       </div>
-      <FooterRibbon buildSha={BUILD_SHA} buildDate={BUILD_DATE} />
     </main>
+  );
+}
+
+function ResultCard({ result, query }: { result: AttestationResult; query: string }) {
+  if (result.kind === 'idle') {
+    return (
+      <div className="cv-card is-paper" style={{ minHeight: 240, display: 'flex', flexDirection: 'column' }}>
+        <div className="cv-cardhead">
+          <span className="dot" /><span>RESULT · idle</span>
+        </div>
+        <div style={{ flex: 1, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24, color: 'var(--cv-mute)' }}>
+          <div>
+            <div style={{ fontFamily: 'var(--cv-display)', fontSize: 64, color: 'var(--cv-ua-blue)', lineHeight: 1 }}>·</div>
+            <div style={{ fontSize: 13, marginTop: 12 }}>
+              No query yet. Paste a 64-hex SHA-256 above and press <b>▶ Verify</b>.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (result.kind === 'invalid') {
+    return (
+      <div className="cv-card is-yellow">
+        <div className="cv-cardhead">
+          <span>RESULT · invalid</span>
+          <span style={{ flex: 1 }} />
+          <span className="cv-pill is-err">REJECTED</span>
+        </div>
+        <div style={{ fontSize: 14, lineHeight: 1.55 }}>
+          <b>"{query.slice(0, 40)}{query.length > 40 ? '…' : ''}"</b> is not a 64-hex SHA-256 hash.
+          A ceremony attestation looks like <code style={{ fontFamily: 'var(--cv-mono)' }}>0x9f81…</code> with exactly 64 hex characters after the <code>0x</code>.
+        </div>
+      </div>
+    );
+  }
+  if (result.kind === 'feed-down') {
+    return (
+      <div className="cv-card" style={{ background: 'var(--cv-err)' }}>
+        <div className="cv-cardhead">
+          <span>RESULT · feed unreachable</span>
+          <span style={{ flex: 1 }} />
+          <span className="cv-pill is-err">FEED DOWN</span>
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+          We can't reach the ceremony status feed right now. Your hash is well-formed —
+          we just can't compare it against the chain until the feed comes back.
+        </div>
+      </div>
+    );
+  }
+  if (result.kind === 'matches-final') {
+    return (
+      <div className="cv-card is-blue" style={{ padding: '20px 24px' }}>
+        <div className="cv-cardhead" style={{ color: '#fff' }}>
+          <span className="dot live" />
+          <span>RESULT · matches published FINAL zkey</span>
+          <span style={{ flex: 1 }} />
+          <span className="cv-pill is-ok">VERIFIED · ✓</span>
+        </div>
+        <div style={{ display: 'flex', gap: 18, alignItems: 'center', padding: '8px 0' }}>
+          <div className="cv-num" style={{ color: 'var(--cv-ua-yellow)', fontSize: 72 }}>✓</div>
+          <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+            <b style={{ color: 'var(--cv-ua-yellow)' }}>This hash is the final zkey.</b>
+            <br />
+            Whoever you got the file from delivered the byte-identical artifact that the verifier
+            will be deployed with. Cryptographic provenance confirmed.
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (result.kind === 'matches-contributor') {
+    return (
+      <div className="cv-card is-blue" style={{ padding: '20px 24px' }}>
+        <div className="cv-cardhead" style={{ color: '#fff' }}>
+          <span className="dot live" />
+          <span>RESULT · attested by a contributor</span>
+          <span style={{ flex: 1 }} />
+          <span className="cv-pill is-ok">CHAIN · ✓</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 8, columnGap: 14, fontSize: 13.5 }}>
+          <Field label="round">#{String(result.round).padStart(3, '0')}</Field>
+          <Field label="contributor">{result.contributorName}</Field>
+          <Field label="hash"><span style={{ wordBreak: 'break-all' }}>{result.hash}</span></Field>
+        </div>
+        <div className="cv-hatch" style={{ margin: '14px -24px', borderColor: 'var(--cv-ua-yellow)' }} />
+        <div style={{ fontSize: 12.5, opacity: .9, lineHeight: 1.55 }}>
+          This is a per-round intermediate — one link in the chain. The final zkey is computed
+          by chaining all rounds + the public-randomness beacon.
+        </div>
+      </div>
+    );
+  }
+  // unknown
+  return (
+    <div className="cv-card is-paper">
+      <div className="cv-cardhead">
+        <span>RESULT · not part of this ceremony</span>
+        <span style={{ flex: 1 }} />
+        <span className="cv-pill is-err">UNKNOWN</span>
+      </div>
+      <div style={{ display: 'flex', gap: 18, alignItems: 'center', padding: '8px 0' }}>
+        <div className="cv-num" style={{ color: 'var(--cv-ua-blue)', fontSize: 72 }}>∅</div>
+        <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+          <b>{result.hash?.slice(0, 18)}…{result.hash?.slice(-6)}</b> isn't in the published
+          chain. It's not a contributor attestation, and it's not the final zkey.
+          <br /><br />
+          <span style={{ color: 'var(--cv-mute)' }}>
+            This is the truth from the chain — not "we couldn't reach it." If you expected
+            a match, double-check the hash and check that you're looking at the right
+            ceremony (zkqes Phase 2 trusted-setup).
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExplainerCard() {
+  return (
+    <div className="cv-card is-yellow">
+      <div className="cv-cardhead">
+        <span>WHAT THIS VERIFIES</span>
+      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, lineHeight: 1.55 }}>
+        {[
+          ['matches FINAL', 'the hash is identical to the published final zkey — what the verifier deploys with'],
+          ['matches CONTRIBUTOR', 'the hash is one of the per-round intermediate attestations'],
+          ['not part of this ceremony', 'the hash is well-formed but never appeared in this chain'],
+        ].map(([k, v]) => (
+          <li key={k} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'baseline' }}>
+            <span className="cv-pill is-blue" style={{ whiteSpace: 'nowrap' }}>{k}</span>
+            <span>{v}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="cv-hatch" style={{ margin: '14px -16px' }} />
+      <div style={{ fontSize: 11.5, color: 'var(--cv-mute)' }}>
+        Verification is local — no server hit. The chain is fetched from the public status feed once.
+      </div>
+    </div>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link to="/ceremony" style={{
+      fontFamily: 'var(--cv-mono)', fontSize: 12, color: 'var(--cv-ua-blue)',
+      textDecoration: 'underline', textUnderlineOffset: 3,
+    }}>
+      ← back to ceremony overview
+    </Link>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <span style={{ color: 'var(--cv-ua-yellow)', letterSpacing: '.08em', textTransform: 'uppercase', fontSize: 10.5 }}>{label}</span>
+      <span style={{ fontFamily: 'var(--cv-mono)' }}>{children}</span>
+    </>
+  );
+}
+
+function FooterStat({ label, value, suffix, yellow, blue, mono }: {
+  label: string; value: string; suffix?: string; yellow?: boolean; blue?: boolean; mono?: boolean;
+}) {
+  const cls = yellow ? 'is-yellow' : blue ? 'is-blue' : '';
+  return (
+    <div className={`cv-card ${cls}`} style={{ padding: '10px 14px' }}>
+      <div className="cv-cardhead" style={blue ? { color: 'var(--cv-ua-yellow)' } : undefined}>{label}</div>
+      <div className="cv-num sm" style={{ ...(blue ? { color: 'var(--cv-ua-yellow)' } : {}), ...(mono ? { fontFamily: 'var(--cv-mono)', fontSize: 18 } : {}) }}>
+        {value} {suffix && <span style={{ fontSize: 16 }}>{suffix}</span>}
+      </div>
+    </div>
   );
 }

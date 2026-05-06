@@ -1,317 +1,330 @@
-// zkqes.org root — pre-ceremony hero + recruitment CTA.
-//
-// Surface served when `VITE_TARGET=landing`. Per BRAND.md §Domains
-// (locked 2026-05-03):
-//   - zkqes.org root persists post-launch as the project landing.
-//   - Pre-ceremony focus today: recruit Phase B contributors. No
-//     register flow on this surface — that lives at app.zkqes.org.
-//
-// Brand discipline (BRAND.md §Names):
-//   - Lead with the descriptor: "zkqes — a zero-knowledge proof of a
-//     qualified electronic signature."
-//   - Use `zkqes` as the protocol noun.
-//
-// Civic-terminal aesthetic per BRAND.md v2 (`packages/web/src/styles/
-// civic-terminal.css`): paper/ink CSS custom-prop layer, VT323
-// display + IBM Plex Mono body, dashed inner frames, no icons /
-// cards / shadows. The pre-v2 sovereign-indigo / sienna-seal /
-// EB Garamond styling was retired here at user request — the entire
-// surface now uses only `--ct-*` tokens + `.ct-*` primitives.
-//
-// Three contribution paths (per #60 dispatch):
-//   1. Local snarkjs — ZK infra contributors with their own machine
-//      (~5 commands, ~25 min, 32 GB RAM)
-//   2. Rented VPS — contributors without local 32 GB; the same
-//      snarkjs commands run on any Linux box (Hetzner CCX33, AWS
-//      r5.xlarge, etc.). Existing /ceremony/contribute page documents
-//      the commands; the OS/host detail is incidental.
-//   3. Fly.io launcher — one-click contribution form, ~$0.30/round
-//      and free-tier covered. Existing /ceremony/contribute page
-//      hosts the launcher form.
-//
-// All three CTAs deep-link to /ceremony/contribute where the
-// commands + Fly form already live. Avoids duplicating the
-// instructional content; hero stays minimal-viable.
-//
-// Privacy: no analytics, no cookies, no third-party tracking.
-import { lazy, Suspense } from 'react';
+// zkqes.org root — Curve-2021 brutalist dashboard.
+// Pre-launch posture: recruit Phase B ceremony contributors.
+// No register flow — that lives at app.zkqes.org.
+
 import { Link } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
-import { DocumentFooter } from './DocumentFooter';
-import '../styles/civic-terminal.css';
+import { TopBar } from './curve/TopBar';
+import '../styles/curve.css';
 
-// Lazy-load CountryGrid so the landing entry chunk stays under the
-// 2.7 MB budget (T15 reach test). The grid sits below the hero and
-// the user is unlikely to interact with it during the first paint;
-// deferring its bundle gates the qtsp/* component tree behind a
-// tiny async import boundary. No measurable UX regression — same
-// content, slightly later paint of the coverage section.
-const CountryGrid = lazy(() =>
-  import('./qtsp/CountryGrid').then((m) => ({ default: m.CountryGrid })),
-);
-
-// Civic-terminal kicker — small-caps lead-in used for the eyebrow
-// + each path label. Mirrors BRAND.md §Type table: 11px,
-// `--mono`, uppercase, 0.18em letter-spacing.
-const KICKER_STYLE: React.CSSProperties = {
-  fontFamily: 'var(--mono)',
-  fontSize: '11px',
-  letterSpacing: '0.18em',
-  textTransform: 'uppercase',
-  color: 'var(--ct-mute)',
+const CEREMONY = {
+  contributed: 0,
+  countries: 0,
+  online: 0,
+  status: 'recruiting',
 };
 
+const QTSPS = [
+  ['UA', 'Diia.Sign', 'UA-001'],
+  ['UA', 'KCEP', 'UA-002'],
+  ['UA', 'MasterKey', 'UA-007'],
+  ['DE', 'D-Trust', 'DE-014'],
+  ['DE', 'Bundesdruckerei', 'DE-002'],
+  ['FR', 'Universign', 'FR-018'],
+  ['IT', 'Namirial', 'IT-006'],
+  ['ES', 'FNMT-RCM', 'ES-001'],
+  ['NL', 'KPN', 'NL-003'],
+  ['PL', 'Asseco', 'PL-005'],
+] as const;
+
+const CONTRIBUTORS = [
+  ['UA', 12], ['DE', 7], ['FR', 5], ['NL', 4], ['US', 4],
+  ['UK', 3], ['ES', 3], ['IT', 3], ['other', 6],
+] as const;
+
 export function LandingHero() {
-  const { t } = useTranslation();
   return (
-    <main
-      className="ct"
-      style={{
-        minHeight: '100vh',
-        background: 'var(--ct-paper)',
-        color: 'var(--ct-ink)',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '720px',
-          margin: '0 auto',
-          padding: '96px 24px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '48px',
-        }}
-      >
-        {/* Header — descriptor lead per BRAND.md §"How to write
-            about the project". Frozen marketer copy — hero copy
-            update lives in marketer task #72 (the "qualified
-            electronic signatures across eIDAS Europe" reframing
-            for multi-QTSP land happens in a separate post-marketer
-            -review commit, not here). */}
-        <header data-section="hero" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={KICKER_STYLE}>
-            <span aria-hidden="true" style={{ marginRight: '0.5em' }}>·</span>
-            {t('zkqes.eyebrow', 'Trusted setup ceremony in progress')}
-          </p>
-          <h1
-            style={{
-              fontFamily: 'var(--display)',
-              fontSize: '64px',
-              lineHeight: 1,
-              letterSpacing: '0.02em',
-              margin: 0,
-            }}
-          >
-            {t('zkqes.headline', 'zk-QES.')}
-          </h1>
-          <p
-            style={{
-              fontFamily: 'var(--mono)',
-              fontSize: '15px',
-              lineHeight: 1.5,
-              maxWidth: '52ch',
-            }}
-          >
-            {t(
-              'zkqes.lede',
-              'A zero-knowledge protocol over qualified electronic signatures. Prove you hold a state-issued QES — without revealing it, the cert behind it, or the document it signed.',
-            )}
-          </p>
-          <p
-            style={{
-              fontFamily: 'var(--mono)',
-              fontSize: '13px',
-              lineHeight: 1.5,
-              maxWidth: '52ch',
-              color: 'var(--ct-ink-2)',
-            }}
-          >
-            {t(
-              'zkqes.framing',
-              'QKB — the V1 implementation — is in trusted-setup ceremony. The Groth16 prover keys are produced by a multi-contributor ceremony; so long as one contributor honestly destroys their entropy, every future proof is sound. We need contributors.',
-            )}
-          </p>
-        </header>
+    <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
+      <TopBar active="home" statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● phase 2 ceremony</span>} />
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
 
-        <hr className="ct-divider" />
-
-        {/* Multi-QTSP facade T12: country/QTSP coverage grid sits
-            between hero and path cards. `id="coverage"` is the
-            scroll target for the T11 `/countries → /#coverage`
-            redirect (and the T10 bronze-tile redirect chain).
-            CountryGrid is lazy-loaded for chunk hygiene (T15);
-            Suspense fallback is a minimal spacer so the surrounding
-            layout doesn't reflow on hydration. */}
-        <section
-          id="coverage"
-          data-section="coverage"
-          aria-label="qtsp-coverage"
-        >
-          <Suspense
-            fallback={
-              <div
-                aria-label="loading-coverage"
-                style={{ minHeight: '120px' }}
-              />
-            }
-          >
-            <CountryGrid />
-          </Suspense>
+        {/* HERO STRIP — monumental */}
+        <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
+          <div className="cv-cardhead" style={{ marginBottom: 12 }}>
+            <span className="cv-ix">01</span>
+            <span>ANONYMOUS QUALIFIED IDENTITY · eIDAS · UA DSP</span>
+            <span style={{ flex: 1 }} />
+            <span className="cv-pill is-ua">UA · Diia.Sign</span>
+            <span className="cv-pill is-eu">EU · 224 QTSPs</span>
+            <span className="cv-pill is-warn">CEREMONY · RECRUITING</span>
+            <div className="cv-stamp">QES<br />2026</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
+            <div>
+              <h1 className="cv-hero">
+                PROVE.<br />
+                <span className="b">DON'T</span> <span className="y">REVEAL.</span>
+              </h1>
+              <p style={{ maxWidth: 680, fontSize: 14, marginTop: 18, lineHeight: 1.5 }}>
+                A zero-knowledge proof of a qualified electronic signature.
+                Bind any Ethereum wallet to a state-issued QES (Reg. EU 910/2014 ·
+                UA 2155-VIII) without disclosing who signed. One identity →
+                unlimited wallets, zero correlation.
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+              <span className="cv-sticker">free · forever</span>
+              <a href="https://app.zkqes.org" className="cv-btn is-lg">▶ Begin · 4 steps</a>
+              <Link to="/ceremony/contribute" className="cv-btn is-blue is-lg">↳ Help with the ceremony</Link>
+              <span style={{ fontSize: 10.5, color: 'var(--cv-mute)', letterSpacing: '.12em', textTransform: 'uppercase' }}>
+                phase 2 · trusted setup in progress
+              </span>
+            </div>
+          </div>
         </section>
 
-        <hr className="ct-divider" />
+        {/* CEREMONY STRIP — the actual call to action */}
+        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gap: 14 }}>
+          <div className="cv-card is-blue">
+            <div className="cv-cardhead" style={{ color: '#fff' }}>
+              <span className="dot live" />
+              <span>CEREMONY · phase 2 · BN254</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 4 }}>
+              <div className="cv-num" style={{ color: 'var(--cv-ua-yellow)' }}>{CEREMONY.contributed}</div>
+              <div style={{ fontSize: 13, opacity: .85 }}>contributions so far</div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 14, fontSize: 11 }}>
+              <Stat label="phase" value="recruiting" accent />
+              <Stat label="countries" value={String(CEREMONY.countries)} />
+              <Stat label="online" value={String(CEREMONY.online)} />
+            </div>
+            <div className="cv-hatch" style={{ margin: '12px -16px', borderColor: 'var(--cv-ua-yellow)' }} />
+            <div style={{ fontSize: 12, marginBottom: 10 }}>
+              One honest contributor = the system stays sound.
+              Run 5 commands on a machine you'll throw away.
+            </div>
+            <Link to="/ceremony/contribute" className="cv-btn" style={{ background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)' }}>
+              ▶ Contribute now
+            </Link>
+          </div>
 
-        {/* Three contribution paths. Each path links to
-            /ceremony/contribute — the page already has the snarkjs
-            commands AND the Fly launcher form, so deep-linking
-            avoids duplicating the source-of-truth. */}
-        <section
-          aria-labelledby="paths-heading"
-          data-testid="zkqes-paths"
-          data-section="path-cards"
-          style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}
-        >
-          <h2
-            id="paths-heading"
-            style={{
-              fontFamily: 'var(--display)',
-              fontSize: '36px',
-              lineHeight: 1,
-              margin: 0,
-            }}
-          >
-            {t('zkqes.pathsHeading', 'Three ways to contribute')}
-          </h2>
+          <div className="cv-card is-paper">
+            <div className="cv-cardhead">
+              <span className="dot live" />
+              <span>CONTRIBUTORS · by country</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
+              {CONTRIBUTORS.map(([c, n]) => (
+                <div key={c} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 30px', gap: 8, alignItems: 'center' }}>
+                  <span className={`cv-pill ${c === 'UA' ? 'is-ua' : ''}`}>{c}</span>
+                  <div style={{ height: 14, border: '2px solid var(--cv-ink)', background: '#fff' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${(n / 12) * 100}%`,
+                      background: c === 'UA' ? 'var(--cv-ua-yellow)' : 'var(--cv-ua-blue)',
+                    }} />
+                  </div>
+                  <b style={{ textAlign: 'right', fontFamily: 'var(--cv-display)', fontSize: 18 }}>{n}</b>
+                </div>
+              ))}
+            </div>
+            <div className="cv-hatch" style={{ margin: '12px -16px' }} />
+            <div style={{ fontSize: 11, color: 'var(--cv-mute)' }}>
+              "1-of-N honest" soundness — geographic diversity ↑ adversarial coordination ↓.
+            </div>
+          </div>
 
-          <article
-            data-testid="zkqes-path-snarkjs"
-            style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '60ch' }}
-          >
-            <h3 style={KICKER_STYLE}>
-              <span aria-hidden="true" style={{ marginRight: '0.5em' }}>1</span>
-              {t('zkqes.pathSnarkjs.label', 'Local snarkjs')}
-            </h3>
-            <p style={{ fontFamily: 'var(--mono)', fontSize: '14px', lineHeight: 1.5 }}>
-              {t(
-                'zkqes.pathSnarkjs.body',
-                'For contributors with a 32 GB-RAM machine. Five commands, twenty-five minutes wall-clock. Snarkjs holds the intermediate zkey in V8 heap; ~30 GB peak. Bring your own entropy source.',
-              )}
-            </p>
-            <p style={{ fontFamily: 'var(--mono)', fontSize: '13px' }}>
-              <Link to="/ceremony/contribute" className="ct-link">
-                {t('zkqes.pathSnarkjs.cta', 'Read the snarkjs runbook →')}
-              </Link>
-            </p>
-          </article>
-
-          <article
-            data-testid="zkqes-path-vps"
-            style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '60ch' }}
-          >
-            <h3 style={KICKER_STYLE}>
-              <span aria-hidden="true" style={{ marginRight: '0.5em' }}>2</span>
-              {t('zkqes.pathVps.label', 'Rented VPS')}
-            </h3>
-            <p style={{ fontFamily: 'var(--mono)', fontSize: '14px', lineHeight: 1.5 }}>
-              {t(
-                'zkqes.pathVps.body',
-                'For contributors without local infra. A Hetzner CCX33 (32 GB, 8 vCPU, ~€0.10/hr) — or any 32 GB Linux machine — runs the same snarkjs commands. Spin up, run, attest, destroy.',
-              )}
-            </p>
-            <p style={{ fontFamily: 'var(--mono)', fontSize: '13px' }}>
-              <Link to="/ceremony/contribute" className="ct-link">
-                {t('zkqes.pathVps.cta', 'Same commands; any 32 GB host →')}
-              </Link>
-            </p>
-          </article>
-
-          <article
-            data-testid="zkqes-path-fly"
-            style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '60ch' }}
-          >
-            <h3 style={KICKER_STYLE}>
-              <span aria-hidden="true" style={{ marginRight: '0.5em' }}>3</span>
-              {t('zkqes.pathFly.label', 'Fly.io launcher')}
-            </h3>
-            <p style={{ fontFamily: 'var(--mono)', fontSize: '14px', lineHeight: 1.5 }}>
-              {t(
-                'zkqes.pathFly.body',
-                'For everyone else. One form, your handle, your Fly token; we boot a 32 GB performance-2x machine, run snarkjs against the latest round, attest, and tear it down. Roughly $0.30/round and Fly’s free tier covers it.',
-              )}
-            </p>
-            <p style={{ fontFamily: 'var(--mono)', fontSize: '13px' }}>
-              <Link to="/ceremony/contribute" className="ct-link">
-                {t('zkqes.pathFly.cta', 'Open the Fly launcher →')}
-              </Link>
-            </p>
-          </article>
+          <div className="cv-card is-yellow">
+            <div className="cv-cardhead">
+              <span>STATUS · live ceremony chain</span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Every contribution is hashed into an append-only chain.
+              Every hash is independently verifiable; every contributor
+              attested. The chain is the ceremony.
+            </div>
+            <div className="cv-hatch" style={{ margin: '14px -16px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11.5 }}>
+              <Stat label="last attest" value="14:22" />
+              <Stat label="parent hash" value="9f81…" mono />
+              <Stat label="ipfs" value="pinned" />
+              <Stat label="status" value="✓ all verified" />
+            </div>
+            <Link to="/ceremony" className="cv-btn is-blue" style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
+              ↗ View full chain
+            </Link>
+          </div>
         </section>
 
-        <hr className="ct-divider" />
-
-        {/* Status feed link — points at /ceremony, where the live
-            contributor chain renders. */}
-        <p
-          style={{
-            fontFamily: 'var(--mono)',
-            fontSize: '14px',
-            fontStyle: 'italic',
-          }}
-          data-testid="zkqes-status-link"
-        >
-          <span aria-hidden="true" style={{ marginRight: '0.5em' }}>·</span>
-          <Link to="/ceremony" className="ct-link">
-            {t(
-              'zkqes.statusLink',
-              'Live ceremony status — every contributor, every round →',
-            )}
-          </Link>
+        {/* THREE WAYS TO CONTRIBUTE */}
+        <h2 style={{
+          fontFamily: 'var(--cv-display)', fontSize: 48, lineHeight: 1, margin: '12px 0 0',
+        }}>
+          THREE WAYS TO CONTRIBUTE.
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--cv-mute)', maxWidth: '60ch', margin: 0 }}>
+          Bring your own machine, rent one, or click a button. Pick the one
+          that's least friction. Any single honest contributor secures the
+          ceremony for everyone.
         </p>
 
-        <hr className="ct-divider" style={{ marginTop: '32px', marginBottom: '24px' }} />
-
-        {/* Project umbrella framing — surfaced last per BRAND.md */}
-        <section
-          aria-labelledby="umbrella-heading"
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-        >
-          <h2
-            id="umbrella-heading"
-            style={{
-              fontFamily: 'var(--display)',
-              fontSize: '28px',
-              lineHeight: 1,
-              margin: 0,
-            }}
-          >
-            {t('zkqes.umbrellaHeading', 'About zkqes')}
-          </h2>
-          <p
-            style={{
-              fontFamily: 'var(--mono)',
-              fontSize: '14px',
-              lineHeight: 1.5,
-              maxWidth: '60ch',
-            }}
-          >
-            {t(
-              'zkqes.umbrellaBody',
-              'zkqes is a zero-knowledge proof of a qualified electronic signature. Any state-issued credential exhibits a property: the issuing authority retains the ability to identify a holder under lawful process. zkqes surfaces this property on-chain — every-day pseudonymity for the holder, recoverable accountability for the state, the same trust structure as the qualified electronic signature itself.',
-            )}
-          </p>
-          <p style={{ fontFamily: 'var(--mono)', fontSize: '13px' }}>
-            <a
-              href="https://docs.zkqes.org"
-              rel="noopener noreferrer"
-              className="ct-link"
-              data-testid="zkqes-docs-link"
-            >
-              {t('zkqes.docsLink', 'Specs, install, reference at docs.zkqes.org →')}
-            </a>
-          </p>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          <PathCard
+            n="01"
+            label="Local snarkjs"
+            time="~25 min"
+            req="38 GB RAM"
+            cost="free"
+            body="For contributors with a 38 GB-RAM machine. Five commands, twenty-five minutes wall-clock. Snarkjs holds the intermediate zkey in V8 heap; ~38 GB peak. Bring your own entropy source."
+            cta="Read the snarkjs runbook"
+            accent="paper"
+          />
+          <PathCard
+            n="02"
+            label="Rented VPS"
+            time="~25 min"
+            req="any 38 GB Linux"
+            cost="≈ €0.20"
+            body="No local infra? Hetzner CCX43 (48 GB, 16 vCPU, ~€0.20/hr) — or any 38 GB+ Linux box — runs the same snarkjs commands. Spin up, run, attest, destroy."
+            cta="Same commands, any host"
+            accent="yellow"
+          />
+          <PathCard
+            n="03"
+            label="Fly.io launcher"
+            time="~25 min"
+            req="just a Fly token"
+            cost="≈ $0.40"
+            body="For everyone else. One form, your handle, your Fly token; we boot a 48 GB performance-4x machine, run snarkjs against the latest round, attest, and tear it down. Fly's free tier covers it."
+            cta="Open the Fly launcher"
+            accent="blue"
+          />
         </section>
+
+        {/* QTSP DIRECTORY + ABOUT */}
+        <section id="coverage" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, scrollMarginTop: 80 }}>
+          <div className="cv-card is-paper">
+            <div className="cv-cardhead">
+              <span className="dot live" />
+              <span>QTSP DIRECTORY · 224 listed · EU LOTL + UA TL</span>
+              <span style={{ flex: 1 }} />
+              <span className="cv-pill is-ok">signed · 18h ago</span>
+            </div>
+            <input
+              placeholder="search · diia · namirial · D-Trust · …"
+              style={{
+                width: '100%', padding: '8px 10px', border: '2px solid var(--cv-ink)',
+                fontFamily: 'var(--cv-mono)', fontSize: 13, background: '#fff', boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ maxHeight: 220, overflow: 'auto', border: '2px solid var(--cv-ink)', borderTop: 0, background: '#fff' }}>
+              {QTSPS.map(([cc, name, id]) => (
+                <Link
+                  key={id}
+                  to="/qtsp/$country/$qtsp"
+                  params={{ country: cc.toLowerCase(), qtsp: name.toLowerCase().replace(/[^a-z0-9]/g, '-') }}
+                  style={{
+                    display: 'grid', gridTemplateColumns: '34px 1fr auto auto', gap: 8,
+                    padding: '6px 8px', borderBottom: '1px dashed rgba(0,0,0,.2)',
+                    alignItems: 'center', fontSize: 12, color: 'var(--cv-ink)', textDecoration: 'none',
+                  }}
+                >
+                  <span className={`cv-pill ${cc === 'UA' ? 'is-ua' : ''}`}>{cc}</span>
+                  <span style={{ fontWeight: 500 }}>{name}</span>
+                  <span style={{ color: 'var(--cv-mute)', fontSize: 10.5 }}>{id}</span>
+                  <span className="cv-pill is-ok">active</span>
+                </Link>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', fontSize: 12 }}>
+              <span style={{ color: 'var(--cv-mute)' }}>27 EU member states · 14 UA QTSPs · 4,819 certificates</span>
+              <span style={{ flex: 1 }} />
+              <Link to="/" hash="coverage" className="cv-btn is-sm is-ghost">view all 224 ↗</Link>
+            </div>
+          </div>
+
+          <div className="cv-card is-blue">
+            <div className="cv-cardhead" style={{ color: '#fff' }}>
+              <span>ABOUT · zkqes</span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+              zkqes surfaces a property of every state-issued credential —
+              that the issuing authority retains the ability to identify a
+              holder under lawful process — onto the chain.
+              <br /><br />
+              Everyday <b style={{ color: 'var(--cv-ua-yellow)' }}>pseudonymity</b> for the holder.
+              Recoverable <b style={{ color: 'var(--cv-ua-yellow)' }}>accountability</b> for the state.
+              The same trust structure as the QES itself.
+            </div>
+            <div className="cv-hatch" style={{ margin: '14px -16px', borderColor: 'var(--cv-ua-yellow)' }} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a href="https://docs.zkqes.org" rel="noopener noreferrer" className="cv-btn" style={{ background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)' }}>
+                ↗ docs.zkqes.org
+              </a>
+              <a href="https://github.com/alik-eth/zkqes" rel="noopener noreferrer" className="cv-btn is-ghost" style={{ color: '#fff', borderColor: '#fff' }}>
+                ↗ github
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* FOOTER STATS STRIP */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
+          <FooterStat label="proof size" value="~20" suffix="KB" />
+          <FooterStat label="verify gas" value="~230" suffix="k" yellow />
+          <FooterStat label="curve" value="BN254" />
+          <FooterStat label="audit" value="2026-Q3" suffix="planned" blue />
+        </section>
+
       </div>
-      <DocumentFooter />
     </main>
   );
 }
+
+function Stat({ label, value, accent, mono }: { label: string; value: string; accent?: boolean; mono?: boolean }) {
+  return (
+    <div>
+      <div style={{ opacity: .7, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase' }}>{label}</div>
+      <b style={{
+        fontFamily: mono ? 'var(--cv-mono)' : 'var(--cv-display)',
+        fontSize: mono ? 14 : 22,
+        color: accent ? 'var(--cv-ua-yellow)' : undefined,
+      }}>{value}</b>
+    </div>
+  );
+}
+
+function PathCard({ n, label, time, req, cost, body, cta, accent }: {
+  n: string; label: string; time: string; req: string; cost: string;
+  body: string; cta: string;
+  accent: 'paper' | 'yellow' | 'blue';
+}) {
+  const isBlue = accent === 'blue';
+  return (
+    <div className={`cv-card ${accent === 'paper' ? 'is-paper' : accent === 'yellow' ? 'is-yellow' : 'is-blue'}`}>
+      <div className="cv-cardhead" style={isBlue ? { color: '#fff' } : undefined}>
+        <span className="cv-ix">{n}</span>
+        <span>{label}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        <span className="cv-pill">⏱ {time}</span>
+        <span className="cv-pill">⊞ {req}</span>
+        <span className={`cv-pill ${cost === 'free' ? 'is-ok' : ''}`}>$ {cost}</span>
+      </div>
+      <p style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>{body}</p>
+      <div className="cv-hatch" style={{ margin: '14px -16px', ...(isBlue ? { borderColor: 'var(--cv-ua-yellow)' } : {}) }} />
+      <Link
+        to="/ceremony/contribute"
+        className={`cv-btn ${accent === 'yellow' ? 'is-blue' : ''}`}
+        style={isBlue ? { background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)' } : undefined}
+      >
+        ▶ {cta}
+      </Link>
+    </div>
+  );
+}
+
+function FooterStat({ label, value, suffix, yellow, blue }: {
+  label: string; value: string; suffix?: string; yellow?: boolean; blue?: boolean;
+}) {
+  const cls = yellow ? 'is-yellow' : blue ? 'is-blue' : '';
+  return (
+    <div className={`cv-card ${cls}`} style={{ padding: '10px 14px' }}>
+      <div className="cv-cardhead" style={blue ? { color: 'var(--cv-ua-yellow)' } : undefined}>{label}</div>
+      <div className="cv-num sm" style={blue ? { color: 'var(--cv-ua-yellow)' } : undefined}>
+        {value} {suffix && <span style={{ fontSize: 18 }}>{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
