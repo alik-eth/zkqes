@@ -52,16 +52,17 @@ RUN pnpm -F @zkqes/sdk build
 # VITE_BASE=/ — custom-domain root, not /repo-name/ (this is Fly,
 # not GH-Pages-on-org-domain).
 #
-# VITE_CEREMONY_STATUS_URL — absolute URL of the ceremony status feed
-# on the prove origin. Once the prove subdomain DNS migrates this gets
-# updated to https://prove.zkqes.org/ceremony/status.json — one-line
-# edit here, no source change required. Same posture as pages.yml's
-# old comment.
-ARG VITE_CEREMONY_STATUS_URL=https://prove.identityescrow.org/ceremony/status.json
+# VITE_CEREMONY_STATUS_URL — absolute URL of the ceremony status feed.
+# UNSET deliberately: the SPA falls through to the bundled
+# `/ceremony/status.json` fixture served by this same nginx container,
+# which is sufficient pre-ceremony (round=0, contributors=[]). Once the
+# real R2 origin (prove.zkqes.org) is live post-§9.4, set the build arg
+# at deploy time. Don't hardcode a URL that doesn't resolve — it forces
+# the SPA into the "FEED DOWN" error branch even when same-origin data
+# is right there.
 ARG VITE_CHAIN=sepolia
 ENV VITE_TARGET=landing \
     VITE_BASE=/ \
-    VITE_CEREMONY_STATUS_URL=${VITE_CEREMONY_STATUS_URL} \
     VITE_CHAIN=${VITE_CHAIN}
 
 RUN pnpm -F @zkqes/web build
