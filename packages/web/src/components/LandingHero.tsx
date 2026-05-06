@@ -275,7 +275,7 @@ export function LandingHero() {
                 {realQtsps.length} live · {dummyQtsps.length} planned · expansion follows EU LOTL
               </span>
               <span style={{ flex: 1 }} />
-              <Link to="/" hash="coverage" className="cv-btn is-sm is-ghost">view all 224 ↗</Link>
+              <Link to="/qtsps" className="cv-btn is-sm is-ghost">view all 189 ↗</Link>
             </div>
           </div>
 

@@ -96,6 +96,17 @@ const qtspPageRoute = createRoute({
   component: lazyRouteComponent(() => import('./routes/qtspPage')),
 });
 
+// `/qtsps` — full QTSP directory (founder ask 2026-05-06): every
+// EU LOTL + UA TL-EC trust-service provider, one row per (country,
+// tspName), with ECDSA-P-256 + DOB-format columns. Lazy-loaded so
+// the 189-row generated TS table doesn't enter the landing entry
+// chunk.
+const allQtspsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/qtsps',
+  component: lazyRouteComponent(() => import('./routes/allQtsps')),
+});
+
 // Multi-QTSP facade T11: `/countries` soft-redirect to Landing's
 // `#coverage` anchor. Targeted by bronze-tile direct-loads from T10
 // and by URL-typed `/countries` arrivals. Lazy-loaded for chunk
@@ -132,6 +143,7 @@ const sharedRoutes: AnyRoute[] = [
   ceremonyVerifyRoute,
   integrationsRoute,
   qtspPageRoute,
+  allQtspsRoute,
   countriesRedirectRoute,
   verifyBindingRoute,
   aboutRoute,

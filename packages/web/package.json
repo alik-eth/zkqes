@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/generate-qtsp-index.mjs",
+    "prebuild": "node scripts/generate-qtsp-index.mjs && node scripts/generate-qtsp-summary.mjs",
     "build": "tsc -b && vite build",
-    "pretypecheck": "node scripts/generate-qtsp-index.mjs",
+    "pretypecheck": "node scripts/generate-qtsp-index.mjs && node scripts/generate-qtsp-summary.mjs",
     "preview": "vite preview --port 4173 --strictPort --host 127.0.0.1",
     "test": "vitest run",
     "test:watch": "vitest",
