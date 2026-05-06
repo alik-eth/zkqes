@@ -25,6 +25,11 @@ WORKDIR /repo
 # pnpm — pinned to the version in packageManager (cf. package.json).
 # Corepack is the Node-bundled installer; using it avoids a global npm
 # install of pnpm + matches the version pin.
+# curl is needed by packages/web/scripts/generate-qtsp-summary.mjs to
+# fetch the live EU LOTL + UA TL-EC XML during prebuild. node:alpine
+# omits curl by default.
+RUN apk add --no-cache curl
+
 RUN corepack enable
 
 # Copy the full source tree before install. Reason: the workspace

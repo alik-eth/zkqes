@@ -20,6 +20,10 @@ FROM node:20.19-alpine AS builder
 
 WORKDIR /repo
 
+# curl is needed by packages/web/scripts/generate-qtsp-summary.mjs to
+# fetch the live EU LOTL + UA TL-EC XML during prebuild.
+RUN apk add --no-cache curl
+
 RUN corepack enable
 
 # Full source copy before install — see deploy/landing/Dockerfile
