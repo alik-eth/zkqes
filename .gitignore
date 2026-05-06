@@ -91,3 +91,7 @@ docs/marketing/2026-05-01-*.md
 # bugs (pre-V5.1-amendment claims). Keeping locally for reference; need
 # rewrite against current spec before commit. Block by date prefix.
 docs/marketing/2026-04-29-launch-drafts/
+
+# local screenshot scratch
+curve-*.png
+hero-*.png
