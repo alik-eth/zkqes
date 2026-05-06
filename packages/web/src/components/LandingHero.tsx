@@ -4,17 +4,18 @@
 
 import { Link } from '@tanstack/react-router';
 import { TopBar } from './curve/TopBar';
+import { useCeremonyPhase } from '../hooks/useCeremonyPhase';
+import { QTSP_INDEX } from '../generated/qtsp-index';
 import '../styles/curve.css';
 
-const CEREMONY = {
-  contributed: 0,
-  countries: 0,
-  online: 0,
-  status: 'recruiting',
-};
+// Dummy data shown when live source is empty. Each card with potential
+// dummy data renders the <DummyBadge /> ribbon when fallback is in use.
+const DUMMY_CONTRIBUTORS: ReadonlyArray<readonly [string, number]> = [
+  ['UA', 12], ['DE', 7], ['FR', 5], ['NL', 4], ['US', 4],
+  ['UK', 3], ['ES', 3], ['IT', 3], ['other', 6],
+];
 
-const QTSPS = [
-  ['UA', 'Diia.Sign', 'UA-001'],
+const DUMMY_QTSPS: ReadonlyArray<readonly [string, string, string]> = [
   ['UA', 'KCEP', 'UA-002'],
   ['UA', 'MasterKey', 'UA-007'],
   ['DE', 'D-Trust', 'DE-014'],
@@ -24,14 +25,45 @@ const QTSPS = [
   ['ES', 'FNMT-RCM', 'ES-001'],
   ['NL', 'KPN', 'NL-003'],
   ['PL', 'Asseco', 'PL-005'],
-] as const;
+];
 
-const CONTRIBUTORS = [
-  ['UA', 12], ['DE', 7], ['FR', 5], ['NL', 4], ['US', 4],
-  ['UK', 3], ['ES', 3], ['IT', 3], ['other', 6],
-] as const;
+function countByCountry(contributors: ReadonlyArray<{ name: string }>): Array<[string, number]> {
+  const map = new Map<string, number>();
+  for (const c of contributors) {
+    const m = c.name.match(/\(([A-Z]{2})\)/);
+    const cc = m?.[1] ?? '?';
+    map.set(cc, (map.get(cc) ?? 0) + 1);
+  }
+  return [...map.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function DummyBadge() {
+  return (
+    <span className="cv-corner" style={{
+      background: 'var(--cv-err)', color: 'var(--cv-ink)',
+      letterSpacing: '.18em', fontWeight: 700,
+    }}>
+      DUMMY
+    </span>
+  );
+}
 
 export function LandingHero() {
+  const { phase, status } = useCeremonyPhase();
+  const contributors = status?.contributors ?? [];
+  const ceremonyCount = contributors.length;
+  const liveByCountry = countByCountry(contributors);
+  const usingDummyContributors = liveByCountry.length === 0;
+  const byCountry = usingDummyContributors ? DUMMY_CONTRIBUTORS : liveByCountry;
+  const maxByCountry = byCountry.reduce<number>((m, [, n]) => Math.max(m, n), 1);
+
+  // QTSP directory: real entries first, dummies as filler with badge.
+  const realQtsps: ReadonlyArray<readonly [string, string, string]> = QTSP_INDEX.map(
+    (q) => [q.country, q.displayName, `${q.country}-${q.qtspSlug}`] as const,
+  );
+  const dummyQtsps = DUMMY_QTSPS;
+  const totalQtspsListed = realQtsps.length;
+
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
       <TopBar active="home" statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● phase 2 ceremony</span>} />
@@ -43,9 +75,9 @@ export function LandingHero() {
             <span className="cv-ix">01</span>
             <span>ANONYMOUS QUALIFIED IDENTITY · eIDAS · UA DSP</span>
             <span style={{ flex: 1 }} />
-            <span className="cv-pill is-ua">UA · Diia.Sign</span>
-            <span className="cv-pill is-eu">EU · 224 QTSPs</span>
-            <span className="cv-pill is-warn">CEREMONY · RECRUITING</span>
+            <span className="cv-pill is-ua">UA · Diia</span>
+            <span className="cv-pill is-eu">EU · {totalQtspsListed} listed</span>
+            <span className={`cv-pill ${phase === 'live' ? 'is-ok' : 'is-warn'}`}>CEREMONY · {(phase ?? 'recruiting').toUpperCase()}</span>
             <div className="cv-stamp">QES<br />2026</div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
@@ -80,13 +112,14 @@ export function LandingHero() {
               <span>CEREMONY · phase 2 · BN254</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 4 }}>
-              <div className="cv-num" style={{ color: 'var(--cv-ua-yellow)' }}>{CEREMONY.contributed}</div>
-              <div style={{ fontSize: 13, opacity: .85 }}>contributions so far</div>
+              <div className="cv-num" style={{ color: 'var(--cv-ua-yellow)' }}>{ceremonyCount}</div>
+              <div style={{ fontSize: 13, opacity: .85 }}>
+                contribution{ceremonyCount === 1 ? '' : 's'} so far
+              </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 14, fontSize: 11 }}>
-              <Stat label="phase" value="recruiting" accent />
-              <Stat label="countries" value={String(CEREMONY.countries)} />
-              <Stat label="online" value={String(CEREMONY.online)} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14, fontSize: 11 }}>
+              <Stat label="phase" value={phase ?? 'recruiting'} accent />
+              <Stat label="countries" value={String(liveByCountry.length)} />
             </div>
             <div className="cv-hatch" style={{ margin: '12px -16px', borderColor: 'var(--cv-ua-yellow)' }} />
             <div style={{ fontSize: 12, marginBottom: 10 }}>
@@ -99,18 +132,19 @@ export function LandingHero() {
           </div>
 
           <div className="cv-card is-paper">
+            {usingDummyContributors && <DummyBadge />}
             <div className="cv-cardhead">
-              <span className="dot live" />
+              <span className={`dot ${usingDummyContributors ? '' : 'live'}`} />
               <span>CONTRIBUTORS · by country</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
-              {CONTRIBUTORS.map(([c, n]) => (
+              {byCountry.map(([c, n]) => (
                 <div key={c} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 30px', gap: 8, alignItems: 'center' }}>
                   <span className={`cv-pill ${c === 'UA' ? 'is-ua' : ''}`}>{c}</span>
                   <div style={{ height: 14, border: '2px solid var(--cv-ink)', background: '#fff' }}>
                     <div style={{
                       height: '100%',
-                      width: `${(n / 12) * 100}%`,
+                      width: `${(n / maxByCountry) * 100}%`,
                       background: c === 'UA' ? 'var(--cv-ua-yellow)' : 'var(--cv-ua-blue)',
                     }} />
                   </div>
@@ -120,7 +154,9 @@ export function LandingHero() {
             </div>
             <div className="cv-hatch" style={{ margin: '12px -16px' }} />
             <div style={{ fontSize: 11, color: 'var(--cv-mute)' }}>
-              "1-of-N honest" soundness — geographic diversity ↑ adversarial coordination ↓.
+              {usingDummyContributors
+                ? 'Placeholder distribution — real data populates from the ceremony status feed once contributors land.'
+                : '"1-of-N honest" soundness — geographic diversity ↑ adversarial coordination ↓.'}
             </div>
           </div>
 
@@ -196,19 +232,12 @@ export function LandingHero() {
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />
-              <span>QTSP DIRECTORY · 224 listed · EU LOTL + UA TL</span>
+              <span>QTSP DIRECTORY · {realQtsps.length} listed · {dummyQtsps.length} planned</span>
               <span style={{ flex: 1 }} />
-              <span className="cv-pill is-ok">signed · 18h ago</span>
+              <span className="cv-pill is-ok">live · QTSP_INDEX</span>
             </div>
-            <input
-              placeholder="search · diia · namirial · D-Trust · …"
-              style={{
-                width: '100%', padding: '8px 10px', border: '2px solid var(--cv-ink)',
-                fontFamily: 'var(--cv-mono)', fontSize: 13, background: '#fff', boxSizing: 'border-box',
-              }}
-            />
-            <div style={{ maxHeight: 220, overflow: 'auto', border: '2px solid var(--cv-ink)', borderTop: 0, background: '#fff' }}>
-              {QTSPS.map(([cc, name, id]) => (
+            <div style={{ maxHeight: 240, overflow: 'auto', border: '2px solid var(--cv-ink)', background: '#fff' }}>
+              {realQtsps.map(([cc, name, id]) => (
                 <Link
                   key={id}
                   to="/qtsp/$country/$qtsp"
@@ -222,12 +251,27 @@ export function LandingHero() {
                   <span className={`cv-pill ${cc === 'UA' ? 'is-ua' : ''}`}>{cc}</span>
                   <span style={{ fontWeight: 500 }}>{name}</span>
                   <span style={{ color: 'var(--cv-mute)', fontSize: 10.5 }}>{id}</span>
-                  <span className="cv-pill is-ok">active</span>
+                  <span className="cv-pill is-ok">live</span>
                 </Link>
+              ))}
+              {dummyQtsps.map(([cc, name, id]) => (
+                <div key={id} style={{
+                  display: 'grid', gridTemplateColumns: '34px 1fr auto auto', gap: 8,
+                  padding: '6px 8px', borderBottom: '1px dashed rgba(0,0,0,.2)',
+                  alignItems: 'center', fontSize: 12, color: 'var(--cv-mute)',
+                  background: 'rgba(243, 197, 197, .25)',
+                }}>
+                  <span className="cv-pill" style={{ opacity: .6 }}>{cc}</span>
+                  <span>{name}</span>
+                  <span style={{ fontSize: 10.5 }}>{id}</span>
+                  <span className="cv-pill is-err" style={{ fontSize: 9.5 }}>DUMMY</span>
+                </div>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', fontSize: 12 }}>
-              <span style={{ color: 'var(--cv-mute)' }}>27 EU member states · 14 UA QTSPs · 4,819 certificates</span>
+              <span style={{ color: 'var(--cv-mute)' }}>
+                {realQtsps.length} live · {dummyQtsps.length} planned · expansion follows EU LOTL
+              </span>
               <span style={{ flex: 1 }} />
               <Link to="/" hash="coverage" className="cv-btn is-sm is-ghost">view all 224 ↗</Link>
             </div>

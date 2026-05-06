@@ -5,16 +5,29 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { TopBar } from '../components/curve/TopBar';
+import { useCeremonyPhase } from '../hooks/useCeremonyPhase';
+import { QTSP_INDEX } from '../generated/qtsp-index';
 import '../styles/curve.css';
 
 const TIMELINE = [
   ['Q4 2025', 'Spec', 'V1 protocol spec frozen', 'done'],
   ['Q1 2026', 'V1 build', '14 packages, 2.1M circuit constraints, end-to-end', 'done'],
-  ['Q2 2026', 'Phase 2 ceremony', 'Multi-contributor trusted setup · 47/50', 'active'],
+  ['Q2 2026', 'Phase 2 ceremony', 'Multi-contributor trusted setup · recruiting', 'active'],
   ['Q3 2026', 'Audit', 'External Groth16 + circuit audit', 'planned'],
   ['Q3 2026', 'Mainnet', 'Base mainnet deploy · post-audit', 'planned'],
   ['Q4 2026', 'Multi-network', 'Optimism · zkSync · Solana verifiers', 'planned'],
 ] as const;
+
+function DummyBadge() {
+  return (
+    <span className="cv-corner" style={{
+      background: 'var(--cv-err)', color: 'var(--cv-ink)',
+      letterSpacing: '.18em', fontWeight: 700,
+    }}>
+      DUMMY
+    </span>
+  );
+}
 
 const FAQ = [
   ['Does the chain see my QES?',
@@ -36,6 +49,14 @@ const FAQ = [
 ];
 
 export function AboutScreen() {
+  const { status: ceremonyStatus } = useCeremonyPhase();
+  const ceremonyContributors = ceremonyStatus?.contributors ?? [];
+  const realQtspCount = QTSP_INDEX.length;
+  const liveContribCount = ceremonyContributors.length;
+  const liveCountriesCount = new Set(
+    ceremonyContributors.map((c) => c.name.match(/\(([A-Z]{2})\)/)?.[1] ?? '?'),
+  ).size;
+  const usingDummyContribCount = liveContribCount === 0;
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
       <TopBar active="about" />
@@ -48,7 +69,7 @@ export function AboutScreen() {
             <span>ABOUT · ZKQES · A ZERO-KNOWLEDGE PROOF OF A QUALIFIED ELECTRONIC SIGNATURE</span>
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-ua">UA · Diia.Sign</span>
-            <span className="cv-pill is-eu">EU · 224 QTSPs</span>
+            <span className="cv-pill is-eu">EU · {realQtspCount} live</span>
           </div>
           <h1 className="cv-hero" style={{ fontSize: 132 }}>
             WHAT<br />
@@ -222,24 +243,38 @@ export function AboutScreen() {
         {/* CONTRIBUTORS · who builds */}
         <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div className="cv-card is-paper">
+            {usingDummyContribCount && <DummyBadge />}
             <div className="cv-cardhead">
-              <span className="dot live" />
+              <span className={`dot ${usingDummyContribCount ? '' : 'live'}`} />
               <span>WHO BUILDS THIS · contributors</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, fontSize: 12 }}>
               {[
-                ['founder · protocol · circuits', '@alik-eth', 'UA'],
-                ['cryptography · review', 'pending audit', '—'],
-                ['ceremony contributors', '47 across 18 countries', 'live'],
-                ['translators', 'EN · UK · (DE · FR · ES coming)', '4'],
-                ['QTSP integrators', 'Diia · KCEP · Privatbank · MasterKey', '4'],
-              ].map((r, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 50px', gap: 8, padding: '6px 0', borderBottom: '1px dashed rgba(0,0,0,.2)', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--cv-mute)', letterSpacing: '.04em' }}>{r[0]}</span>
-                  <span style={{ fontFamily: 'var(--cv-mono)' }}>{r[1]}</span>
-                  <span className="cv-pill" style={{ justifySelf: 'end' }}>{r[2]}</span>
-                </div>
-              ))}
+                ['founder · protocol · circuits', '@alik-eth', 'UA', false],
+                ['cryptography · review', 'pending audit', '—', false],
+                [
+                  'ceremony contributors',
+                  usingDummyContribCount ? '47 across 18 countries' : `${liveContribCount} across ${liveCountriesCount} countr${liveCountriesCount === 1 ? 'y' : 'ies'}`,
+                  usingDummyContribCount ? 'dummy' : 'live',
+                  usingDummyContribCount,
+                ],
+                ['translators', 'EN · UK', String(QTSP_INDEX.length === 1 ? 2 : QTSP_INDEX.length + 1), false],
+                [
+                  'QTSP integrators',
+                  QTSP_INDEX.map((q) => q.displayName).join(' · '),
+                  String(realQtspCount),
+                  false,
+                ],
+              ].map((r, i) => {
+                const [label, value, tag, dummy] = r as [string, string, string, boolean];
+                return (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 70px', gap: 8, padding: '6px 0', borderBottom: '1px dashed rgba(0,0,0,.2)', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--cv-mute)', letterSpacing: '.04em' }}>{label}</span>
+                    <span style={{ fontFamily: 'var(--cv-mono)' }}>{value}</span>
+                    <span className={`cv-pill ${dummy ? 'is-err' : ''}`} style={{ justifySelf: 'end' }}>{tag}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className="cv-hatch" style={{ margin: '14px -16px' }} />
             <Link to="/ceremony" className="cv-btn is-sm">↗ See every contributor</Link>
