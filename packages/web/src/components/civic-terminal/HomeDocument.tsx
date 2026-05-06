@@ -48,7 +48,6 @@ export function HomeDocument() {
   const addrShort = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : null;
 
   const ceremonyRound = ceremonyStatus?.round ?? 0;
-  const ceremonyTotal = ceremonyStatus?.totalRounds ?? 0;
 
   const proverReady = cliStatus === 'present';
   const proverMode = proverReady ? 'CLI · 22s' : 'Browser · ~5min';
@@ -186,14 +185,8 @@ export function HomeDocument() {
                 {ceremonyRound}
               </div>
               <div style={{ fontSize: 13, color: 'var(--cv-mute)' }}>
-                / {ceremonyTotal || '—'} rounds
+                contribution{ceremonyRound === 1 ? '' : 's'} so far
               </div>
-            </div>
-            <div className="cv-bar static">
-              <i style={{
-                width: ceremonyTotal > 0 ? `${(ceremonyRound / ceremonyTotal) * 100}%` : '0%',
-                animation: 'none',
-              }} />
             </div>
             <div className="cv-hatch" style={{ margin: '12px -16px' }} />
             <div style={{ fontSize: 12, lineHeight: 1.5 }}>
@@ -210,44 +203,87 @@ export function HomeDocument() {
           </div>
         </section>
 
-        {/* ACTIVE FLOW PREVIEW */}
-        <section className="cv-card is-paper">
-          <div className="cv-cardhead">
-            <span>ACTIVE FLOW · what happens after you click "Begin filing"</span>
-            <span style={{ flex: 1 }} />
-            <span className="cv-pill">groth16 · BN254 · zkqes_v5</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {[
-              ['01', 'Connect wallet', 'EIP-1193 · MetaMask / WC / Coinbase', isConnected ? 'done' : 'next'],
-              ['02', 'Sign QES', 'Diia.Sign · DigiDoc4 · Szafir · CAdES-X', 'todo'],
-              ['03', 'Generate proof', proverReady ? 'rapidsnark · ~22s' : 'snarkjs · 38 GB · ~5min', 'todo'],
-              ['04', 'Anchor onchain', 'Base Sepolia · ≈ $0.02 · 230k gas', 'todo'],
-            ].map((r) => {
-              const [n, label, note, st] = r;
-              const bg = st === 'done' ? 'var(--cv-ok)' : st === 'next' ? 'var(--cv-ua-yellow)' : '#fff';
-              return (
-                <div key={n} style={{
-                  border: '2px solid var(--cv-ink)',
-                  background: bg,
-                  padding: '10px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="cv-ix">{n}</span>
-                    <b style={{ fontSize: 13 }}>{label}</b>
-                    <span style={{ flex: 1 }} />
-                    <span style={{ fontSize: 12, color: st === 'done' ? '#2e7d32' : st === 'next' ? 'var(--cv-ua-blue)' : 'var(--cv-mute)' }}>
-                      {st === 'done' ? '✓' : st === 'next' ? '▶' : '·'}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--cv-mute)', fontFamily: 'var(--cv-mono)' }}>{note}</div>
-                </div>
-              );
-            })}
-          </div>
+        {/* ACTIONS — every function as a card */}
+        <h2 style={{ fontFamily: 'var(--cv-display)', fontSize: 56, lineHeight: 1, margin: '12px 0 0' }}>
+          ACTIONS.
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--cv-mute)', maxWidth: '70ch', margin: 0 }}>
+          Every operation that touches the registry. Each card opens its own flow — runs in this tab.
+        </p>
+
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          <ActionCard
+            n="01"
+            title="Register a binding"
+            subtitle="bind a wallet to your QES"
+            body="Sign a JCS binding statement with your QES, generate a Groth16 proof in this tab, anchor it on-chain. ~5 min."
+            steps={['connect wallet', 'sign QES', 'prove', 'anchor']}
+            cta="▶ Begin"
+            to="/ua/registerV5"
+            accent="yellow"
+            primary
+            available
+          />
+          <ActionCard
+            n="02"
+            title="Rotate a wallet"
+            subtitle="move a binding to a new wallet"
+            body="Two-wallet flow: connect old, sign rotation auth, connect new, sign with QES, anchor. The binding's nullifier is preserved; the on-chain pk changes."
+            steps={['connect old', 'auth', 'connect new', 'prove', 'anchor']}
+            cta="⟲ Rotate"
+            to="/account/rotate"
+            accent="paper"
+            available={bindingsCount > 0}
+            disabledNote={!isConnected ? 'connect a wallet first' : 'no bindings to rotate'}
+          />
+          <ActionCard
+            n="03"
+            title="Prove age"
+            subtitle="add a DOB attestation to a binding"
+            body="Prove your DOB satisfies a custom date threshold (e.g. ≥ 18) without disclosing it. Adds a DOB commit to an existing binding."
+            steps={['pick binding', 'sign QES with DOB', 'prove cutoff', 'anchor']}
+            cta="▷ Prove age"
+            to="/account/prove-age"
+            accent="paper"
+            available={bindingsCount > 0}
+            disabledNote={!isConnected ? 'connect a wallet first' : 'no bindings to attest'}
+          />
+        </section>
+
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          <ActionCard
+            n="04"
+            title="Verify a binding"
+            subtitle="public lookup · no wallet needed"
+            body="Paste an address or binding ID; we query the registry directly via viem. Truth from the chain, runs in this tab."
+            steps={['paste', 'query', 'render']}
+            cta="↗ Open verifier"
+            to="/verify"
+            accent="paper"
+            available
+          />
+          <ActionCard
+            n="05"
+            title="Install the CLI"
+            subtitle="rapidsnark fast-path · ~22s prove"
+            body={`The browser path needs ${proverReady ? 'no install — your CLI is already detected' : '38 GB peak RAM. The CLI server proves locally with rapidsnark in ~22 s on M2.'}`}
+            steps={proverReady ? ['✓ detected · localhost:9080'] : ['install', 'qkb serve', 'browser detects']}
+            cta={proverReady ? '✓ CLI ready' : '$ install qkb cli'}
+            to="/ua/cli"
+            accent="paper"
+            available
+          />
+          <ActionCard
+            n="06"
+            title="Need a desktop?"
+            subtitle="for sub-flagship phones"
+            body="Browser proving needs 38 GB RAM peak. Sub-flagship phones can't run it. We route mobile-class devices to a 'use desktop' page."
+            steps={['device check', 'safe-state']}
+            cta="↗ Use-desktop info"
+            to="/ua/use-desktop"
+            accent="paper"
+            available
+          />
         </section>
 
         {/* YOUR BINDINGS */}
@@ -344,6 +380,56 @@ export function HomeDocument() {
 
       </div>
     </main>
+  );
+}
+
+function ActionCard({
+  n, title, subtitle, body, steps, cta, to, accent, primary, available, disabledNote,
+}: {
+  n: string; title: string; subtitle: string; body: string;
+  steps: readonly string[]; cta: string; to: string;
+  accent: 'paper' | 'yellow' | 'blue';
+  primary?: boolean;
+  available: boolean;
+  disabledNote?: string;
+}) {
+  const cls = accent === 'paper' ? 'is-paper' : accent === 'yellow' ? 'is-yellow' : 'is-blue';
+  const isBlue = accent === 'blue';
+  const btnCls = primary ? 'cv-btn is-blue is-lg' : isBlue ? 'cv-btn' : 'cv-btn';
+  return (
+    <div className={`cv-card ${cls}`} style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="cv-cardhead" style={isBlue ? { color: '#fff' } : undefined}>
+        <span className="cv-ix">{n}</span>
+        <span style={{ fontWeight: 700 }}>{title}</span>
+        <span style={{ flex: 1 }} />
+        <span className={`cv-pill ${available ? 'is-ok' : ''}`}>{available ? '✓ ready' : 'gated'}</span>
+      </div>
+      <div style={{ fontSize: 11, color: isBlue ? 'var(--cv-ua-yellow)' : 'var(--cv-mute)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+        {subtitle}
+      </div>
+      <p style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0, flex: 1 }}>{body}</p>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', margin: '12px 0' }}>
+        {steps.map((s, i) => (
+          <span key={i} className="cv-pill" style={{ fontSize: 9.5 }}>{s}</span>
+        ))}
+      </div>
+      <div className="cv-hatch" style={{ margin: '0 -16px 12px', ...(isBlue ? { borderColor: 'var(--cv-ua-yellow)' } : {}) }} />
+      {available
+        ? <Link to={to} className={btnCls}
+                style={primary
+                  ? { width: '100%', justifyContent: 'center' }
+                  : isBlue
+                    ? { background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)', width: '100%', justifyContent: 'center' }
+                    : { width: '100%', justifyContent: 'center' }}>
+            {cta}
+          </Link>
+        : <button disabled className="cv-btn" style={{
+            width: '100%', justifyContent: 'center',
+            background: '#ddd', color: '#888', cursor: 'not-allowed', boxShadow: 'none',
+          }}>
+            {disabledNote ?? cta}
+          </button>}
+    </div>
   );
 }
 
