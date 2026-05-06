@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router';
 import { TopBar } from './curve/TopBar';
 import { useCeremonyPhase } from '../hooks/useCeremonyPhase';
 import { QTSP_INDEX } from '../generated/qtsp-index';
+import { QTSP_SUMMARY, QTSP_SUMMARY_META } from '../generated/qtsp-summary';
 import '../styles/curve.css';
 
 // Dummy data shown when live source is empty. Each card with potential
@@ -13,18 +14,6 @@ import '../styles/curve.css';
 const DUMMY_CONTRIBUTORS: ReadonlyArray<readonly [string, number]> = [
   ['UA', 12], ['DE', 7], ['FR', 5], ['NL', 4], ['US', 4],
   ['UK', 3], ['ES', 3], ['IT', 3], ['other', 6],
-];
-
-const DUMMY_QTSPS: ReadonlyArray<readonly [string, string, string]> = [
-  ['UA', 'KCEP', 'UA-002'],
-  ['UA', 'MasterKey', 'UA-007'],
-  ['DE', 'D-Trust', 'DE-014'],
-  ['DE', 'Bundesdruckerei', 'DE-002'],
-  ['FR', 'Universign', 'FR-018'],
-  ['IT', 'Namirial', 'IT-006'],
-  ['ES', 'FNMT-RCM', 'ES-001'],
-  ['NL', 'KPN', 'NL-003'],
-  ['PL', 'Asseco', 'PL-005'],
 ];
 
 function countByCountry(contributors: ReadonlyArray<{ name: string }>): Array<[string, number]> {
@@ -57,12 +46,38 @@ export function LandingHero() {
   const byCountry = usingDummyContributors ? DUMMY_CONTRIBUTORS : liveByCountry;
   const maxByCountry = byCountry.reduce<number>((m, [, n]) => Math.max(m, n), 1);
 
-  // QTSP directory: real entries first, dummies as filler with badge.
-  const realQtsps: ReadonlyArray<readonly [string, string, string]> = QTSP_INDEX.map(
-    (q) => [q.country, q.displayName, `${q.country}-${q.qtspSlug}`] as const,
-  );
-  const dummyQtsps = DUMMY_QTSPS;
-  const totalQtspsListed = realQtsps.length;
+  // QTSP directory: shown card lists the deploy-priority cohort —
+  // every QTSP in the LOTL+UA snapshot whose chain advertises
+  // ECDSA-P-256 (those drop into the existing circuit with no curve
+  // change). Curated entries from QTSP_INDEX are flagged 'live'; the
+  // rest are 'queued · P-256'. Source: src/generated/qtsp-summary.ts.
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const curatedKey = (cc: string, name: string) => `${cc}|${norm(name)}`;
+  const curatedSlugByKey = new Map<string, string>();
+  for (const q of QTSP_INDEX) {
+    curatedSlugByKey.set(curatedKey(q.country, q.displayName), q.qtspSlug);
+  }
+  const lookupCurated = (cc: string, tspName: string): string | undefined => {
+    const tspNorm = norm(tspName);
+    for (const [k, slug] of curatedSlugByKey) {
+      const [keyCc, keyName] = k.split('|');
+      if (keyCc === cc && (tspNorm.includes(keyName ?? '') || (keyName && (keyName).includes(tspNorm)))) {
+        return slug;
+      }
+    }
+    return undefined;
+  };
+
+  const p256Qtsps = QTSP_SUMMARY
+    .filter((r) => r.p256)
+    .map((r) => {
+      const slug = lookupCurated(r.country, r.tspName);
+      return { country: r.country, tspName: r.tspName, slug, live: !!slug };
+    })
+    .sort((a, b) => Number(b.live) - Number(a.live) || a.country.localeCompare(b.country) || a.tspName.localeCompare(b.tspName));
+  const liveCount = p256Qtsps.filter((q) => q.live).length;
+  const queuedCount = p256Qtsps.length - liveCount;
+  const rsaCount = QTSP_SUMMARY_META.totalTsps - p256Qtsps.length;
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
@@ -76,7 +91,7 @@ export function LandingHero() {
             <span>ANONYMOUS QUALIFIED IDENTITY · eIDAS · UA DSP</span>
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-ua">UA · Diia</span>
-            <span className="cv-pill is-eu">EU · {totalQtspsListed} listed</span>
+            <span className="cv-pill is-eu">EU · {QTSP_SUMMARY_META.totalTsps - 1} listed</span>
             <span className={`cv-pill ${phase === 'live' ? 'is-ok' : 'is-warn'}`}>CEREMONY · {(phase ?? 'recruiting').toUpperCase()}</span>
             <div className="cv-stamp">QES<br />2026</div>
           </div>
@@ -234,48 +249,51 @@ export function LandingHero() {
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />
-              <span>QTSP DIRECTORY · {realQtsps.length} listed · {dummyQtsps.length} planned</span>
+              <span>QTSP DIRECTORY · ECDSA P-256 · ships first</span>
               <span style={{ flex: 1 }} />
-              <span className="cv-pill is-ok">live · QTSP_INDEX</span>
+              <span className="cv-pill is-ok">{liveCount} live</span>
+              <span className="cv-pill">{queuedCount} queued</span>
             </div>
-            <div style={{ maxHeight: 240, overflow: 'auto', border: '2px solid var(--cv-ink)', background: '#fff' }}>
-              {realQtsps.map(([cc, name, id]) => (
-                <Link
-                  key={id}
-                  to="/qtsp/$country/$qtsp"
-                  params={{ country: cc.toLowerCase(), qtsp: name.toLowerCase().replace(/[^a-z0-9]/g, '-') }}
-                  style={{
-                    display: 'grid', gridTemplateColumns: '34px 1fr auto auto', gap: 8,
-                    padding: '6px 8px', borderBottom: '1px dashed rgba(0,0,0,.2)',
-                    alignItems: 'center', fontSize: 12, color: 'var(--cv-ink)', textDecoration: 'none',
-                  }}
-                >
-                  <span className={`cv-pill ${cc === 'UA' ? 'is-ua' : ''}`}>{cc}</span>
-                  <span style={{ fontWeight: 500 }}>{name}</span>
-                  <span style={{ color: 'var(--cv-mute)', fontSize: 10.5 }}>{id}</span>
-                  <span className="cv-pill is-ok">live</span>
-                </Link>
-              ))}
-              {dummyQtsps.map(([cc, name, id]) => (
-                <div key={id} style={{
-                  display: 'grid', gridTemplateColumns: '34px 1fr auto auto', gap: 8,
+            <div style={{ maxHeight: 260, overflow: 'auto', border: '2px solid var(--cv-ink)', background: '#fff' }}>
+              {p256Qtsps.map((q) => {
+                const row = (
+                  <>
+                    <span className={`cv-pill ${q.country === 'UA' ? 'is-ua' : ''}`}>{q.country}</span>
+                    <span style={{ fontWeight: 500 }}>{q.tspName}</span>
+                    <span className={`cv-pill ${q.live ? 'is-ok' : ''}`} style={{ fontSize: 9.5 }}>
+                      {q.live ? 'live' : 'queued · P-256'}
+                    </span>
+                  </>
+                );
+                const baseStyle: React.CSSProperties = {
+                  display: 'grid', gridTemplateColumns: '34px 1fr auto', gap: 8,
                   padding: '6px 8px', borderBottom: '1px dashed rgba(0,0,0,.2)',
-                  alignItems: 'center', fontSize: 12, color: 'var(--cv-mute)',
-                  background: 'rgba(243, 197, 197, .25)',
-                }}>
-                  <span className="cv-pill" style={{ opacity: .6 }}>{cc}</span>
-                  <span>{name}</span>
-                  <span style={{ fontSize: 10.5 }}>{id}</span>
-                  <span className="cv-pill is-err" style={{ fontSize: 9.5 }}>DUMMY</span>
-                </div>
-              ))}
+                  alignItems: 'center', fontSize: 12,
+                  color: q.live ? 'var(--cv-ink)' : 'var(--cv-mute)', textDecoration: 'none',
+                };
+                if (q.live && q.slug) {
+                  return (
+                    <Link
+                      key={`${q.country}|${q.tspName}`}
+                      to="/qtsp/$country/$qtsp"
+                      params={{ country: q.country.toLowerCase(), qtsp: q.slug }}
+                      style={baseStyle}
+                    >
+                      {row}
+                    </Link>
+                  );
+                }
+                return (
+                  <div key={`${q.country}|${q.tspName}`} style={baseStyle}>{row}</div>
+                );
+              })}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', fontSize: 12 }}>
               <span style={{ color: 'var(--cv-mute)' }}>
-                {realQtsps.length} live · {dummyQtsps.length} planned · expansion follows EU LOTL
+                {p256Qtsps.length} P-256 · {rsaCount} RSA queued behind separate verifier
               </span>
               <span style={{ flex: 1 }} />
-              <Link to="/qtsps" className="cv-btn is-sm is-ghost">view all 189 ↗</Link>
+              <Link to="/qtsps" className="cv-btn is-sm is-ghost">view all {QTSP_SUMMARY_META.totalTsps} ↗</Link>
             </div>
           </div>
 
