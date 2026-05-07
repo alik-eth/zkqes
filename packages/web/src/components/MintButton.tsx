@@ -77,7 +77,7 @@ export function MintButton() {
       window.alert(`Please switch to ${ACTIVE_CHAIN.name}`);
       return;
     }
-    if (state.action === 'routeToRegisterV5') navigate({ to: '/ua/registerV5' });
+    if (state.action === 'routeToRegisterV5') navigate({ to: "/" });
     if (state.action === 'routeToCli')        navigate({ to: '/ua/cli' });
     if (state.action === 'routeToMint')       navigate({ to: '/ua/mint' });
     if (state.action === 'routeToMintNft')    navigate({ to: '/ua/mintNft' });

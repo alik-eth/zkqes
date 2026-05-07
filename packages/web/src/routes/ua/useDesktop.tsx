@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { DocumentFooter } from '../../components/DocumentFooter';
 import '../../styles/civic-terminal.css';
 
-const DESKTOP_URL = 'https://app.zkqes.org/ua/registerV5';
+const DESKTOP_URL = 'https://app.zkqes.org/';
 
 export function UseDesktopScreen() {
   const { t } = useTranslation();

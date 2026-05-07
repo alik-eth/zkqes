@@ -256,7 +256,7 @@ zkqes serve
               )}
             </p>
             <Link
-              to="/ua/registerV5"
+              to="/"
               className="inline-block text-lg"
               style={{ color: 'var(--ua-blue)' }}
               data-testid="cli-back-to-register"

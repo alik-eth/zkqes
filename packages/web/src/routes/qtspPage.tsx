@@ -97,7 +97,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
               {meta.state === 'gold' || meta.state === 'live' ? (
-                <Link to="/v5/registerV5" search={{ qtsp: qtspPathParam }} className="cv-btn is-lg" style={{ minWidth: 220, justifyContent: 'center' }}>
+                <Link to="/" search={{ qtsp: qtspPathParam }} className="cv-btn is-lg" style={{ minWidth: 220, justifyContent: 'center' }}>
                   ▶ {meta.state === 'live' ? 'Register' : 'Try on testnet'}
                 </Link>
               ) : null}
@@ -254,7 +254,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
                 The {meta.displayName} parser has landed and verified against synthetic samples on Base Sepolia.
                 Mint a real binding using your QES — testnet flow, no fees beyond gas.
               </div>
-              <Link to="/v5/registerV5" search={{ qtsp: qtspPathParam }}
+              <Link to="/" search={{ qtsp: qtspPathParam }}
                     className="cv-btn is-blue is-lg">▶ Try on testnet</Link>
             </div>
           </section>
@@ -273,7 +273,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
                 {meta.displayName} is fully live. Bind your wallet to a qualified identity backed by this QTSP
                 — every-day pseudonymity, recoverable accountability.
               </div>
-              <Link to="/v5/registerV5" search={{ qtsp: qtspPathParam }}
+              <Link to="/" search={{ qtsp: qtspPathParam }}
                     className="cv-btn" style={{ background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)', fontSize: 16, padding: '12px 20px' }}>
                 ▶ Register
               </Link>

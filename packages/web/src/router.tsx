@@ -199,26 +199,10 @@ const appOnlyRoutes: AnyRoute[] = import.meta.env.VITE_TARGET !== 'landing'
           'MintScreen',
         ),
       }),
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/ua/registerV5',
-        // T13: switched to default-export `RegisterV5Route` wrapper
-        // which reads `?qtsp=` via `useSearch` and threads scope down
-        // to `RegisterV5Screen`. UA-default behavior preserved when
-        // `?qtsp=` is absent / malformed / bronze.
-        component: lazyRouteComponent(() => import('./routes/ua/registerV5')),
-      }),
-      // T13: alias path. `/v5/registerV5` is the canonical multi-QTSP
-      // entry point that QtspPage CTAs (T10) link to. Same component
-      // as `/ua/registerV5`; the route distinction is just URL polish
-      // for "this is the protocol-level register flow, not a
-      // UA-specific page." Future work may collapse them once the
-      // existing `/ua/registerV5` inbound links + e2e tests rotate.
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/v5/registerV5',
-        component: lazyRouteComponent(() => import('./routes/ua/registerV5')),
-      }),
+      // /ua/registerV5 + /v5/registerV5 routes were retired 2026-05-07.
+      // The Step1-4 register flow now mounts directly on the app home
+      // (`HomeDocument`). External links to those paths fall through to
+      // TanStack Router's default 404 → home redirect.
       createRoute({
         getParentRoute: () => rootRoute,
         path: '/ua/mintNft',

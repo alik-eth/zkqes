@@ -838,7 +838,7 @@ function BindingPickerStep({
           {t('accountAgeProof.bindingPick.emptyBody')}
         </p>
         <Link
-          to="/ua/registerV5"
+          to="/"
           className="ct-btn ct-btn--primary"
           data-testid="prove-age-binding-pick-register-cta"
         >
