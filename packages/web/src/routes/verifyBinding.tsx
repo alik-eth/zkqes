@@ -250,7 +250,7 @@ export function VerifyBindingScreen() {
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
       <TopBar active="verify" statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● live registry</span>} />
 
-      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
 
         {/* HERO */}
         <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
@@ -296,7 +296,7 @@ export function VerifyBindingScreen() {
             </div>
             <span className="cv-pill is-blue">getBinding · getLogs</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
             <input
               data-testid="verify-binding-input"
               placeholder="0x91A2…fE  · or a 32-byte binding id"

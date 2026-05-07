@@ -50,7 +50,7 @@ export function CeremonyShell() {
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
       <TopBar active="ceremony" statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● ceremony in flight</span>} />
-      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
 
         {/* HERO */}
         <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>

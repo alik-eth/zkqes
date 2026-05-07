@@ -138,20 +138,35 @@ export function MintNftStep() {
           </button>
         )}
         {(minted || txMined) && (
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <a
-              href={`https://${
-                chainId === 8453
-                  ? 'opensea.io/assets/base/'
-                  : 'testnets.opensea.io/assets/sepolia/'
-              }${dep?.zkqesCertificate}/${previewTokenId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="ct-link"
-              style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
-            >
-              View on OpenSea
-            </a>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            {/* OpenSea retired all testnet surfaces 2025-07-24; only
+                link there on Base mainnet. For Base Sepolia + Sepolia,
+                fall back to the block explorer's NFT view (Basescan /
+                Etherscan both render ERC-721 tokenURI metadata + show
+                ownership). */}
+            {chainId === 8453 ? (
+              <a
+                href={`https://opensea.io/assets/base/${dep?.zkqesCertificate}/${previewTokenId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="ct-link"
+                style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
+              >
+                View on OpenSea
+              </a>
+            ) : (
+              <a
+                href={`https://${
+                  chainId === 84532 ? 'sepolia.basescan.org' : 'sepolia.etherscan.io'
+                }/nft/${dep?.zkqesCertificate}/${previewTokenId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="ct-link"
+                style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
+              >
+                View on {chainId === 84532 ? 'Basescan' : 'Etherscan'}
+              </a>
+            )}
           </div>
         )}
         {txHash && (

@@ -66,7 +66,7 @@ export function CeremonyContribute() {
         statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● contributor runbook</span>}
       />
 
-      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <BackLink />
 
         {/* HERO */}

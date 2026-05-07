@@ -61,7 +61,7 @@ export function IntegrationsScreen() {
         statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● dev integration</span>}
       />
 
-      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <BackLink />
 
         {/* HERO */}
@@ -128,6 +128,7 @@ export function IntegrationsScreen() {
               No deployments listed yet. Mainnet deploys post-ceremony close + audit.
             </div>
           ) : (
+            <div style={{ overflowX: 'auto' }}>
             <table className="cv-table">
               <thead>
                 <tr><th>network</th><th>chain id</th><th>registry</th><th>verifier</th><th>links</th></tr>
@@ -156,6 +157,7 @@ export function IntegrationsScreen() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </section>
 

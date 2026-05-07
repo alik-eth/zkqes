@@ -103,6 +103,16 @@ export function formatCertBerInput(
   t: Interpolator,
 ): string {
   if (!(err instanceof ZkqesError) || err.code !== 'cert.berInput') {
+    if (err instanceof ZkqesError) {
+      // ZkqesError.message is just the code (e.g. "prover.wasmOOM").
+      // The actual underlying reason — snarkjs reject text, fetch
+      // failure, sha256 mismatch — lives in `details.message`. Append
+      // it so the UI doesn't strand the user on the wrapper code.
+      const detail = typeof err.details?.message === 'string' ? err.details.message
+        : typeof err.details?.reason === 'string' ? err.details.reason
+        : null;
+      return detail ? `${err.code}: ${detail}` : err.code;
+    }
     if (err instanceof Error) return err.message;
     return String(err);
   }

@@ -159,7 +159,7 @@ export function AllQtspsScreen() {
         }
       />
 
-      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <Link to="/" style={{
           fontFamily: 'var(--cv-mono)', fontSize: 12, color: 'var(--cv-ua-blue)',
           textDecoration: 'underline', textUnderlineOffset: 3,

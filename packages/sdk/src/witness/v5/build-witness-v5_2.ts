@@ -163,6 +163,7 @@ function bytesToBigIntBE(bytes: Uint8Array | Buffer): bigint {
  */
 export async function buildWitnessV5_2(
   input: BuildWitnessV5_2Input,
+  opts: { readonly omitV53OidAnchor?: boolean } = {},
 ): Promise<WitnessV5_2> {
   // Reuse the full V5.1 computation. msgSender will be in the result;
   // we drop it below.
@@ -288,21 +289,37 @@ export async function buildWitnessV5_2(
     );
   }
 
-  // Strip msgSender from the V5.1 witness (V5.2 circuit doesn't have it).
-  // The other 18 V5.1 fields carry forward unchanged; we just append the
-  // 4 new pkPK* limbs.
-  // Use a destructure rather than property delete so the resulting object
-  // has predictable iteration order (matters for snarkjs which serializes
-  // witness JSON in property order).
-  const { msgSender: _omitted, ...rest } = v51Witness;
-  void _omitted;
+  // Strip the V5.1 witness fields the V5.2 circuit doesn't declare:
+  //   - msgSender         — moved on-chain (keccak gate runs in the contract).
+  //   - pkX[4] / pkY[4]   — replaced by the four bindingPk*Hi/Lo public
+  //                         signals (which we append below). The V5.2 wasm
+  //                         throws "Signal pkX not found" if these leak
+  //                         through. Spec ref:
+  //                         2026-05-01-keccak-on-chain-amendment §"Public-
+  //                         signal layout V5.1 → V5.2".
+  // Destructure rather than `delete` so the resulting object has
+  // predictable iteration order (matters for snarkjs JSON serialization).
+  const { msgSender: _msgSender, pkX: _pkX, pkY: _pkY, ...rest } = v51Witness;
+  void _msgSender; void _pkX; void _pkY;
 
-  return {
+  const v52Common = {
     ...rest,
     bindingPkXHi: pkXHi.toString(),
     bindingPkXLo: pkXLo.toString(),
     bindingPkYHi: pkYHi.toString(),
     bindingPkYLo: pkYLo.toString(),
+  };
+  // Pre-V5.3 stub artifacts (`qkb-v5_2-stub.zkey` / its companion wasm)
+  // were generated before the V5.3 OID-anchor amendment landed in the
+  // circuit. The wasm doesn't declare `subjectSerialOidOffsetInTbs`, so
+  // emitting it triggers snarkjs's "Too many values for input signal"
+  // error. The opt-out lets local-dev runs against the V5.2 stub keep
+  // working; the SDK-side OID validation above still ran (which is the
+  // bit V5.3 fundamentally cares about), so this is purely about wasm
+  // signal-list compatibility.
+  if (opts.omitV53OidAnchor) return v52Common as unknown as WitnessV5_2;
+  return {
+    ...v52Common,
     // V5.3 F1 — emit as decimal string per snarkjs's witness JSON
     // numeric convention.
     subjectSerialOidOffsetInTbs: oidOffsetInTbs.toString(),

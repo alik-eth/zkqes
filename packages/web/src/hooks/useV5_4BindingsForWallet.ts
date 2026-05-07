@@ -90,34 +90,43 @@ export function useV5_4BindingsForWallet(
       const fromBlock = BigInt(deployment.deployBlock);
       const address = deployment.address;
 
-      // Three parallel getLogs calls. viem encodes the wallet arg as
+      // Public Base Sepolia RPC (sepolia.base.org) caps eth_getLogs at
+      // a ~10k-block range AND a per-response payload size; an unbounded
+      // [deployBlock..latest] sweep returns HTTP 413 once the chain has
+      // grown >~1M blocks past deploy. Chunk into 9999-block windows.
+      // Same pattern as routes/verifyBinding.tsx.
+      const LOG_CHUNK = 9999n;
+      const latestBlock = await publicClient.getBlockNumber();
+
+      async function getLogsChunked(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        eventAbi: any,
+        args: Record<string, `0x${string}`>,
+      ): Promise<readonly unknown[]> {
+        const out: unknown[] = [];
+        let from = fromBlock;
+        while (from <= latestBlock) {
+          const to = from + LOG_CHUNK > latestBlock ? latestBlock : from + LOG_CHUNK;
+          const logs = await publicClient!.getLogs({
+            address,
+            event: eventAbi,
+            args,
+            fromBlock: from,
+            toBlock: to,
+          });
+          out.push(...logs);
+          from = to + 1n;
+        }
+        return out;
+      }
+
+      // Three parallel chunked fans. viem encodes the wallet arg as
       // a topic filter when the corresponding param is `indexed: true`
-      // (verified in T5.1's ABI subset tests). RPC-cheap.
+      // (verified in T5.1's ABI subset tests).
       const [registeredLogs, rotatedInLogs, rotatedOutLogs] = await Promise.all([
-        publicClient.getLogs({
-          address,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          event: ABI_BINDING_REGISTERED as any,
-          args: { pk: wallet },
-          fromBlock,
-          toBlock: 'latest',
-        }),
-        publicClient.getLogs({
-          address,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          event: ABI_BINDING_ROTATED as any,
-          args: { newPk: wallet },
-          fromBlock,
-          toBlock: 'latest',
-        }),
-        publicClient.getLogs({
-          address,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          event: ABI_BINDING_ROTATED as any,
-          args: { oldPk: wallet },
-          fromBlock,
-          toBlock: 'latest',
-        }),
+        getLogsChunked(ABI_BINDING_REGISTERED, { pk: wallet }),
+        getLogsChunked(ABI_BINDING_ROTATED, { newPk: wallet }),
+        getLogsChunked(ABI_BINDING_ROTATED, { oldPk: wallet }),
       ]);
 
       // Set semantics: union (registered + rotated-in) minus rotated-out.

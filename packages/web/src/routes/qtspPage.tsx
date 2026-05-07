@@ -66,7 +66,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
         statusPill={<span className="cv-pill" style={{ background: 'transparent', color: '#f4f0e0', borderColor: '#f4f0e0' }}>● QTSP dossier</span>}
       />
 
-      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <Link to="/" hash="coverage" style={{
           fontFamily: 'var(--cv-mono)', fontSize: 12, color: 'var(--cv-ua-blue)',
           textDecoration: 'underline', textUnderlineOffset: 3,

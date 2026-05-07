@@ -65,6 +65,17 @@ body { font-family: var(--cv-mono); color: var(--cv-ink); margin: 0; }
 }
 .cv-btn:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--cv-ink); }
 .cv-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--cv-ink); }
+.cv-btn:disabled,
+.cv-btn[aria-disabled="true"] {
+  background: #d8d2c0; color: #8a857a;
+  border-color: #8a857a; box-shadow: 3px 3px 0 #c4bea8;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.cv-btn:disabled:hover,
+.cv-btn[aria-disabled="true"]:hover {
+  transform: none; box-shadow: 3px 3px 0 #c4bea8;
+}
 .cv-btn.is-blue { background: var(--cv-ua-blue); color: var(--cv-ua-yellow); }
 .cv-btn.is-ghost { background: transparent; box-shadow: none; }
 .cv-btn.is-sm { padding: 4px 10px; font-size: 12px; box-shadow: 2px 2px 0 var(--cv-ink); }
@@ -133,6 +144,56 @@ body { font-family: var(--cv-mono); color: var(--cv-ink); margin: 0; }
 
 .cv-link { color: var(--cv-ua-blue); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .cv-link:hover { background: var(--cv-ua-yellow); }
+
+/* Re-skin civic-terminal `.ct-btn` (raised Win95 bevel) to match the
+ * Curve aesthetic when it shows up inside the inline Step1-4 wizard
+ * mounted on the app home. The Step components keep their `.ct-btn`
+ * class names; we just override the painted style. */
+.cv-page-host .ct-btn,
+main .ct .ct-btn {
+  font-family: var(--cv-mono);
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid var(--cv-ink);
+  border-top-color: var(--cv-ink);
+  border-left-color: var(--cv-ink);
+  background: var(--cv-ua-yellow);
+  color: var(--cv-ink);
+  padding: 8px 16px;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 3px 3px 0 var(--cv-ink);
+  letter-spacing: .04em;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: transform .04s, box-shadow .04s;
+  /* Step components mount inside `display:flex; flex-direction:column`
+   * sections; without this they stretch to 100% via the default
+   * align-items:stretch. Pin to content width. */
+  align-self: flex-start;
+  width: max-content;
+}
+main .ct .ct-btn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--cv-ink);
+  background: var(--cv-ua-yellow);
+}
+main .ct .ct-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--cv-ink);
+}
+main .ct .ct-btn:disabled,
+main .ct .ct-btn[aria-disabled="true"] {
+  background: #ddd; color: #888; cursor: not-allowed; box-shadow: none;
+  transform: none;
+}
+main .ct .ct-btn--primary { background: var(--cv-ua-blue); color: var(--cv-ua-yellow); }
+main .ct .ct-btn--primary:hover { background: var(--cv-ua-blue); }
+main .ct .ct-btn--ua { background: var(--cv-ua-yellow); color: var(--cv-ua-blue); }
+main .ct .ct-btn--eu { background: var(--cv-eu-blue); color: var(--cv-eu-yellow); border-color: var(--cv-ink); }
+main .ct .ct-btn--ghost { background: transparent; box-shadow: none; }
+main .ct .ct-btn--ghost:hover { box-shadow: none; transform: none; background: var(--cv-card); }
+main .ct .ct-btn--sm { font-size: 12px; padding: 4px 10px; box-shadow: 2px 2px 0 var(--cv-ink); }
+main .ct .ct-btn--lg { font-size: 18px; padding: 12px 22px; }
 
 /* Desktop-only CTA wrapper. Always-visible diagonal ribbon flagging
  * that the destination requires desktop (Firefox + 38 GB RAM, OR a

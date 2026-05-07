@@ -12,15 +12,72 @@ export interface Step3Props {
   onBack: () => void;
 }
 
+// PKCS#7 SignedData OID (1.2.840.113549.1.7.2) DER-encoded as
+// `06 09 2A 86 48 86 F7 0D 01 07 02`. A real .p7s carries this OID
+// inside the outer ContentInfo wrapper, typically within the first
+// ~30 bytes for DER-encoded CAdES.
+const SIGNED_DATA_OID_HEX = '06092a864886f70d010702';
+
+const ACCEPT_EXT = ['.p7s', '.p7m', '.cms', '.p7'];
+
+interface ValidationResult {
+  ok: boolean;
+  error?: string;
+  size?: number;
+}
+
+function bytesToHex(bytes: Uint8Array, max: number): string {
+  const slice = bytes.subarray(0, max);
+  let s = '';
+  for (let i = 0; i < slice.length; i++) {
+    s += slice[i]!.toString(16).padStart(2, '0');
+  }
+  return s;
+}
+
+function validateP7s(filename: string, bytes: Uint8Array): ValidationResult {
+  const lower = filename.toLowerCase();
+  if (!ACCEPT_EXT.some((ext) => lower.endsWith(ext))) {
+    return { ok: false, error: `Wrong file type. Need ${ACCEPT_EXT.join(' / ')}; got ${lower.split('.').pop() ?? '<no ext>'}.` };
+  }
+  if (bytes.length < 64) {
+    return { ok: false, error: `File too small (${bytes.length} bytes). A real CAdES .p7s is at least a few KB.` };
+  }
+  if (bytes[0] !== 0x30) {
+    return { ok: false, error: `Not a DER-encoded ASN.1 structure (first byte 0x${bytes[0]?.toString(16).padStart(2, '0')}, expected 0x30).` };
+  }
+  // Scan first 256 bytes for the PKCS#7 SignedData OID. Real CAdES
+  // emits it within the first ~30 bytes; allow generous slack for
+  // pathological wrappers.
+  const head = bytesToHex(bytes, 256);
+  if (!head.includes(SIGNED_DATA_OID_HEX)) {
+    return { ok: false, error: 'No PKCS#7 SignedData OID found. This may be a different ASN.1 structure (cert? CRL? plain CMS?), not a CAdES signature.' };
+  }
+  return { ok: true, size: bytes.length };
+}
+
 export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
   const { t } = useTranslation();
   const [filename, setFilename] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [size, setSize] = useState<number | null>(null);
 
   const handleFile = async (file: File): Promise<void> => {
     const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    const v = validateP7s(file.name, bytes);
     setFilename(file.name);
-    onP7s(new Uint8Array(buf));
+    if (!v.ok) {
+      setValidationError(v.error ?? 'Unknown validation error.');
+      setSize(null);
+      // Do NOT call onP7s — keep the parent state clean so step 4
+      // doesn't pick up garbage.
+      return;
+    }
+    setValidationError(null);
+    setSize(v.size ?? bytes.length);
+    onP7s(bytes);
   };
 
   return (
@@ -97,10 +154,10 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
                 fontSize: '11px',
                 letterSpacing: '0.18em',
                 textTransform: 'uppercase',
-                color: 'var(--ct-mute)',
+                color: validationError ? 'var(--err)' : 'var(--ct-mute)',
               }}
             >
-              {t('registerV5.step3.readyLabel', 'Loaded')}
+              {validationError ? '✕ Rejected' : `✓ Loaded · ${size ? `${size.toLocaleString()} bytes` : ''}`}
             </p>
             <p
               data-testid="v5-p7s-filename"
@@ -108,7 +165,7 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
                 fontFamily: 'var(--mono)',
                 fontSize: '14px',
                 wordBreak: 'break-all',
-                color: 'var(--ct-ink)',
+                color: validationError ? 'var(--err)' : 'var(--ct-ink)',
               }}
             >
               {filename}
@@ -117,28 +174,32 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
               style={{
                 fontFamily: 'var(--mono)',
                 fontSize: '12px',
-                color: 'var(--ct-mute)',
+                color: validationError ? 'var(--err)' : 'var(--ct-mute)',
+                lineHeight: 1.5,
               }}
             >
-              {t(
-                'registerV5.step3.replaceHint',
-                'Click to replace, or continue to Step 4 below.',
-              )}
+              {validationError
+                ?? t('registerV5.step3.replaceHint', 'Click to replace, or continue to Step 03 below.')}
             </p>
           </div>
         ) : (
-          <span
-            style={{
-              fontFamily: 'var(--mono)',
-              fontSize: '14px',
-              color: 'var(--ct-ink)',
-            }}
-          >
-            {t(
-              'registerV5.step3.drop',
-              'Drag your .p7s here, or click to browse',
-            )}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '14px',
+                color: 'var(--ct-ink)',
+              }}
+            >
+              Drop your .p7s here, or click to browse
+            </span>
+            <span style={{
+              fontFamily: 'var(--mono)', fontSize: '11px',
+              color: 'var(--ct-mute)', letterSpacing: '.06em',
+            }}>
+              accepts: {ACCEPT_EXT.join(' · ')} — validated on drop
+            </span>
+          </div>
         )}
       </label>
 
@@ -148,7 +209,7 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
         <button
           type="button"
           onClick={onBack}
-          className="ct-btn"
+          className="cv-btn is-ghost"
         >
           {t('registerV5.step3.back')}
         </button>

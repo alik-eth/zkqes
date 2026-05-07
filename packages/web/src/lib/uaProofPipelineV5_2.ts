@@ -30,6 +30,7 @@
 import { Buffer } from 'buffer';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
+import { buildInclusionPath, zeroHashes } from './merkleLookup';
 import {
   MockProver,
   type IProver,
@@ -92,6 +93,31 @@ export interface V5_2PipelineOptions {
    *  caller has already computed them (e.g. integration tests). */
   readonly leafSpki?: Uint8Array;
   readonly intSpki?: Uint8Array;
+  /**
+   * Trusted-CA fallback for `.p7s` files that ship a leaf cert only
+   * (no embedded intermediate). When `cms.intCertDer` is missing AND
+   * `opts.intSpki` is also missing, the pipeline walks `trustedCas.cas`
+   * and matches the leaf cert's `issuer` DN against each CA's `subject`
+   * DN. The matching CA's DER becomes the intermediate, its SPKI is
+   * extracted and used for both the witness and the calldata.
+   *
+   * Pass the parsed `trusted-cas.json` from
+   * `packages/web/public/trusted-cas/trusted-cas.json` (the same file
+   * `qesVerify.ts` consumes off-circuit). When omitted and the .p7s
+   * lacks the intermediate, the pipeline throws verbatim — no silent
+   * fallback to a synthetic SPKI.
+   */
+  readonly trustedCas?: { cas: ReadonlyArray<{ merkleIndex: number; certDerB64: string }> };
+  /**
+   * Bundled `/trusted-cas/layers.json` — the per-level Poseidon Merkle
+   * tree the registry's `trustedRootHash` was computed over. Pair this
+   * with `trustedCas` so the pipeline can build a real
+   * `trustMerklePath`/`trustMerklePathBits` for the intermediate CA's
+   * leaf and clear the contract's `BadTrustList()` gate. Without
+   * layers, the pipeline falls back to all-zero paths (which only
+   * verify pre-root-pump or in tests).
+   */
+  readonly trustedCasLayers?: { depth: number; layers: ReadonlyArray<ReadonlyArray<string>> };
   readonly onProgress?: (p: V5_2PipelineProgress) => void;
   readonly signal?: AbortSignal;
   /**
@@ -210,12 +236,15 @@ async function runRealPath(
     ? Buffer.from(opts.intSpki)
     : cms.intCertDer
       ? extractSpkiFromCertDer(cms.intCertDer)
-      : (() => {
-          throw new Error(
-            'V5.2 real-prover pipeline: no intermediate cert in .p7s and no ' +
-              'opts.intSpki override — cannot compute intSpkiCommit',
-          );
-        })();
+      : opts.trustedCas
+        ? resolveIntSpkiFromTrustedCas(cms.leafCertDer, opts.trustedCas)
+        : (() => {
+            throw new Error(
+              'V5.2 real-prover pipeline: no intermediate cert in .p7s, no ' +
+                'opts.intSpki override, and no opts.trustedCas to fall back ' +
+                'on — cannot compute intSpkiCommit',
+            );
+          })();
 
   if (!opts.walletSecret) {
     throw new Error(
@@ -233,6 +262,17 @@ async function runRealPath(
     signedAttrsDer: cms.signedAttrsDer,
     signedAttrsMdOffset: cms.signedAttrsMdOffset,
     walletSecret: Buffer.from(opts.walletSecret),
+  }, {
+    // Local-dev escape hatch: when running against the V5.2 stub
+    // artifacts (`qkb-v5_2-stub.zkey` + its companion wasm), the
+    // V5.3 OID-anchor input signal doesn't exist in the wasm —
+    // emitting it triggers snarkjs's "Too many values" error. Set
+    // `VITE_V5_OMIT_V5_3_OID_ANCHOR=1` in `packages/web/.env.local`
+    // to opt out. Default keeps V5.3-shape so post-ceremony builds
+    // are correct.
+    omitV53OidAnchor:
+      typeof import.meta !== 'undefined' &&
+      import.meta.env?.VITE_V5_OMIT_V5_3_OID_ANCHOR === '1',
   });
 
   // Run the prover. CLI path is preferred when `cliPresent: true` is
@@ -260,21 +300,62 @@ async function runRealPath(
   tick('encode-calldata', 90, 'assembling RegisterArgsV5_2');
   const proof: Groth16ProofV5_2 = {
     a: [BigInt(proofRaw.pi_a[0] ?? '0'), BigInt(proofRaw.pi_a[1] ?? '0')] as const,
+    // G2 Fp2 limb swap. snarkjs's `pi_b` JSON serializes each Fp2 as
+    // [c0, c1] (real first); Solidity Groth16 verifiers (and snarkjs's
+    // own `exportSolidityCallData`) expect [c1, c0] (imaginary first).
+    // Without the swap, locally-valid proofs revert with `BadProof()`
+    // on-chain. See snarkjs#groth16/utils.js → `exportSolidityCallData`.
     b: [
-      [BigInt(proofRaw.pi_b[0]?.[0] ?? '0'), BigInt(proofRaw.pi_b[0]?.[1] ?? '0')] as const,
-      [BigInt(proofRaw.pi_b[1]?.[0] ?? '0'), BigInt(proofRaw.pi_b[1]?.[1] ?? '0')] as const,
+      [BigInt(proofRaw.pi_b[0]?.[1] ?? '0'), BigInt(proofRaw.pi_b[0]?.[0] ?? '0')] as const,
+      [BigInt(proofRaw.pi_b[1]?.[1] ?? '0'), BigInt(proofRaw.pi_b[1]?.[0] ?? '0')] as const,
     ] as const,
     c: [BigInt(proofRaw.pi_c[0] ?? '0'), BigInt(proofRaw.pi_c[1] ?? '0')] as const,
   };
 
-  // Trust + policy merkle inclusion paths come from the registry-side
-  // Merkle trees. Pre-deploy they're zeroed and register() will revert.
-  // The real lookup wires from `trusted-cas.json` + on-chain root state
-  // post-§9.4 Sepolia deploy.
-  const path16 = Array.from(
-    { length: 16 },
-    (): `0x${string}` => ZERO_BYTES32,
-  ) as unknown as RegisterArgsV5_2['trustMerklePath'];
+  // Trust merkle inclusion path. The contract's `trustedRootHash`
+  // gate (BadTrustList revert) verifies that the leaf's intermediate
+  // CA is in the registered Merkle tree. Build the path from the
+  // bundled `layers.json` keyed by the matched CA's `merkleIndex`.
+  // Falls back to all-zero path if `trustedCasLayers` wasn't passed
+  // — only useful pre-deploy; live chain rejects.
+  let trustPath: RegisterArgsV5_2['trustMerklePath'];
+  let trustPathBits = 0n;
+  if (opts.trustedCas && opts.trustedCasLayers && cms.intCertDer === undefined) {
+    // The intermediate cert was resolved off-chain via trustedCas
+    // fallback; reuse that match to get its merkleIndex without a
+    // second walk.
+    const resolved = resolveIntCertFromTrustedCas(cms.leafCertDer, opts.trustedCas);
+    const inclusion = await buildInclusionPathFromLayers(resolved.merkleIndex, opts.trustedCasLayers);
+    trustPath = inclusion.path16;
+    trustPathBits = inclusion.bits;
+  } else if (opts.trustedCas && opts.trustedCasLayers && cms.intCertDer !== undefined) {
+    // .p7s embedded the intermediate — locate it in trustedCas by DER
+    // equality to recover merkleIndex.
+    const wantHex = cms.intCertDer.toString('hex');
+    const match = opts.trustedCas.cas.find((ca) =>
+      Buffer.from(ca.certDerB64, 'base64').toString('hex') === wantHex,
+    );
+    if (match) {
+      const inclusion = await buildInclusionPathFromLayers(match.merkleIndex, opts.trustedCasLayers);
+      trustPath = inclusion.path16;
+      trustPathBits = inclusion.bits;
+    } else {
+      trustPath = Array.from({ length: 16 }, (): `0x${string}` => ZERO_BYTES32) as unknown as RegisterArgsV5_2['trustMerklePath'];
+    }
+  } else {
+    trustPath = Array.from({ length: 16 }, (): `0x${string}` => ZERO_BYTES32) as unknown as RegisterArgsV5_2['trustMerklePath'];
+  }
+  // Policy merkle path. Until a real policy registry ships, the admin
+  // sets `policyRoot` to a depth-16 tree that contains the user's
+  // `policyLeafHash` at index 0 with all other leaves = 0. The path
+  // siblings for index 0 are exactly the canonical zero-subtree hashes
+  // (`zeros[0..15]`) — Poseidon₂(0,0), Poseidon₂(zeros[0], zeros[0]),
+  // etc. Bits = 0 (leaf is left-child at every level).
+  const policyZeroes = await zeroHashes(16);
+  const policyPath16 = (Array.from({ length: 16 }, (_, i) => {
+    const z = policyZeroes[i] ?? 0n;
+    return `0x${z.toString(16).padStart(64, '0')}` as `0x${string}`;
+  })) as unknown as RegisterArgsV5_2['policyMerklePath'];
 
   // RegisterArgsV5_2 raw-bytes encoding: pkijs gives us Buffer-typed certs
   // and signedAttrs; viem's writeContract accepts `0x${string}` hex.
@@ -304,9 +385,9 @@ async function runRealPath(
     signedAttrs: signedAttrsHex,
     leafSig: [bytes32ToHex(leafR), bytes32ToHex(leafS)] as const,
     intSig: [bytes32ToHex(intR), bytes32ToHex(intS)] as const,
-    trustMerklePath: path16,
-    trustMerklePathBits: 0n,
-    policyMerklePath: path16,
+    trustMerklePath: trustPath,
+    trustMerklePathBits: trustPathBits,
+    policyMerklePath: policyPath16,
     policyMerklePathBits: 0n,
   };
 
@@ -371,6 +452,198 @@ function extractCertSignatureSeq(certDer: Buffer): Buffer {
  * canonical 91-byte named-curve form; non-conforming CAs would fail
  * `register()`'s SpkiCommit gate anyway.
  */
+/**
+ * Fallback path: walk the bundled `trusted-cas.json` and find the CA
+ * whose `subject` DN matches the leaf's `issuer` DN. Returns the SPKI
+ * of that CA cert. Throws if no match — that's a real failure (the CA
+ * isn't on our trust list, so the resulting proof would never verify
+ * on-chain anyway).
+ *
+ * Used only when the .p7s ships leaf-only (no embedded intermediate)
+ * AND the caller did not pass an explicit `opts.intSpki` override.
+ */
+function resolveIntSpkiFromTrustedCas(
+  leafCertDer: Buffer,
+  trustedCas: { cas: ReadonlyArray<{ certDerB64: string }> },
+): Buffer {
+  return resolveIntCertFromTrustedCas(leafCertDer, trustedCas).spki;
+}
+
+/**
+ * Same lookup as `resolveIntSpkiFromTrustedCas` but returns the full
+ * matched CA's DER, merkleIndex, and SPKI together. Needed for the
+ * trust-merkle-path branch where the registry's `trustedRootHash`
+ * gate requires a non-zero path.
+ */
+function resolveIntCertFromTrustedCas(
+  leafCertDer: Buffer,
+  trustedCas: { cas: ReadonlyArray<{ merkleIndex?: number; certDerB64: string }> },
+): { der: Buffer; spki: Buffer; merkleIndex: number } {
+  const leafIssuerDer = extractIssuerDerFromCert(leafCertDer);
+  const wantHex = bufferToHex(leafIssuerDer);
+
+  // Many QTSPs (Diia notably) ship MULTIPLE intermediate CA certs that
+  // share the same subject DN but use different keys (rotation). Subject-
+  // DN-only matching can pick the wrong key generation, producing an
+  // intSpki whose `spkiCommit` isn't in the trust-list tree → on-chain
+  // BadTrustList revert. The CA cert's `subjectKeyIdentifier` (SKI) is
+  // the disambiguator: the leaf's `authorityKeyIdentifier` (AKI) keyId
+  // points at the exact intermediate that signed it.
+  const leafAki = extractAuthorityKeyIdFromCert(leafCertDer);
+
+  // First pass: collect ALL subject-DN matches; if leaf has an AKI,
+  // pick the candidate whose SKI matches; otherwise return the first
+  // subject-DN match (back-compat behaviour for leaves without AKI).
+  const candidates: Array<{ der: Buffer; merkleIndex: number; ski: Buffer | null }> = [];
+  for (const ca of trustedCas.cas) {
+    let caDer: Buffer;
+    try {
+      caDer = Buffer.from(ca.certDerB64, 'base64');
+    } catch {
+      continue;
+    }
+    let subjDer: Buffer;
+    try {
+      subjDer = extractSubjectDerFromCert(caDer);
+    } catch {
+      continue;
+    }
+    if (bufferToHex(subjDer) !== wantHex) continue;
+    const merkleIndex = typeof ca.merkleIndex === 'number' ? ca.merkleIndex : -1;
+    const ski = extractSubjectKeyIdFromCert(caDer);
+    candidates.push({ der: caDer, merkleIndex, ski });
+  }
+
+  if (candidates.length === 0) {
+    throw new Error(
+      'V5.2 real-prover pipeline: leaf-only .p7s, and the leaf cert\'s issuer ' +
+        'DN does not match any CA in trusted-cas.json. The signing CA may not ' +
+        'be on our trust list, or the LOTL snapshot is out of date.',
+    );
+  }
+
+  if (leafAki !== null && candidates.length > 1) {
+    const akiHex = bufferToHex(leafAki);
+    const exact = candidates.find((c) => c.ski !== null && bufferToHex(c.ski) === akiHex);
+    if (exact) {
+      return { der: exact.der, spki: extractSpkiFromCertDer(exact.der), merkleIndex: exact.merkleIndex };
+    }
+    throw new Error(
+      `V5.2 real-prover pipeline: ${candidates.length} CA candidates share the leaf's ` +
+        `issuer DN (key rotation) but none has a subjectKeyIdentifier matching the leaf's ` +
+        `authorityKeyIdentifier (${akiHex}). The signing intermediate may not be in the ` +
+        'current LOTL snapshot.',
+    );
+  }
+
+  const pick = candidates[0]!;
+  return { der: pick.der, spki: extractSpkiFromCertDer(pick.der), merkleIndex: pick.merkleIndex };
+}
+
+/**
+ * Pull the `keyIdentifier` octet string from a certificate's
+ * authorityKeyIdentifier extension (OID 2.5.29.35). Returns `null`
+ * when the extension is absent or doesn't include a keyIdentifier
+ * (the spec also allows authorityCertIssuer + authorityCertSerialNumber
+ * variants — none of the QTSPs we ship ship those, but pkijs handles
+ * them gracefully).
+ */
+function extractAuthorityKeyIdFromCert(certDer: Buffer): Buffer | null {
+  const ab = new ArrayBuffer(certDer.length);
+  new Uint8Array(ab).set(certDer);
+  const asn = fromBER(ab);
+  if (asn.offset === -1) return null;
+  let cert: Certificate;
+  try { cert = new Certificate({ schema: asn.result }); } catch { return null; }
+  const ext = cert.extensions?.find((e) => e.extnID === '2.5.29.35');
+  if (!ext) return null;
+  // pkijs parses the AKI extnValue into `parsedValue` (an
+  // AuthorityKeyIdentifier object) when its parser recognizes the OID.
+  const parsed = (ext as unknown as { parsedValue?: { keyIdentifier?: { valueBlock: { valueHexView: Uint8Array } } } }).parsedValue;
+  const keyIdHex = parsed?.keyIdentifier?.valueBlock?.valueHexView;
+  if (!keyIdHex) return null;
+  return Buffer.from(new Uint8Array(keyIdHex));
+}
+
+/**
+ * Pull the keyIdentifier from a CA cert's subjectKeyIdentifier
+ * extension (OID 2.5.29.14). Returns `null` when absent. Used to
+ * disambiguate same-subject-DN CA candidates (key rotation).
+ */
+function extractSubjectKeyIdFromCert(certDer: Buffer): Buffer | null {
+  const ab = new ArrayBuffer(certDer.length);
+  new Uint8Array(ab).set(certDer);
+  const asn = fromBER(ab);
+  if (asn.offset === -1) return null;
+  let cert: Certificate;
+  try { cert = new Certificate({ schema: asn.result }); } catch { return null; }
+  const ext = cert.extensions?.find((e) => e.extnID === '2.5.29.14');
+  if (!ext) return null;
+  const parsed = (ext as unknown as { parsedValue?: { valueBlock: { valueHexView: Uint8Array } } }).parsedValue;
+  const ski = parsed?.valueBlock?.valueHexView;
+  if (!ski) return null;
+  return Buffer.from(new Uint8Array(ski));
+}
+
+/**
+ * Pack `merkleLookup.buildInclusionPath` output into the calldata
+ * shape `RegisterArgsV5_2` expects: 16 × bytes32 sibling hashes, plus
+ * a single uint256 bitmask where bit `i` is 1 iff the leaf was the
+ * RIGHT child at level `i` (i.e. the sibling on the LEFT). Matches the
+ * V5.2 contract's `_verifyMerklePath` walker direction.
+ */
+async function buildInclusionPathFromLayers(
+  index: number,
+  layers: { depth: number; layers: ReadonlyArray<ReadonlyArray<string>> },
+): Promise<{
+  path16: RegisterArgsV5_2['trustMerklePath'];
+  bits: bigint;
+}> {
+  // `merkleLookup.buildInclusionPath` consumes a mutable LayersFile;
+  // shallow-clone the readonly nested arrays into mutable equivalents.
+  const layersMut = {
+    depth: layers.depth,
+    layers: layers.layers.map((l) => l.slice()),
+  };
+  const proof = await buildInclusionPath(index, layersMut);
+  // Pad/truncate path to exactly 16 entries (V5.2 fixed-depth tree).
+  const padded: `0x${string}`[] = [];
+  for (let i = 0; i < 16; i++) {
+    const v = proof.pathHex[i];
+    padded.push(v ? (v as `0x${string}`) : ZERO_BYTES32);
+  }
+  let bits = 0n;
+  for (let i = 0; i < 16; i++) {
+    if ((proof.indices[i] ?? 0) === 1) bits |= 1n << BigInt(i);
+  }
+  return {
+    path16: padded as unknown as RegisterArgsV5_2['trustMerklePath'],
+    bits,
+  };
+}
+
+function extractIssuerDerFromCert(certDer: Buffer): Buffer {
+  const ab = new ArrayBuffer(certDer.length);
+  new Uint8Array(ab).set(certDer);
+  const asn = fromBER(ab);
+  if (asn.offset === -1) throw new Error('extractIssuerDerFromCert: invalid BER');
+  const cert = new Certificate({ schema: asn.result });
+  return Buffer.from(new Uint8Array(cert.issuer.toSchema().toBER(false)));
+}
+
+function extractSubjectDerFromCert(certDer: Buffer): Buffer {
+  const ab = new ArrayBuffer(certDer.length);
+  new Uint8Array(ab).set(certDer);
+  const asn = fromBER(ab);
+  if (asn.offset === -1) throw new Error('extractSubjectDerFromCert: invalid BER');
+  const cert = new Certificate({ schema: asn.result });
+  return Buffer.from(new Uint8Array(cert.subject.toSchema().toBER(false)));
+}
+
+function bufferToHex(b: Buffer): string {
+  return b.toString('hex');
+}
+
 function extractSpkiFromCertDer(certDer: Buffer): Buffer {
   const ab = new ArrayBuffer(certDer.length);
   new Uint8Array(ab).set(certDer);
@@ -467,9 +740,10 @@ async function runMockPath(
   tick('encode-calldata', 95);
   const proof: Groth16ProofV5_2 = {
     a: [BigInt(proveResult.proof.pi_a[0] ?? '0'), BigInt(proveResult.proof.pi_a[1] ?? '0')] as const,
+    // G2 Fp2 limb swap — same reason as the real-path pack above.
     b: [
-      [BigInt(proveResult.proof.pi_b[0]?.[0] ?? '0'), BigInt(proveResult.proof.pi_b[0]?.[1] ?? '0')] as const,
-      [BigInt(proveResult.proof.pi_b[1]?.[0] ?? '0'), BigInt(proveResult.proof.pi_b[1]?.[1] ?? '0')] as const,
+      [BigInt(proveResult.proof.pi_b[0]?.[1] ?? '0'), BigInt(proveResult.proof.pi_b[0]?.[0] ?? '0')] as const,
+      [BigInt(proveResult.proof.pi_b[1]?.[1] ?? '0'), BigInt(proveResult.proof.pi_b[1]?.[0] ?? '0')] as const,
     ] as const,
     c: [BigInt(proveResult.proof.pi_c[0] ?? '0'), BigInt(proveResult.proof.pi_c[1] ?? '0')] as const,
   };

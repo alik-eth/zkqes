@@ -49,11 +49,24 @@ export interface V5ProverArtifacts {
  * ceremony pump. A future commit (lead-side) replaces these with the
  * real R2 URLs + sha256 hashes.
  */
+// Vite-time env overrides for local-dev / pre-ceremony manual smoke
+// tests. Set in `packages/web/.env.local` to point the prover at a
+// locally-served wasm + zkey (typically the V5_2 stub artifacts under
+// `public/local-zkey/`). Empty/unset → fall back to the post-ceremony
+// placeholders that fail loudly via assertV5ArtifactsConfigured().
+const env = (typeof import.meta !== 'undefined' ? import.meta.env : undefined) as
+  | Record<string, string | undefined>
+  | undefined;
+const envWasmUrl = env?.VITE_V5_WASM_URL;
+const envZkeyUrl = env?.VITE_V5_ZKEY_URL;
+const envWasmSha = env?.VITE_V5_WASM_SHA256;
+const envZkeySha = env?.VITE_V5_ZKEY_SHA256;
+
 export const V5_PROVER_ARTIFACTS: V5ProverArtifacts = {
-  wasmUrl: '__V5_PROVER_WASM_URL__',
-  zkeyUrl: '__V5_PROVER_ZKEY_URL__',
-  wasmSha256: '__V5_PROVER_WASM_SHA256__',
-  zkeySha256: '__V5_PROVER_ZKEY_SHA256__',
+  wasmUrl: envWasmUrl || '__V5_PROVER_WASM_URL__',
+  zkeyUrl: envZkeyUrl || '__V5_PROVER_ZKEY_URL__',
+  wasmSha256: envWasmSha || '__V5_PROVER_WASM_SHA256__',
+  zkeySha256: envZkeySha || '__V5_PROVER_ZKEY_SHA256__',
   schemaVersion: 'zkqes/2.0',
   expectedConstraintCount: 3_000_000,  // ±20% per V5 spec envelope
   expectedZkeyBytes: 1_500_000_000,    // ~1.5GB target post-ceremony

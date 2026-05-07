@@ -143,20 +143,32 @@ export function MintScreen() {
             </button>
           )}
           {(minted || txMined) && (
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <a
-                href={`https://${
-                  chainId === 8453
-                    ? 'opensea.io/assets/base/'
-                    : 'testnets.opensea.io/assets/sepolia/'
-                }${dep?.zkqesCertificate}/${previewTokenId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="ct-link"
-                style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
-              >
-                {t('mint.opensea', 'View on OpenSea')}
-              </a>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              {/* OpenSea retired testnet support 2025-07-24. Mainnet
+                  Base → OpenSea; testnets → block explorer NFT view. */}
+              {chainId === 8453 ? (
+                <a
+                  href={`https://opensea.io/assets/base/${dep?.zkqesCertificate}/${previewTokenId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ct-link"
+                  style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
+                >
+                  {t('mint.opensea', 'View on OpenSea')}
+                </a>
+              ) : (
+                <a
+                  href={`https://${
+                    chainId === 84532 ? 'sepolia.basescan.org' : 'sepolia.etherscan.io'
+                  }/nft/${dep?.zkqesCertificate}/${previewTokenId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ct-link"
+                  style={{ fontFamily: 'var(--mono)', fontSize: '14px' }}
+                >
+                  View on {chainId === 84532 ? 'Basescan' : 'Etherscan'}
+                </a>
+              )}
               <a
                 href={`https://twitter.com/intent/tweet?text=I'm a verified Ukrainian. Certificate %E2%84%96${previewTokenId} on zkqes.org`}
                 target="_blank"

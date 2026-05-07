@@ -7,31 +7,50 @@ import { wagmiConfig } from '../../lib/wagmi';
 
 const queryClient = new QueryClient();
 
-const civicTheme = lightTheme({
-  accentColor: '#1F2D5C',
-  accentColorForeground: '#F4EFE6',
+// Curve-2021 brutalist palette — sharp borders, paper bg, UA blue / yellow
+// accent. Retunes RainbowKit's modal + default ConnectButton chrome to
+// match the rest of the app. The HomeDocument status-bar wallet pill
+// uses ConnectButton.Custom for a tighter fit, but secondary surfaces
+// (e.g. ProveAge / Rotate flows) still render the default chrome and
+// pick up these tokens.
+const curveTheme = lightTheme({
+  accentColor: '#0057B7',          // UA blue
+  accentColorForeground: '#FFD700',// UA yellow
   borderRadius: 'none',
   fontStack: 'system',
 });
-
-// Override the slot colors RainbowKit doesn't expose via the lightTheme
-// constructor so the modal surfaces match the civic-monumental palette.
-civicTheme.colors.modalBackground = '#F4EFE6';
-civicTheme.colors.modalText = '#14130E';
-civicTheme.colors.modalTextSecondary = '#14130E';
-civicTheme.colors.actionButtonBorder = 'transparent';
-civicTheme.colors.actionButtonBorderMobile = 'transparent';
-civicTheme.colors.connectButtonBackground = '#1F2D5C';
-civicTheme.colors.connectButtonText = '#F4EFE6';
-civicTheme.colors.profileForeground = '#F4EFE6';
-civicTheme.colors.menuItemBackground = '#F4EFE6';
-civicTheme.fonts.body =
-  '"Söhne", "Inter Tight", "Helvetica Neue", system-ui, sans-serif';
-civicTheme.radii.modal = '0px';
-civicTheme.radii.modalMobile = '0px';
-civicTheme.radii.connectButton = '0px';
-civicTheme.radii.menuButton = '0px';
-civicTheme.radii.actionButton = '0px';
+curveTheme.colors.modalBackground = '#f4f0e0';
+curveTheme.colors.modalText = '#1a1a1a';
+curveTheme.colors.modalTextSecondary = '#6b6558';
+curveTheme.colors.modalBorder = '#1a1a1a';
+curveTheme.colors.actionButtonBorder = '#1a1a1a';
+curveTheme.colors.actionButtonBorderMobile = '#1a1a1a';
+curveTheme.colors.actionButtonSecondaryBackground = '#FFD700';
+curveTheme.colors.connectButtonBackground = '#FFD700';
+curveTheme.colors.connectButtonBackgroundError = '#f3c5c5';
+curveTheme.colors.connectButtonInnerBackground = '#FFD700';
+curveTheme.colors.connectButtonText = '#1a1a1a';
+curveTheme.colors.connectButtonTextError = '#1a1a1a';
+curveTheme.colors.profileForeground = '#f4f0e0';
+curveTheme.colors.profileAction = '#FFD700';
+curveTheme.colors.profileActionHover = '#FFE94D';
+curveTheme.colors.menuItemBackground = '#f4f0e0';
+curveTheme.colors.closeButton = '#1a1a1a';
+curveTheme.colors.closeButtonBackground = '#FFD700';
+curveTheme.colors.standby = '#FFD700';
+curveTheme.fonts.body =
+  '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+curveTheme.radii.modal = '0px';
+curveTheme.radii.modalMobile = '0px';
+curveTheme.radii.connectButton = '0px';
+curveTheme.radii.menuButton = '0px';
+curveTheme.radii.actionButton = '0px';
+curveTheme.shadows.connectButton = '3px 3px 0 #1a1a1a';
+curveTheme.shadows.dialog = '6px 6px 0 #1a1a1a';
+curveTheme.shadows.profileDetailsAction = '2px 2px 0 #1a1a1a';
+curveTheme.shadows.selectedOption = '2px 2px 0 #1a1a1a';
+curveTheme.shadows.selectedWallet = '2px 2px 0 #1a1a1a';
+curveTheme.shadows.walletLogo = 'none';
 
 const appInfo = {
   appName: 'zkqes',
@@ -45,7 +64,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider theme={civicTheme} appInfo={appInfo}>
+        <RainbowKitProvider theme={curveTheme} appInfo={appInfo}>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>

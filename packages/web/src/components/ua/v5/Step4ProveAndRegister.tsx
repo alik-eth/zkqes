@@ -16,6 +16,7 @@ import {
   parseP7s,
   findSubjectSerial,
   CliProveError,
+  type RegisterArgsV5_2,
 } from '@zkqes/sdk';
 import {
   isV5ArtifactsConfigured,
@@ -31,6 +32,7 @@ import {
   type GetCodeClient,
 } from '../../../lib/walletSecret';
 import { useCliPresence } from '../../../hooks/useCliPresence';
+import { useCeremonyPhase } from '../../../hooks/useCeremonyPhase';
 import { CliBanner } from './CliBanner';
 import { ScwPassphraseModal } from './ScwPassphraseModal';
 // Multi-QTSP facade T13: surface `cert.berInput` ZkqesErrors via the
@@ -84,6 +86,15 @@ const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
  * The UI gates the "Generate proof + register" button on the
  * mode-resolution outcome: configured (real) OR explicit mock toggle.
  */
+function explorerTxUrl(chainId: number, txHash: string): string {
+  const base =
+    chainId === 8453 ? 'https://basescan.org' :
+    chainId === 84532 ? 'https://sepolia.basescan.org' :
+    chainId === 11155111 ? 'https://sepolia.etherscan.io' :
+    'https://etherscan.io';
+  return `${base}/tx/${txHash}`;
+}
+
 export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -123,7 +134,7 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
   /** Source of the proof actually generated. 'cli' = native fast path,
    *  'browser' = in-browser snarkjs, 'mock' = e2e/dev. Set after a
    *  successful pipeline run; surfaced as a small receipt under the CTA. */
-  const [proofSource, setProofSource] = useState<'cli' | 'browser' | 'mock' | null>(null);
+  const [proofSource, setProofSource] = useState<'cli' | 'browser' | 'mock' | 'uploaded' | null>(null);
   /** Toast copy emitted by the pipeline when CLI prove failed and
    *  fallback to browser fired. Cleared at start of each new attempt. */
   const [cliFallbackToast, setCliFallbackToast] = useState<string | null>(null);
@@ -133,6 +144,16 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
   const { isSuccess: txMined } = useWaitForTransactionReceipt({ hash: txHash });
 
   const [pipelineDone, setPipelineDone] = useState(false);
+  // Captured `RegisterArgsV5_2` from the most recent successful prove
+  // run. Lifts the closure-local value out of `runPipelineAndSubmit`
+  // so the post-success UI can render a "Download proof.json" button
+  // — useful for replay, debugging revert reasons against an Anvil
+  // fork, or sharing a witness with circuits-eng without re-proving.
+  const [provedArgs, setProvedArgs] = useState<RegisterArgsV5_2 | null>(null);
+  /** Mirror of `pipelineError` for the upload-replay path. Surfaces
+   *  shape-validation failures (wrong schema, missing field, malformed
+   *  hex) verbatim so the user can fix the file rather than re-prove. */
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [submitSkippedReason, setSubmitSkippedReason] = useState<string | null>(
     null,
   );
@@ -140,6 +161,7 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
   // SCW path state. When SCW is detected, we open the passphrase modal
   // and stash the subjectSerial bytes so the modal's onSubmit can derive
   // the wallet-secret without re-parsing the .p7s.
+  const [txCopied, setTxCopied] = useState(false);
   const [scwModalOpen, setScwModalOpen] = useState(false);
   const [pendingSubjectSerial, setPendingSubjectSerial] = useState<Uint8Array | null>(null);
   const [scwDeriving, setScwDeriving] = useState(false);
@@ -191,6 +213,24 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
   ) => {
     setCliFallbackToast(null);
     setProofSource(null);
+    // Trusted-CA fallback for leaf-only .p7s files. The pipeline only
+    // consults this when `cms.intCertDer` is missing AND no explicit
+    // `opts.intSpki` was passed; cheap to fetch eagerly since the file
+    // is bundled in /trusted-cas/ and HTTP-cached aggressively.
+    const trustedCas = useMockProver
+      ? undefined
+      : await fetch('/trusted-cas/trusted-cas.json')
+          .then((r) => r.json() as Promise<{ cas: ReadonlyArray<{ merkleIndex: number; certDerB64: string }> }>)
+          .catch(() => undefined);
+    // Fetch the per-level Merkle layers in parallel — needed for the
+    // trustMerklePath/trustMerklePathBits inclusion proof against the
+    // contract's `trustedRootHash`. Without this the registry reverts
+    // with `BadTrustList()`.
+    const trustedCasLayers = useMockProver
+      ? undefined
+      : await fetch('/trusted-cas/layers.json')
+          .then((r) => r.json() as Promise<{ depth: number; layers: ReadonlyArray<ReadonlyArray<string>> }>)
+          .catch(() => undefined);
     const { registerArgs, source } = await runV5_2Pipeline(p7s, {
       useMockProver,
       bindingBytes,
@@ -199,10 +239,13 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         setCliFallbackToast(cliFallbackCopy(err));
       },
       ...(walletSecret !== undefined ? { walletSecret } : {}),
+      ...(trustedCas !== undefined ? { trustedCas } : {}),
+      ...(trustedCasLayers !== undefined ? { trustedCasLayers } : {}),
       onProgress: setStage,
     });
     setProofSource(source);
     setPipelineDone(true);
+    setProvedArgs(registerArgs);
     if (!v5Deployed) {
       setSubmitSkippedReason(t('mintV5.awaitingDeploy'));
       return;
@@ -217,6 +260,15 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
     // dropped from the public signals; the contract recomputes
     // keccak(bindingPk) on-chain from the four proven bindingPk* limbs
     // (slots 18-21) and gates against the caller's address.
+    submitRegister(registerArgs);
+  };
+
+  /** Fire `register()` with a known-good `RegisterArgsV5_2`. Shared by
+   *  the post-prove submission path and the "upload proof.json" replay
+   *  path — both produce the same calldata shape; only the source of
+   *  the args differs. */
+  const submitRegister = (registerArgs: RegisterArgsV5_2): void => {
+    if (!v5Deployed) return;
     writeContract({
       address: dep!.registryV5,
       abi: zkqesRegistryV5_2Abi,
@@ -234,7 +286,69 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         registerArgs.policyMerklePath,
         registerArgs.policyMerklePathBits,
       ],
+      // Pin an explicit gas limit. V5.2 register() runs the on-chain
+      // Groth16 verifier + ECDSA-via-EIP-7212 + 4 storage writes; on
+      // Base Sepolia that lands ~900k–1.2M gas. Leave headroom for
+      // calldata-cost variation across QTSP cert sizes. Wagmi's auto-
+      // estimation has been observed returning sub-intrinsic values
+      // for calldata-heavy txs (~5.5KB here), tripping the node's
+      // "intrinsic gas too low" pre-flight reject.
+      gas: 2_500_000n,
     });
+  };
+
+  /**
+   * Replay path: upload a `proof.json` previously emitted by the
+   * Download button (or by another zkqes client targeting the same
+   * V5.2 schema) and skip straight to the on-chain `register()` call.
+   * No re-prove, no .p7s/.binding/walletSecret needed.
+   *
+   * The schema sentinel is `zkqes/register-args/v5_2`. bigint fields
+   * are decimal strings on disk; rehydrate via `BigInt(...)`. The
+   * shape validator (`assertRegisterArgsV5_2Shape` from the SDK)
+   * catches malformed hex / wrong slot counts before the wallet popup.
+   */
+  const onUploadProof = (file: File): void => {
+    setUploadError(null);
+    void (async () => {
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text) as unknown;
+        if (typeof parsed !== 'object' || parsed === null) {
+          throw new Error('proof file is not a JSON object');
+        }
+        const obj = parsed as Record<string, unknown>;
+        if (obj.schema !== 'zkqes/register-args/v5_2') {
+          throw new Error(
+            `unrecognized schema: ${String(obj.schema)} (expected "zkqes/register-args/v5_2")`,
+          );
+        }
+        const rawArgs = obj.args;
+        if (typeof rawArgs !== 'object' || rawArgs === null) {
+          throw new Error('proof.args missing or not an object');
+        }
+        const a = rawArgs as Record<string, unknown>;
+        // Rehydrate the two bigint slots — Merkle path bitmasks. All
+        // other numeric fields stay as strings here; viem auto-coerces
+        // through the ABI encoder.
+        const trustBits = typeof a.trustMerklePathBits === 'string' || typeof a.trustMerklePathBits === 'number'
+          ? BigInt(a.trustMerklePathBits)
+          : (() => { throw new Error('trustMerklePathBits missing'); })();
+        const policyBits = typeof a.policyMerklePathBits === 'string' || typeof a.policyMerklePathBits === 'number'
+          ? BigInt(a.policyMerklePathBits)
+          : (() => { throw new Error('policyMerklePathBits missing'); })();
+        const rehydrated = {
+          ...a,
+          trustMerklePathBits: trustBits,
+          policyMerklePathBits: policyBits,
+        } as unknown as RegisterArgsV5_2;
+        setProvedArgs(rehydrated);
+        setProofSource('uploaded');
+        setPipelineDone(true);
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : String(err));
+      }
+    })();
   };
 
   const onProveAndRegister = async () => {
@@ -407,21 +521,9 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
       {/* CLI nudge banner. Self-suppresses when CLI is detected,
           dismissed, or still detecting — see CliBanner.tsx. */}
       <CliBanner />
-      {!canProve && (
-        <p role="status" data-testid="v5-ceremony-pending" style={statusStyle}>
-          {t('registerV5.step4.ceremonyPending')}
-        </p>
-      )}
-      {stage && (
-        <p
-          role="status"
-          data-testid="v5-pipeline-stage"
-          style={{ ...statusStyle, color: 'var(--ct-ink)' }}
-        >
-          {stage.stage}
-          {stage.message ? ` — ${stage.message}` : ''}
-          {' '}({Math.round(stage.pct)}%)
-        </p>
+      {!canProve && <CeremonyPendingPanel />}
+      {(stage || pipelineDone) && (
+        <PipelineStageList stage={stage} done={pipelineDone} />
       )}
       {pipelineError && (
         <p role="alert" style={errStyle}>
@@ -438,15 +540,83 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
           proved via: {proofSource}
         </p>
       )}
+      {provedArgs && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => downloadProofJson(provedArgs)}
+            className="cv-btn is-ghost is-sm"
+            data-testid="v5-download-proof"
+          >
+            ⤓ Download proof.json
+          </button>
+          {proofSource === 'uploaded' && v5Deployed && (
+            <button
+              type="button"
+              onClick={() => submitRegister(provedArgs)}
+              disabled={txPending}
+              className="cv-btn"
+              data-testid="v5-submit-uploaded-proof"
+            >
+              ▶ Submit register() with this proof
+            </button>
+          )}
+        </div>
+      )}
+      {uploadError && (
+        <p role="alert" style={errStyle}>
+          {uploadError}
+        </p>
+      )}
+      {!pipelineDone && (
+        <label
+          className="cv-btn is-ghost is-sm"
+          style={{ cursor: 'pointer', alignSelf: 'flex-start' }}
+          data-testid="v5-upload-proof-cta"
+        >
+          ⤒ Upload existing proof.json (skip prove)
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onUploadProof(f);
+              e.target.value = '';
+            }}
+            style={{ display: 'none' }}
+          />
+        </label>
+      )}
       {pipelineDone && submitSkippedReason && (
         <p role="status" data-testid="v5-submit-skipped" style={statusStyle}>
           {submitSkippedReason}
         </p>
       )}
       {txHash && (
-        <p data-testid="v5-tx-hash" style={monoXsStyle}>
-          tx: {txHash.slice(0, 12)}…
-        </p>
+        <div data-testid="v5-tx-hash" style={{ ...monoXsStyle, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          <span>tx: {txHash.slice(0, 12)}…</span>
+          <button
+            type="button"
+            className="ct-btn ct-btn--sm ct-btn--ghost"
+            onClick={() => {
+              navigator.clipboard?.writeText(txHash).catch(() => {});
+              setTxCopied(true);
+              window.setTimeout(() => setTxCopied(false), 1500);
+            }}
+            data-testid="v5-tx-copy"
+          >
+            {txCopied ? '✓ copied' : '⧉ copy'}
+          </button>
+          <a
+            href={explorerTxUrl(chainId, txHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ct-btn ct-btn--sm ct-btn--ghost"
+            data-testid="v5-tx-explorer"
+          >
+            ↗ explorer
+          </a>
+        </div>
       )}
       {writeError && (
         <p role="alert" style={errStyle}>
@@ -458,10 +628,11 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         onClick={onProveAndRegister}
         disabled={!canProve || txPending}
         data-testid="v5-prove-register-cta"
-        className="ct-btn"
+        className="cv-btn"
         style={{
           opacity: !canProve || txPending ? 0.5 : 1,
           cursor: !canProve || txPending ? 'not-allowed' : 'pointer',
+          alignSelf: 'flex-start',
         }}
       >
         {t('registerV5.step4.cta')}
@@ -469,7 +640,8 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
       <button
         type="button"
         onClick={onBack}
-        className="ct-btn"
+        className="cv-btn is-ghost"
+        style={{ alignSelf: 'flex-start' }}
       >
         {t('registerV5.step4.back')}
       </button>
@@ -486,5 +658,284 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         />
       )}
     </section>
+  );
+}
+
+/**
+ * Single big PROVE progress card. Parse-CAdES / build-witness / encode-
+ * calldata each take <1s and nobody cares about them — only the proof
+ * matters (~14s CLI / ~5min browser, V5.3 ~3.9M constraints). Submit +
+ * mined are post-prove blockchain UX surfaced separately via the txHash
+ * line above.
+ *
+ * States:
+ *   - prep    (parse-cades / build-witness / encode-calldata): "Preparing inputs…"
+ *   - proving (prove): big % + elapsed seconds
+ *   - posting (submit / mined): "✓ Proof generated. Waiting on wallet…"
+ *   - done    (`done` flag): "✓ Proof generated in Xs"
+ */
+/**
+ * Serialize a `RegisterArgsV5_2` to JSON and trigger a browser
+ * download. `bigint` values (Merkle path bits, public-signal slots) get
+ * stringified to decimal — the receiver can rehydrate via `BigInt(...)`
+ * keyed off the well-known schema. Includes a small header so out-of-
+ * band readers can tell which contract version + chain the args target.
+ */
+function downloadProofJson(args: RegisterArgsV5_2): void {
+  const replacer = (_key: string, value: unknown): unknown =>
+    typeof value === 'bigint' ? value.toString() : value;
+  const payload = {
+    schema: 'zkqes/register-args/v5_2',
+    generatedAt: new Date().toISOString(),
+    args,
+  };
+  const json = JSON.stringify(payload, replacer, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `zkqes-proof-${Date.now()}.json`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
+ * Brutalist proving panel — 4-row active-flow header + hatched
+ * separator + huge % readout + diagonal-striped progress bar (UA
+ * yellow/blue). Mirrors the locked mockup. Submit/mined detail
+ * surfaces below via the existing txHash + writeError lines.
+ */
+function PipelineStageList({
+  stage,
+  done,
+}: {
+  stage: V5_2PipelineProgress | null;
+  done: boolean;
+}) {
+  type Phase = 'prep' | 'proving' | 'posting' | 'done';
+  let phase: Phase = 'prep';
+  if (done) phase = 'done';
+  else if (stage?.stage === 'prove') phase = 'proving';
+  else if (stage && (stage.stage === 'submit' || stage.stage === 'mined')) phase = 'posting';
+
+  const elapsedSec = stage?.elapsedMs ? stage.elapsedMs / 1000 : null;
+  const pct =
+    phase === 'done' ? 100 :
+    phase === 'posting' ? 100 :
+    phase === 'proving' && stage?.stage === 'prove' ? Math.max(0, Math.min(100, Math.round(stage.pct))) :
+    0;
+
+  // ETA from linear extrapolation of prove progress; only valid for
+  // phase==='proving' && pct in (0, 100).
+  let etaText = '—';
+  if (phase === 'proving' && pct > 1 && pct < 100 && elapsedSec) {
+    const totalSec = elapsedSec * (100 / pct);
+    const remaining = Math.max(0, totalSec - elapsedSec);
+    const m = Math.floor(remaining / 60);
+    const s = Math.round(remaining % 60);
+    etaText = m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+  } else if (phase === 'done') etaText = '0s';
+  else if (phase === 'posting') etaText = 'on chain…';
+
+  // Best-effort heap reading. Chrome-only (`performance.memory`); other
+  // browsers report '—'. Static "/ 38 GB" hint is the V5.3 snarkjs peak.
+  const perfMem = (typeof performance !== 'undefined'
+    ? (performance as unknown as { memory?: { usedJSHeapSize?: number } }).memory
+    : undefined);
+  const usedGib = perfMem?.usedJSHeapSize ? (perfMem.usedJSHeapSize / (1024 ** 3)).toFixed(1) : null;
+
+  const phaseLabel: Record<Phase, string> = {
+    prep: 'PREPARING INPUTS',
+    proving: 'GENERATING ZK-PROOF',
+    posting: 'PROOF READY · ANCHORING',
+    done: 'PROOF GENERATED',
+  };
+
+  return (
+    <div data-testid="v5-pipeline-stage" style={{
+      border: '2px solid var(--cv-ink)',
+      background: '#fff',
+      padding: '14px 16px',
+      fontFamily: 'var(--cv-mono)',
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--cv-mute)',
+      }}>
+        <span style={{
+          width: 10, height: 10, background: 'var(--cv-ua-blue)',
+          border: '1.5px solid var(--cv-ink)', flex: 'none',
+        }} />
+        <span style={{ color: 'var(--cv-ink)', fontWeight: 700 }}>active flow · register a wallet</span>
+      </div>
+
+      {/* Hatched separator */}
+      <div style={{
+        height: 10,
+        background: 'repeating-linear-gradient(45deg, var(--cv-ink) 0 6px, transparent 6px 12px)',
+        border: '2px solid var(--cv-ink)',
+      }} />
+
+      {/* Big % + meta row */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'baseline', gap: 18,
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'baseline', gap: 8,
+        }}>
+          <span style={{
+            fontFamily: 'var(--cv-display)', fontSize: 56, lineHeight: .9,
+            color: 'var(--cv-ua-blue)', letterSpacing: '.02em',
+          }}>
+            {String(pct).padStart(3, '0')}
+          </span>
+          <span style={{
+            fontFamily: 'var(--cv-mono)', fontSize: 18, color: 'var(--cv-ink)', fontWeight: 700,
+          }}>%</span>
+        </div>
+        <div style={{
+          display: 'flex', justifyContent: 'flex-end', gap: 14, flexWrap: 'wrap',
+          fontFamily: 'var(--cv-mono)', fontSize: 12, color: 'var(--cv-mute)',
+          letterSpacing: '.04em',
+        }}>
+          <span><b style={{ color: 'var(--cv-ink)' }}>{phaseLabel[phase]}</b></span>
+          {phase === 'proving' && (
+            <>
+              <span>RAM <b style={{ color: 'var(--cv-ink)' }}>{usedGib ?? '—'}</b> / 38 GB</span>
+              <span>ETA <b style={{ color: 'var(--cv-ink)' }}>{etaText}</b></span>
+            </>
+          )}
+          {phase === 'done' && elapsedSec && (
+            <span>elapsed <b style={{ color: '#2e7d32' }}>{elapsedSec.toFixed(1)}s</b></span>
+          )}
+        </div>
+      </div>
+
+      {/* Diagonal-striped progress bar */}
+      <div style={{
+        height: 22, border: '2px solid var(--cv-ink)', background: '#fff',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, bottom: 0,
+          width: `${pct}%`,
+          background: 'repeating-linear-gradient(45deg, var(--cv-ua-yellow) 0 10px, var(--cv-ua-blue) 10px 20px)',
+          transition: 'width .25s linear',
+        }} />
+      </div>
+
+      {/* Status line — what's happening, in plain terms */}
+      <p style={{
+        margin: 0, fontSize: 12.5, color: '#5b5648', lineHeight: 1.5,
+      }}>
+        {phase === 'prep' && 'parsing .p7s, building witness, packing calldata — sub-second.'}
+        {phase === 'proving' && (stage?.message ?? 'V5.3 ~3.9M-constraint Groth16. CLI ~14s · browser ~5 min.')}
+        {phase === 'posting' && (stage?.stage === 'mined' ? 'mined.' : 'waiting on wallet to submit register()…')}
+        {phase === 'done' && 'proof ready. anchor it on Base Sepolia below.'}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Brutalist "ceremony pending" panel — same visual grammar as the
+ * proving panel above. Shows current ceremony round / total rounds as
+ * a percentage, with the recruiting/contributing/finalizing phase
+ * label and a striped progress bar.
+ *
+ * This block renders when `canProve === false`: either the ceremony
+ * isn't done yet (the common case) or the build is missing real-prover
+ * artifact URLs. Either way the user can't fire the prove button — we
+ * surface why, and how far along the trusted setup is.
+ */
+function CeremonyPendingPanel() {
+  const { t } = useTranslation();
+  const { phase, status } = useCeremonyPhase();
+  const round = status?.round ?? 0;
+  const total = status?.totalRounds ?? 0;
+  const pct =
+    total > 0 ? Math.max(0, Math.min(100, Math.round((round / total) * 100))) : 0;
+
+  const phaseLabel =
+    phase === 'live' ? 'LIVE — REFRESH'
+    : phase === 'ceremony-live' ? 'CONTRIBUTING'
+    : 'RECRUITING';
+
+  const meta =
+    total > 0 ? `round ${round} / ${total}` : 'awaiting first contributor';
+
+  return (
+    <div data-testid="v5-ceremony-pending" style={{
+      border: '2px solid var(--cv-ink)',
+      background: '#fff',
+      padding: '14px 16px',
+      fontFamily: 'var(--cv-mono)',
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--cv-mute)',
+      }}>
+        <span style={{
+          width: 10, height: 10, background: 'var(--cv-ua-yellow)',
+          border: '1.5px solid var(--cv-ink)', flex: 'none',
+        }} />
+        <span style={{ color: 'var(--cv-ink)', fontWeight: 700 }}>
+          ceremony · trusted setup
+        </span>
+      </div>
+
+      <div style={{
+        height: 10,
+        background: 'repeating-linear-gradient(45deg, var(--cv-ink) 0 6px, transparent 6px 12px)',
+        border: '2px solid var(--cv-ink)',
+      }} />
+
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'baseline', gap: 18,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{
+            fontFamily: 'var(--cv-display)', fontSize: 56, lineHeight: .9,
+            color: 'var(--cv-ua-blue)', letterSpacing: '.02em',
+          }}>
+            {String(pct).padStart(3, '0')}
+          </span>
+          <span style={{
+            fontFamily: 'var(--cv-mono)', fontSize: 18, color: 'var(--cv-ink)', fontWeight: 700,
+          }}>%</span>
+        </div>
+        <div style={{
+          display: 'flex', justifyContent: 'flex-end', gap: 14, flexWrap: 'wrap',
+          fontFamily: 'var(--cv-mono)', fontSize: 12, color: 'var(--cv-mute)',
+          letterSpacing: '.04em',
+        }}>
+          <span><b style={{ color: 'var(--cv-ink)' }}>{phaseLabel}</b></span>
+          <span><b style={{ color: 'var(--cv-ink)' }}>{meta}</b></span>
+        </div>
+      </div>
+
+      <div style={{
+        height: 22, border: '2px solid var(--cv-ink)', background: '#fff',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, bottom: 0,
+          width: `${pct}%`,
+          background: 'repeating-linear-gradient(45deg, var(--cv-ua-yellow) 0 10px, var(--cv-ua-blue) 10px 20px)',
+          transition: 'width .25s linear',
+        }} />
+      </div>
+
+      <p style={{
+        margin: 0, fontSize: 12.5, color: '#5b5648', lineHeight: 1.5,
+      }}>
+        {t('registerV5.step4.ceremonyPending')}
+      </p>
+    </div>
   );
 }

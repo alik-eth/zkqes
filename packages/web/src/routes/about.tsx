@@ -49,7 +49,7 @@ export function AboutScreen() {
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
       <TopBar active="about" />
-      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
 
         {/* HERO */}
         <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
@@ -176,7 +176,7 @@ export function AboutScreen() {
           TIMELINE.
         </h2>
         <section className="cv-card">
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${TIMELINE.length}, 1fr)`, gap: 0, position: 'relative' }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: `repeat(${TIMELINE.length}, 1fr)`, gap: 0, position: 'relative' }}>
             {TIMELINE.map(([when, label, body, st], i) => {
               const bg = st === 'active' ? 'var(--cv-ua-yellow)' : st === 'done' ? 'var(--cv-ok)' : '#fff';
               return (
@@ -202,7 +202,7 @@ export function AboutScreen() {
             <span className="cv-ix">↳</span>
             <span>EDITORIAL · WHY EIDAS, WHY UA FIRST</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, fontSize: 13.5, lineHeight: 1.6 }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, fontSize: 13.5, lineHeight: 1.6 }}>
             <p style={{ margin: 0 }}>
               EU eIDAS (Reg. 910/2014) is the largest deployment of qualified electronic
               signatures in the world. 27 member states, {QTSP_SUMMARY_META.totalTsps} listed QTSPs, ~50M citizens
@@ -297,7 +297,7 @@ export function AboutScreen() {
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-ok">audit · open</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, fontSize: 12 }}>
+          <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, fontSize: 12 }}>
             <LicenseCol head="repo" lines={[
               ['github.com/alik-eth/zkqes', 'https://github.com/alik-eth/zkqes'],
               ['issues', 'https://github.com/alik-eth/zkqes/issues'],
