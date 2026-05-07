@@ -30,6 +30,8 @@
     "identityVerifierKind": "stub",
     "ageVerifier": "0xc30DF40b1E2F8af15a36DBebc0E1BD91E1E2a693",
     "ageVerifierKind": "stub",
+    "certificate": "0x55e99B0eF662e69665c54955F7D55e96fADbb6E6",
+    "certificateMintDeadline": 1893456000,
     "deployedAt": "2026-05-05",
     "deployBlock": 41115149,
     "deployTx": "0xdd7be8fa376826",

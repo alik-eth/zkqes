@@ -40,6 +40,15 @@ export interface ZkqesRegistryUaDeployment {
   readonly verifierKind: 'stub' | 'real';
   readonly deployBlock: number;
   readonly deployedAt: string;
+  /** V5.4 ZKQESCertificateUA NFT contract — mints one ERC-721 token
+   *  per binding under the same registry. Optional because pre-pump
+   *  deployments may not have one. Address `0x000…0` is treated as
+   *  "not deployed" by UI consumers. */
+  readonly certificate?: Address;
+  /** Unix-second deadline embedded in the cert contract; mints after
+   *  this revert. Mirrored here so UI can hide the mint button when
+   *  the window closes without a chain read. */
+  readonly certificateMintDeadline?: number;
 }
 
 /**
@@ -60,6 +69,10 @@ export const ZKQES_REGISTRY_UA = {
     verifierKind: 'stub',
     deployBlock: 41115149,
     deployedAt: '2026-05-05',
+    // V5.4 cert NFT — deployed 2026-05-08 to mint one ERC-721 per
+    // binding via VerifiedUkrainian's `onlyVerifiedUkrainian` gate.
+    certificate: '0x55e99B0eF662e69665c54955F7D55e96fADbb6E6' as Address,
+    certificateMintDeadline: 1893456000, // 2030-01-01
   },
 } as const satisfies Record<string, ZkqesRegistryUaDeployment>;
 

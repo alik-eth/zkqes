@@ -8,6 +8,7 @@ libs = ["packages/contracts/lib"]
 remappings = [
   "forge-std/=packages/contracts/lib/forge-std/src/",
   "openzeppelin-contracts/=packages/contracts/lib/openzeppelin-contracts/contracts/",
+  "@zkqes/contracts-sdk/=packages/contracts-sdk/src/",
 ]
 solc = "0.8.24"
 optimizer = true

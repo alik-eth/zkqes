@@ -271,6 +271,7 @@ export {
 } from './deployments.js';
 
 export { zkqesRegistryUaAbi } from './abi/ZkqesRegistryUA.js';
+export { zkqesCertificateUaAbi } from './abi/ZKQESCertificateUA.js';
 
 // V5.4 register's LeafProof is byte-identical to the V5.2 22-signal
 // shape; the helpers + types are reused under their original names

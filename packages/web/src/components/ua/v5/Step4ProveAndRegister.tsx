@@ -13,6 +13,7 @@ import {
 import {
   zkqesRegistryUaAbi,
   zkqesRegistryUaForChainId,
+  zkqesCertificateUaAbi,
   parseP7s,
   findSubjectSerial,
   CliProveError,
@@ -177,6 +178,17 @@ export function Step4ProveAndRegister({
     error: ageWriteError,
   } = useWriteContract();
   const { isSuccess: ageTxMined } = useWaitForTransactionReceipt({ hash: ageTxHash });
+
+  // Third writeContract for the V5.4 cert NFT mint. Independent of
+  // register + age txs — it's a manual user action surfaced after the
+  // register tx mines.
+  const {
+    writeContract: writeMintContract,
+    data: mintTxHash,
+    isPending: mintTxPending,
+    error: mintWriteError,
+  } = useWriteContract();
+  const { isSuccess: mintTxMined } = useWaitForTransactionReceipt({ hash: mintTxHash });
 
   // V5.4 §1.4 — `nullifierCtx` domain separator. FROZEN ProtocolBytes
   // string; mirrored on-chain in `proveAge` and inside the age circuit
@@ -868,6 +880,61 @@ export function Step4ProveAndRegister({
           {ageTxHash && <> · tx: {ageTxHash.slice(0, 12)}…</>}
           {ageError && <> · {ageError}</>}
           {ageWriteError && <> · {ageWriteError.message.slice(0, 80)}</>}
+        </div>
+      )}
+      {/* V5.4 cert NFT mint card. Renders only after the register tx
+          mines (so the bindingId exists in registry storage); still
+          opt-in (user clicks the button explicitly). The nullifier
+          uniqueness gate is on-chain, so re-clicks revert. */}
+      {txMined && uaDep?.certificate && provedArgs && (
+        <div style={{
+          border: '2px solid var(--cv-ink)', background: '#fff',
+          padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8,
+          fontFamily: 'var(--cv-mono)', fontSize: 13,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700 }}>↗ Mint certificate NFT</span>
+            <span style={{ color: 'var(--cv-mute)', fontSize: 11.5 }}>
+              ERC-721 · 1 per binding · transferable
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={mintTxPending || mintTxMined}
+            onClick={() => {
+              if (!uaDep?.certificate || !provedArgs) return;
+              const bindingId = keccak256(
+                encodeAbiParameters(
+                  [{ type: 'string' }, { type: 'uint256' }],
+                  ['UA', provedArgs.sig.identityFingerprint],
+                ),
+              );
+              writeMintContract({
+                address: uaDep.certificate,
+                abi: zkqesCertificateUaAbi,
+                functionName: 'mint',
+                args: [bindingId],
+                gas: 500_000n,
+              });
+            }}
+            className="cv-btn"
+            style={{ alignSelf: 'flex-start' }}
+            data-testid="v5-mint-cert-cta"
+          >
+            {mintTxMined ? '✓ Minted' : mintTxPending ? '⌛ Minting…' : '▶ Mint certificate'}
+          </button>
+          {mintTxHash && (
+            <p style={{
+              margin: 0, fontSize: 12, color: mintTxMined ? '#2e7d32' : 'var(--cv-ink)',
+            }}>
+              tx: {mintTxHash.slice(0, 12)}… {mintTxMined ? '· mined' : '· pending'}
+            </p>
+          )}
+          {mintWriteError && (
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--err)' }}>
+              {mintWriteError.message.slice(0, 200)}
+            </p>
+          )}
         </div>
       )}
       {!pipelineDone && (
