@@ -262,41 +262,21 @@ export {
   type DerStrictResult,
 } from './cert/der-strict.js';
 
-// M4: viem read helpers + deployments fixture + freshly-built ABIs.
-export { isVerified, nullifierOf, trustedListRoot } from './registry/index.js';
-
+// V5.4-only deployment surface (V4/V5/V5.1/V5.2 + cert NFT removed).
 export {
-  ZKQES_DEPLOYMENTS,
   ZKQES_REGISTRY_UA,
-  deploymentForChainId,
   zkqesRegistryUaForChainId,
-  type ZkqesDeployment,
-  type ZkqesNetwork,
   type ZkqesRegistryUaDeployment,
   type ZkqesRegistryUaNetwork,
 } from './deployments.js';
 
-export { zkqesRegistryV4Abi } from './abi/ZkqesRegistryV4.js';
-export { zkqesRegistryV5_1Abi } from './abi/ZkqesRegistryV5_1.js';
-export { zkqesRegistryV5_2Abi } from './abi/ZkqesRegistryV5_2.js';
 export { zkqesRegistryUaAbi } from './abi/ZkqesRegistryUA.js';
-export { zkqesCertificateAbi } from './abi/ZkqesCertificate.js';
 
-export {
-  PUBLIC_SIGNALS_V5_LENGTH,
-  REGISTRY_V5_ERROR_SELECTORS,
-  assertRegisterArgsV5Shape,
-  classifyV5RegistryRevert,
-  encodeV5RegisterCalldata,
-  encodeV5RotateWalletCalldata,
-  publicSignalsFromArray,
-  publicSignalsToArray,
-  type Groth16ProofV5,
-  type PublicSignalsV5,
-  type RegisterArgsV5,
-  type RotateWalletArgsV5,
-} from './registry/registryV5.js';
-
+// V5.4 register's LeafProof is byte-identical to the V5.2 22-signal
+// shape; the helpers + types are reused under their original names
+// rather than aliased through a v5_4 facade. The V5.2 register flow
+// itself (the `ZkqesRegistryV5_2.register()` ABI) was deleted; what
+// stays is the proof-shape + slot-order canon.
 export {
   PUBLIC_SIGNALS_V5_2_LENGTH,
   assertRegisterArgsV5_2Shape,

@@ -40,14 +40,21 @@ export interface V5_4AgeArtifacts {
   readonly ceremonyPhase: 'initial' | 'final';
 }
 
+// Local-dev env overrides — point at on-disk stub artifacts served by
+// vite under `/local-zkey/age.{wasm,zkey}`. Mirrors the V5 artifacts
+// pattern in `circuitArtifacts.ts`.
+const env = (typeof import.meta !== 'undefined' ? import.meta.env : undefined) as
+  | Record<string, string | undefined>
+  | undefined;
+
 export const V5_4_AGE_ARTIFACTS: V5_4AgeArtifacts = {
-  wasmUrl: 'https://prove.zkqes.org/age-ua-v5_4/AgeDiiaUA.wasm',
-  zkeyUrl: 'https://prove.zkqes.org/age-ua-v5_4/age-ua-v5_4-initial.zkey',
+  wasmUrl: env?.VITE_V5_4_AGE_WASM_URL || 'https://prove.zkqes.org/age-ua-v5_4/AgeDiiaUA.wasm',
+  zkeyUrl: env?.VITE_V5_4_AGE_ZKEY_URL || 'https://prove.zkqes.org/age-ua-v5_4/age-ua-v5_4-initial.zkey',
   vkeyUrl: '', // TBD post-vkey-export per fixture metadata
   wasmSha256:
-    '8322c9c527a7ed371ce81604180be98dceb033fb0be1ec87d6609093ccf55a56',
+    env?.VITE_V5_4_AGE_WASM_SHA256 || '8322c9c527a7ed371ce81604180be98dceb033fb0be1ec87d6609093ccf55a56',
   zkeySha256:
-    '919b87a856bc2afd7facecc9a24f988e5c5bd58440c86778ba48be9a97ba7b38',
+    env?.VITE_V5_4_AGE_ZKEY_SHA256 || '919b87a856bc2afd7facecc9a24f988e5c5bd58440c86778ba48be9a97ba7b38',
   publicSignals: 3,
   ceremonyPhase: 'initial',
 };

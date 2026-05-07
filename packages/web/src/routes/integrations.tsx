@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { ZKQES_DEPLOYMENTS } from '@zkqes/sdk';
+import { ZKQES_REGISTRY_UA } from '@zkqes/sdk';
 
 import { TopBar } from '../components/curve/TopBar';
 import '../styles/curve.css';
@@ -26,14 +26,14 @@ contract MyDApp is Verified {
 const TYPESCRIPT = `npm install @zkqes/sdk viem
 
 // in your app:
-import { isVerified, ZKQES_DEPLOYMENTS } from '@zkqes/sdk';
+import { isVerified, ZKQES_REGISTRY_UA } from '@zkqes/sdk';
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
 
 const client = createPublicClient({ chain: base, transport: http() });
 const ok = await isVerified(
   client,
-  ZKQES_DEPLOYMENTS.base.registry,
+  ZKQES_REGISTRY_UA.base.registry,
   walletAddress,
 ); // → boolean`;
 
@@ -123,7 +123,7 @@ export function IntegrationsScreen() {
             <span style={{ flex: 1 }} />
             <span className="cv-pill">audit · pending Q3</span>
           </div>
-          {Object.keys(ZKQES_DEPLOYMENTS).length === 0 ? (
+          {Object.keys(ZKQES_REGISTRY_UA).length === 0 ? (
             <div style={{ padding: '18px 4px', fontSize: 13, color: 'var(--cv-mute)', textAlign: 'center' }}>
               No deployments listed yet. Mainnet deploys post-ceremony close + audit.
             </div>
@@ -134,7 +134,7 @@ export function IntegrationsScreen() {
                 <tr><th>network</th><th>chain id</th><th>registry</th><th>verifier</th><th>links</th></tr>
               </thead>
               <tbody>
-                {Object.entries(ZKQES_DEPLOYMENTS).map(([k, v]) => {
+                {Object.entries(ZKQES_REGISTRY_UA).map(([k, v]) => {
                   const dep = v as { registry?: string; chainId?: number; explorerBase?: string; verifier?: string };
                   return (
                     <tr key={k}>

@@ -1,82 +1,15 @@
 import type { Address } from 'viem';
 
-export interface ZkqesDeployment {
-  chainId: number;
-  registry: Address;
-  /**
-   * V5 registry address (single-proof Groth16 architecture).
-   * Distinct deployment slot from V4 — see V5 architecture spec §0.
-   * Zero-address until lead's §9.4 Base Sepolia E2E deploy.
-   */
-  registryV5: Address;
-  zkqesCertificate: Address;
-  verifiers: {
-    leaf: Address;
-    chain: Address;
-    age: Address;
-    /** V5 verifier (Groth16VerifierV5) — zero until ceremony close. */
-    v5: Address;
-  };
-  mintDeadline: number; // unix seconds
-}
-
-export const ZKQES_DEPLOYMENTS = {
-  sepolia: {
-    chainId: 11155111,
-    // populated by `node scripts/sync-deployments.mjs` from
-    // fixtures/contracts/sepolia.json (UA-scoped section).
-    registry:           '0xd33B73EB9c78d7AcE7AB84adAF4c518573Ce47a6' as Address,
-    registryV5:         '0x0000000000000000000000000000000000000000' as Address,  // pumped post-§9.4 Base Sepolia deploy
-    zkqesCertificate:  '0x30E13c76D0BB02Ab4a65048B6546ABC3ADDabA48' as Address,
-    verifiers: {
-      leaf:  '0xF407AFCEE7b5eE2AE2ef52041DFC224Fed010Cc3' as Address,
-      chain: '0xc1a0fd1e620398b019ff3941b6c601afe81b33b8' as Address,
-      age:   '0x7ac13661E4B8a5AC44D116f5df11CA84eE81D09a' as Address,
-      v5:    '0x0000000000000000000000000000000000000000' as Address,  // pumped post-ceremony + Sepolia deploy
-    },
-    mintDeadline: 1792833194,
-  },
-  // Base Sepolia (L2 testnet) — current pre-launch deploy target per
-  // task #15 / #70. v5.2 stub-verifier deployment populated from
-  // fixtures/contracts/base-sepolia.json (deployed 2026-05-04). V4
-  // contracts not present on this chain — V4 was Sepolia-L1-only.
-  // The verifierKind is 'stub' until the post-ceremony Groth16Verifier
-  // swap (which per spec §8.2 requires a fresh registry redeploy).
-  baseSepolia: {
-    chainId: 84532,
-    registry:           '0x0000000000000000000000000000000000000000' as Address,
-    registryV5:         '0xeE3bE208418DB51040e5983138C758C9eD154816' as Address,
-    zkqesCertificate:  '0x1e6a264F760D80BBf9E6fb2700A69b93B46a1A63' as Address,
-    verifiers: {
-      leaf:  '0x0000000000000000000000000000000000000000' as Address,
-      chain: '0x0000000000000000000000000000000000000000' as Address,
-      age:   '0x0000000000000000000000000000000000000000' as Address,
-      v5:    '0x5d63671653d9a047493386D494891fFDEc64007e' as Address,
-    },
-    mintDeadline: 0,
-  },
-  base: {
-    chainId: 8453,
-    // populated by M8 deploy (post-§9.4 mainnet launch)
-    registry:           '0x0000000000000000000000000000000000000000' as Address,
-    registryV5:         '0x0000000000000000000000000000000000000000' as Address,
-    zkqesCertificate:  '0x0000000000000000000000000000000000000000' as Address,
-    verifiers: {
-      leaf:  '0x0000000000000000000000000000000000000000' as Address,
-      chain: '0x0000000000000000000000000000000000000000' as Address,
-      age:   '0x0000000000000000000000000000000000000000' as Address,
-      v5:    '0x0000000000000000000000000000000000000000' as Address,
-    },
-    mintDeadline: 0,
-  },
-} as const satisfies Record<string, ZkqesDeployment>;
-
-export type ZkqesNetwork = keyof typeof ZKQES_DEPLOYMENTS;
-
-export function deploymentForChainId(id: number): ZkqesDeployment | undefined {
-  for (const v of Object.values(ZKQES_DEPLOYMENTS)) if (v.chainId === id) return v;
-  return undefined;
-}
+// V4/V5/V5.1/V5.2 deployment surface deleted in the 2026-05-08 nuke
+// pass. The V5.4 ZKQESRegistryUA is the only on-chain registry the SDK
+// surfaces — see ZKQES_REGISTRY_UA + zkqesRegistryUaForChainId below.
+// Pre-5.4 register/mint/rotate flows + their cert NFT deployments are
+// gone; relying parties query bindings via the V5.4 registry's
+// `bindings(bytes32)` view (mirrored in `getBinding`).
+//
+// Type re-export retained only for the (vanishingly few) external SDK
+// consumers that import the `Address` alias from this module.
+export type { Address };
 
 // ===========================================================================
 // V5.4 — per-country registry deployments (per-country pattern, A-narrow

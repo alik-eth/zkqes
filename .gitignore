@@ -95,3 +95,8 @@ docs/marketing/2026-04-29-launch-drafts/
 # local screenshot scratch
 curve-*.png
 hero-*.png
+
+# Ad-hoc screenshots from manual UI iteration — never commit
+*.png
+!packages/web/public/**
+!packages/contracts/**

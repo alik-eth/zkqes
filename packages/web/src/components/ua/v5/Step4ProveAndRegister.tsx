@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Buffer } from 'buffer';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
@@ -11,13 +11,18 @@ import {
   useWaitForTransactionReceipt,
 } from 'wagmi';
 import {
-  deploymentForChainId,
-  zkqesRegistryV5_2Abi,
+  zkqesRegistryUaAbi,
+  zkqesRegistryUaForChainId,
   parseP7s,
   findSubjectSerial,
   CliProveError,
   type RegisterArgsV5_2,
+  buildAgeWitness,
+  packAgeProof,
 } from '@zkqes/sdk';
+import { SnarkjsWorkerProver } from '@zkqes/sdk/prover/snarkjsWorker';
+import { keccak256, encodeAbiParameters, encodePacked } from 'viem';
+import { V5_4_AGE_ARTIFACTS } from '../../../lib/v5_4AgeArtifacts';
 import {
   isV5ArtifactsConfigured,
 } from '../../../lib/circuitArtifacts';
@@ -53,9 +58,15 @@ export interface Step4Props {
    *  real prover path; mock prover ignores it. */
   bindingBytes: Uint8Array;
   onBack: () => void;
+  /** Default age-opt-in + cutoff lifted from HomeDocument (so refresh
+   *  retains state). Step 4 owns the editable UI; these are the
+   *  initial values + the changes flow back via callbacks. */
+  ageOptIn: boolean;
+  onAgeOptInChange: (v: boolean) => void;
+  ageCutoffYmd: number;
+  onAgeCutoffYmdChange: (v: number) => void;
 }
 
-const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
 /**
  * Step 4 — produce the V5.2 proof and submit register() to QKBRegistryV5_2.
@@ -95,12 +106,19 @@ function explorerTxUrl(chainId: number, txHash: string): string {
   return `${base}/tx/${txHash}`;
 }
 
-export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props) {
+export function Step4ProveAndRegister({
+  p7s,
+  bindingBytes,
+  onBack,
+  ageOptIn,
+  onAgeOptInChange,
+  ageCutoffYmd,
+  onAgeCutoffYmdChange,
+}: Step4Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { address } = useAccount();
   const chainId = useChainId();
-  const dep = deploymentForChainId(chainId);
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
@@ -108,7 +126,13 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
     typeof import.meta !== 'undefined' &&
     import.meta.env?.VITE_USE_MOCK_PROVER === '1';
   const realProverConfigured = isV5ArtifactsConfigured();
-  const v5Deployed = !!dep && dep.registryV5 !== ZERO_ADDR;
+  // V5.4 ZKQESRegistryUA — country-bound (UA), supports DOB extraction
+  // + proveAge alongside register. The legacy V5.2 registry path stays
+  // wired for `dep.registryV5` only as a fallback during migration; new
+  // submits target V5.4. Phase B: drop the V5.2 `dep.registryV5` field
+  // entirely from `deployments.ts` once landing pages stop linking to it.
+  const uaDep = chainId !== undefined ? zkqesRegistryUaForChainId(chainId) : undefined;
+  const v5Deployed = !!uaDep;
 
   // The button is enabled when either (a) the real path is fully
   // ready OR (b) the mock toggle is explicit. This separation keeps
@@ -143,6 +167,125 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
     useWriteContract();
   const { isSuccess: txMined } = useWaitForTransactionReceipt({ hash: txHash });
 
+  // Independent wagmi write for the V5.4 `proveAge` follow-up tx so the
+  // register-tx state (`txHash`, `txMined`, `writeError`) keeps its
+  // current UI semantics. The age-tx state lives in a parallel triplet.
+  const {
+    writeContract: writeAgeContract,
+    data: ageTxHash,
+    isPending: ageTxPending,
+    error: ageWriteError,
+  } = useWriteContract();
+  const { isSuccess: ageTxMined } = useWaitForTransactionReceipt({ hash: ageTxHash });
+
+  // V5.4 §1.4 — `nullifierCtx` domain separator. FROZEN ProtocolBytes
+  // string; mirrored on-chain in `proveAge` and inside the age circuit
+  // (private witness + passthrough public signal). Drift here breaks
+  // the contract's nullifierCtx equality gate silently.
+  const NULLIFIER_CTX_DOMAIN = 'zkqes-age-ctx-v1';
+
+  // ageOptIn + ageCutoffYmd come from Step 3 via props.
+  const [ageStage, setAgeStage] = useState<'idle' | 'proving' | 'submitting' | 'mined' | 'error' | 'skipped'>('idle');
+  const [ageError, setAgeError] = useState<string | null>(null);
+
+  // Memoize the age prover (Web Worker) so React StrictMode's double-
+  // render in dev doesn't spawn two workers per mount.
+  const ageProver = useMemo(() => {
+    if (typeof Worker === 'undefined') return null;
+    const worker = new Worker(
+      new URL('../../../workers/v5-prover.worker.ts', import.meta.url),
+      { type: 'module' },
+    );
+    return new SnarkjsWorkerProver({
+      worker,
+      terminateAfterProve: true,
+    });
+  }, []);
+
+  /**
+   * Build + prove the V5.4 AgeDiiaUA witness, then submit `proveAge()`
+   * via the parallel writeContract instance. Driven by the post-mine
+   * effect below. Same `.p7s` Step 3 collected; same wallet that just
+   * signed the register tx.
+   */
+  const runAgeProveAndSubmit = async (
+    bindingId: `0x${string}`,
+    cutoffYmd: number,
+  ): Promise<void> => {
+    if (!ageProver || !uaDep) return;
+    setAgeError(null);
+    setAgeStage('proving');
+    try {
+      const nullifierCtxKeccak = keccak256(
+        encodePacked(
+          ['string', 'bytes32', 'uint256'],
+          [NULLIFIER_CTX_DOMAIN, bindingId, BigInt(cutoffYmd)],
+        ),
+      );
+      const witnessOut = await buildAgeWitness({
+        signedCades: p7s as unknown as Buffer,
+        bindingId,
+        ageCutoffDate: cutoffYmd,
+        nullifierCtxKeccak,
+      });
+      const proveResult = await ageProver.prove(witnessOut.witness, {
+        side: 'v5',
+        wasmUrl: V5_4_AGE_ARTIFACTS.wasmUrl,
+        zkeyUrl: V5_4_AGE_ARTIFACTS.zkeyUrl,
+      });
+      if (witnessOut.publicSignals.ageQualified !== 1) {
+        throw new Error(
+          `age cutoff ${cutoffYmd} is after the cert's DOB — not eligible (ageQualified=0)`,
+        );
+      }
+      setAgeStage('submitting');
+      const calldata = packAgeProof(proveResult.proof, proveResult.publicSignals);
+      // Lift into state BEFORE the writeContract call so the JSON
+      // download captures it even if the wallet rejects the tx.
+      setAgeProvedArgs({ bindingId, cutoffYmd, calldata });
+      writeAgeContract({
+        address: uaDep.address,
+        abi: zkqesRegistryUaAbi,
+        functionName: 'proveAge',
+        args: [bindingId, BigInt(cutoffYmd), calldata],
+        gas: 1_500_000n,
+      });
+    } catch (err) {
+      setAgeError(err instanceof Error ? err.message : String(err));
+      setAgeStage('error');
+    }
+  };
+
+  // Auto-fire the age proof + submit chain ONCE the register tx mines,
+  // when the user opted in and we have everything the witness builder
+  // needs. The effect is guarded by `ageStage === 'idle'` so re-renders
+  // (StrictMode, parent re-mounts) don't spawn a second prove run. The
+  // bindingId is computed deterministically off the leaf proof's
+  // identityFingerprint (slot 13) per the V5.4 contract's bindingId
+  // formula: keccak256(abi.encode("UA", identityFingerprint)).
+  useEffect(() => {
+    if (!txMined) return;
+    if (!ageOptIn) {
+      if (ageStage === 'idle') setAgeStage('skipped');
+      return;
+    }
+    if (ageStage !== 'idle') return;
+    if (!provedArgs || !ageProver || !uaDep) return;
+    const bindingId = keccak256(
+      encodeAbiParameters(
+        [{ type: 'string' }, { type: 'uint256' }],
+        ['UA', provedArgs.sig.identityFingerprint],
+      ),
+    );
+    void runAgeProveAndSubmit(bindingId, ageCutoffYmd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txMined]);
+
+  // Track `ageTxMined` → 'mined' state transition.
+  useEffect(() => {
+    if (ageTxMined && ageStage === 'submitting') setAgeStage('mined');
+  }, [ageTxMined, ageStage]);
+
   const [pipelineDone, setPipelineDone] = useState(false);
   // Captured `RegisterArgsV5_2` from the most recent successful prove
   // run. Lifts the closure-local value out of `runPipelineAndSubmit`
@@ -150,6 +293,15 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
   // — useful for replay, debugging revert reasons against an Anvil
   // fork, or sharing a witness with circuits-eng without re-proving.
   const [provedArgs, setProvedArgs] = useState<RegisterArgsV5_2 | null>(null);
+  /** Captured V5.4 age-proof output. Populated after `runAgeProveAndSubmit`
+   *  succeeds at the prove step (BEFORE the on-chain proveAge submit
+   *  fires). Lifted here so the proof.json download includes it and the
+   *  upload-replay path can re-submit `proveAge()` without re-proving. */
+  const [ageProvedArgs, setAgeProvedArgs] = useState<{
+    bindingId: `0x${string}`;
+    cutoffYmd: number;
+    calldata: ReturnType<typeof packAgeProof>;
+  } | null>(null);
   /** Mirror of `pipelineError` for the upload-replay path. Surfaces
    *  shape-validation failures (wrong schema, missing field, malformed
    *  hex) verbatim so the user can fix the file rather than re-prove. */
@@ -260,22 +412,47 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
     // dropped from the public signals; the contract recomputes
     // keccak(bindingPk) on-chain from the four proven bindingPk* limbs
     // (slots 18-21) and gates against the caller's address.
-    submitRegister(registerArgs);
+    void submitRegister(registerArgs);
   };
 
-  /** Fire `register()` with a known-good `RegisterArgsV5_2`. Shared by
-   *  the post-prove submission path and the "upload proof.json" replay
-   *  path — both produce the same calldata shape; only the source of
-   *  the args differs. */
-  const submitRegister = (registerArgs: RegisterArgsV5_2): void => {
-    if (!v5Deployed) return;
+  /** Fire V5.4 `ZKQESRegistryUA.register()` with a known-good
+   *  `RegisterArgsV5_2`. Reuses the V5.2-shape leaf proof verbatim
+   *  (slot order is identical; V5.4's identityVerifier carries the
+   *  same vkey) but wraps it in V5.4's tuple shape: a 3-field
+   *  `ChainProof` + a flattened `LeafProof` (a/b/c + 22 publics) +
+   *  the same supporting bytes. The on-chain trustedRoot must match
+   *  `chainProof.rTL` — admin rotates it via setTrustedRoot. */
+  const submitRegister = async (registerArgs: RegisterArgsV5_2): Promise<void> => {
+    if (!uaDep || !publicClient) return;
+    // Read the on-chain `trustedRoot` and use it verbatim for
+    // chainProof.rTL — the V5.4 register's Gate 0b reverts BadTrustList
+    // if these don't byte-match. Reading at submit time tolerates
+    // admin rotations between page loads.
+    const rTL = await publicClient.readContract({
+      address: uaDep.address,
+      abi: zkqesRegistryUaAbi,
+      functionName: 'trustedRoot',
+    });
+    // ChainProof — 3 cross-bind values (NOT a Groth16 proof).
+    const chainProof = {
+      rTL: BigInt(rTL),
+      algorithmTag: 0n,
+      leafSpkiCommit: registerArgs.sig.leafSpkiCommit,
+    };
+    // LeafProof — flatten a/b/c + 22 public-signal fields.
+    const leafProof = {
+      a: registerArgs.proof.a,
+      b: registerArgs.proof.b,
+      c: registerArgs.proof.c,
+      ...registerArgs.sig,
+    };
     writeContract({
-      address: dep!.registryV5,
-      abi: zkqesRegistryV5_2Abi,
+      address: uaDep.address,
+      abi: zkqesRegistryUaAbi,
       functionName: 'register',
       args: [
-        registerArgs.proof,
-        registerArgs.sig,
+        chainProof,
+        leafProof,
         registerArgs.leafSpki,
         registerArgs.intSpki,
         registerArgs.signedAttrs,
@@ -318,9 +495,15 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
           throw new Error('proof file is not a JSON object');
         }
         const obj = parsed as Record<string, unknown>;
-        if (obj.schema !== 'zkqes/register-args/v5_2') {
+        // Accept v5_2 (legacy, register-only) AND v5_4 (current,
+        // register + optional age). v5_2 files predate the age tx
+        // capture so their `age` field is always absent.
+        if (
+          obj.schema !== 'zkqes/register-args/v5_2' &&
+          obj.schema !== 'zkqes/register-args/v5_4'
+        ) {
           throw new Error(
-            `unrecognized schema: ${String(obj.schema)} (expected "zkqes/register-args/v5_2")`,
+            `unrecognized schema: ${String(obj.schema)} (expected "zkqes/register-args/v5_4" or v5_2)`,
           );
         }
         const rawArgs = obj.args;
@@ -345,6 +528,26 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         setProvedArgs(rehydrated);
         setProofSource('uploaded');
         setPipelineDone(true);
+        // Optional age payload — present when the file came from a v5_4
+        // run with the age opt-in toggle on. The pack helper's bigint
+        // outputs were stringified at download; rehydrate them so the
+        // proveAge writeContract sees the correct types.
+        const rawAge = obj.age;
+        if (typeof rawAge === 'object' && rawAge !== null) {
+          const ageObj = rawAge as Record<string, unknown>;
+          const cd = ageObj.calldata as Record<string, unknown> | undefined;
+          if (cd && typeof ageObj.bindingId === 'string' && typeof ageObj.cutoffYmd === 'number') {
+            // packAgeProof's tuple has nested numeric arrays; viem
+            // auto-coerces decimal strings inside arrays via the ABI
+            // encoder for uint256, so a deep BigInt walk isn't strictly
+            // required. The structural shape comes through verbatim.
+            setAgeProvedArgs({
+              bindingId: ageObj.bindingId as `0x${string}`,
+              cutoffYmd: ageObj.cutoffYmd,
+              calldata: cd as unknown as ReturnType<typeof packAgeProof>,
+            });
+          }
+        }
       } catch (err) {
         setUploadError(err instanceof Error ? err.message : String(err));
       }
@@ -518,6 +721,69 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         {p7s.byteLength.toLocaleString()} bytes
         {address ? ` — ${address.slice(0, 6)}…${address.slice(-4)}` : ''}
       </p>
+      {/* Age-proof opt-in card. Renders ABOVE the prove button so
+          the user picks the cutoff before kicking off the proof.
+          Disabled once the prove or age pipelines are in flight to
+          stop a mid-run cutoff change desyncing the witness from the
+          tx args. */}
+      {uaDep && (
+        <div style={{
+          border: '2px solid var(--cv-ink)', background: '#fff',
+          padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8,
+          fontFamily: 'var(--cv-mono)', fontSize: 13,
+        }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexWrap: 'wrap' }}>
+            <input
+              type="checkbox"
+              checked={ageOptIn}
+              disabled={pipelineDone || stage !== null}
+              onChange={(e) => onAgeOptInChange(e.target.checked)}
+              data-testid="v5-age-optin"
+              style={{ width: 16, height: 16 }}
+            />
+            <span style={{ fontWeight: 700 }}>also prove age ≥</span>
+            <input
+              type="number"
+              min={1}
+              max={120}
+              value={(() => {
+                const today = new Date();
+                const cutoff = new Date(
+                  Math.floor(ageCutoffYmd / 10000),
+                  Math.floor((ageCutoffYmd % 10000) / 100) - 1,
+                  ageCutoffYmd % 100,
+                );
+                let years = today.getFullYear() - cutoff.getFullYear();
+                if (
+                  today.getMonth() < cutoff.getMonth() ||
+                  (today.getMonth() === cutoff.getMonth() && today.getDate() < cutoff.getDate())
+                ) years -= 1;
+                return years;
+              })()}
+              onChange={(e) => {
+                const years = Math.max(1, Math.min(120, Number(e.target.value) || 18));
+                const d = new Date();
+                d.setFullYear(d.getFullYear() - years);
+                const ymd = Number(
+                  `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`,
+                );
+                onAgeCutoffYmdChange(ymd);
+              }}
+              disabled={pipelineDone || stage !== null}
+              style={{
+                width: 50, padding: '2px 6px', fontFamily: 'var(--cv-mono)', fontSize: 13,
+                border: '1.5px solid var(--cv-ink)',
+              }}
+            />
+            <span>years (cutoff {ageCutoffYmd})</span>
+          </label>
+          <p style={{ margin: 0, fontSize: 11.5, color: 'var(--cv-mute)', lineHeight: 1.4 }}>
+            Optional. Same .p7s, ~14s extra prove + a 2nd tx after register
+            mines. Sets <code>ageProvenCutoffs[binding][cutoff] = true</code> on
+            chain — verifiers query that flag without ever seeing your DOB.
+          </p>
+        </div>
+      )}
       {/* CLI nudge banner. Self-suppresses when CLI is detected,
           dismissed, or still detecting — see CliBanner.tsx. */}
       <CliBanner />
@@ -544,7 +810,7 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             type="button"
-            onClick={() => downloadProofJson(provedArgs)}
+            onClick={() => downloadProofJson(provedArgs, ageProvedArgs)}
             className="cv-btn is-ghost is-sm"
             data-testid="v5-download-proof"
           >
@@ -553,12 +819,36 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
           {proofSource === 'uploaded' && v5Deployed && (
             <button
               type="button"
-              onClick={() => submitRegister(provedArgs)}
+              onClick={() => void submitRegister(provedArgs)}
               disabled={txPending}
               className="cv-btn"
               data-testid="v5-submit-uploaded-proof"
             >
               ▶ Submit register() with this proof
+            </button>
+          )}
+          {proofSource === 'uploaded' && v5Deployed && ageProvedArgs && uaDep && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!ageProvedArgs) return;
+                writeAgeContract({
+                  address: uaDep.address,
+                  abi: zkqesRegistryUaAbi,
+                  functionName: 'proveAge',
+                  args: [
+                    ageProvedArgs.bindingId,
+                    BigInt(ageProvedArgs.cutoffYmd),
+                    ageProvedArgs.calldata,
+                  ],
+                  gas: 1_500_000n,
+                });
+              }}
+              disabled={ageTxPending}
+              className="cv-btn"
+              data-testid="v5-submit-uploaded-age-proof"
+            >
+              ▶ Submit proveAge() with this proof
             </button>
           )}
         </div>
@@ -567,6 +857,18 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
         <p role="alert" style={errStyle}>
           {uploadError}
         </p>
+      )}
+      {ageOptIn && uaDep && ageStage !== 'idle' && ageStage !== 'skipped' && (
+        <div style={{
+          border: '2px solid var(--cv-ink)', background: '#fff',
+          padding: '10px 12px', fontFamily: 'var(--cv-mono)', fontSize: 12.5,
+          color: ageStage === 'error' ? 'var(--err)' : ageStage === 'mined' ? '#2e7d32' : 'var(--cv-ink)',
+        }}>
+          age proof (cutoff {ageCutoffYmd}): <b>{ageStage}</b>
+          {ageTxHash && <> · tx: {ageTxHash.slice(0, 12)}…</>}
+          {ageError && <> · {ageError}</>}
+          {ageWriteError && <> · {ageWriteError.message.slice(0, 80)}</>}
+        </div>
       )}
       {!pipelineDone && (
         <label
@@ -681,13 +983,21 @@ export function Step4ProveAndRegister({ p7s, bindingBytes, onBack }: Step4Props)
  * keyed off the well-known schema. Includes a small header so out-of-
  * band readers can tell which contract version + chain the args target.
  */
-function downloadProofJson(args: RegisterArgsV5_2): void {
+function downloadProofJson(
+  args: RegisterArgsV5_2,
+  age: {
+    bindingId: `0x${string}`;
+    cutoffYmd: number;
+    calldata: ReturnType<typeof packAgeProof>;
+  } | null,
+): void {
   const replacer = (_key: string, value: unknown): unknown =>
     typeof value === 'bigint' ? value.toString() : value;
   const payload = {
-    schema: 'zkqes/register-args/v5_2',
+    schema: 'zkqes/register-args/v5_4',
     generatedAt: new Date().toISOString(),
     args,
+    ...(age ? { age } : {}),
   };
   const json = JSON.stringify(payload, replacer, 2);
   const blob = new Blob([json], { type: 'application/json' });

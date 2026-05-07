@@ -8,7 +8,7 @@
 // has no wallet context to read from. Hardcoding the chain matches
 // where the registry actually lives. When mainnet ships, update
 // `FOOTER_CHAIN_ID` and `chainLabel()` in lock-step.
-import { deploymentForChainId } from '@zkqes/sdk';
+import { zkqesRegistryUaForChainId } from '@zkqes/sdk';
 
 const FOOTER_CHAIN_ID = 84532; // Base Sepolia
 
@@ -20,7 +20,7 @@ function chainLabel(chainId: number): string {
 }
 
 export function DocumentFooter() {
-  const dep = deploymentForChainId(FOOTER_CHAIN_ID);
+  const dep = zkqesRegistryUaForChainId(FOOTER_CHAIN_ID);
   return (
     <footer
       style={{
@@ -42,7 +42,7 @@ export function DocumentFooter() {
           color: 'var(--ct-mute)',
         }}
       >
-        <span>Authority: {dep?.registry ?? '0x… (unset)'}</span>
+        <span>Authority: {dep?.address ?? '0x… (unset)'}</span>
         <span>Network: {chainLabel(FOOTER_CHAIN_ID)}</span>
         <span>Locale: {document?.documentElement.lang ?? 'en'}</span>
       </div>

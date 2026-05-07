@@ -183,48 +183,18 @@ const appOnlyRoutes: AnyRoute[] = import.meta.env.VITE_TARGET !== 'landing'
           'CliInstall',
         ),
       }),
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/ua/submit',
-        component: lazyRouteComponent(
-          () => import('./routes/ua/submit'),
-          'SubmitScreen',
-        ),
-      }),
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/ua/mint',
-        component: lazyRouteComponent(
-          () => import('./routes/ua/mint'),
-          'MintScreen',
-        ),
-      }),
-      // /ua/registerV5 + /v5/registerV5 routes were retired 2026-05-07.
-      // The Step1-4 register flow now mounts directly on the app home
-      // (`HomeDocument`). External links to those paths fall through to
-      // TanStack Router's default 404 → home redirect.
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/ua/mintNft',
-        component: lazyRouteComponent(
-          () => import('./routes/ua/mintNft'),
-          'MintNftScreen',
-        ),
-      }),
+      // /ua/submit, /ua/mint, /ua/mintNft, /ua/registerV5, /v5/registerV5,
+      // /account/rotate — all retired in the V5.4 nuke pass (2026-05-08).
+      // The register flow now mounts inline on the app home
+      // (`HomeDocument`). Cert NFT mint and wallet rotation are deferred
+      // until V5.4-native equivalents ship; until then, dead links here
+      // fall through to TanStack Router's default 404 → home redirect.
       createRoute({
         getParentRoute: () => rootRoute,
         path: '/ua/use-desktop',
         component: lazyRouteComponent(
           () => import('./routes/ua/useDesktop'),
           'UseDesktopScreen',
-        ),
-      }),
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/account/rotate',
-        component: lazyRouteComponent(
-          () => import('./routes/account/rotate'),
-          'AccountRotateScreen',
         ),
       }),
       // V5.4 — age verification flow (orchestration §S2.1 step 5,

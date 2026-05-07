@@ -67,6 +67,16 @@ export function HomeDocument() {
   const [step, setStep] = useState<StepNumber>(1);
   const [bindingBytes, setBindingBytes] = useState<Uint8Array | null>(null);
   const [p7s, setP7s] = useState<Uint8Array | null>(null);
+  // Age-proof opt-in lifted here so Step3 sets it and Step4 reads it.
+  // Default `true` because V5.4 UA registry hard-sets `dobSupported = 1`.
+  const [ageOptIn, setAgeOptIn] = useState(true);
+  const [ageCutoffYmd, setAgeCutoffYmd] = useState<number>(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    return Number(
+      `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`,
+    );
+  });
 
   const browser = useMemo(() => detectBrowser(), []);
   const proverReady = cliStatus === 'present';
@@ -243,6 +253,10 @@ export function HomeDocument() {
                     p7s={p7s}
                     bindingBytes={bindingBytes}
                     onBack={() => setStep(2)}
+                    ageOptIn={ageOptIn}
+                    onAgeOptInChange={setAgeOptIn}
+                    ageCutoffYmd={ageCutoffYmd}
+                    onAgeCutoffYmdChange={setAgeCutoffYmd}
                   />
                 )}
               </>
