@@ -12,7 +12,14 @@ import { QTSP_SUMMARY, QTSP_SUMMARY_META, type QtspSummary } from '../generated/
 import { QTSP_INDEX } from '../generated/qtsp-index';
 import '../styles/curve.css';
 
-interface QtspMetaLike { country: string; qtspSlug: string; displayName: string; dobEncoding?: string; state?: string }
+interface QtspMetaLike {
+  country: string;
+  qtspSlug: string;
+  displayName: string;
+  dobEncoding?: string;
+  state?: string;
+  supportedFormats?: ReadonlyArray<string>;
+}
 
 // Heuristic match between LOTL tspName and a curated QTSP_INDEX entry.
 // We compare by country + a normalized name token.
@@ -26,6 +33,19 @@ function findCuratedMeta(row: QtspSummary): QtspMetaLike | undefined {
 }
 
 type DobKind = 'standard' | 'custom' | 'absent';
+
+function ecdsaStatusFor(row: QtspSummary): { label: string; tone: 'ok' | 'warn' | 'muted' } {
+  const hasP256 = row.p256;
+  const hasEcOther = row.keyAlgs.includes('ECDSA (other)');
+  const hasRsa = row.keyAlgs.includes('RSA');
+
+  if (hasP256 && hasRsa) return { label: 'P-256 + RSA', tone: 'ok' };
+  if (hasP256) return { label: 'P-256 only', tone: 'ok' };
+  if (hasEcOther && hasRsa) return { label: 'EC (other) + RSA', tone: 'warn' };
+  if (hasEcOther) return { label: 'EC (other)', tone: 'warn' };
+  if (hasRsa) return { label: 'RSA only', tone: 'muted' };
+  return { label: 'unknown', tone: 'muted' };
+}
 
 function dobKindFor(meta: QtspMetaLike | undefined): { kind: DobKind; label: string } {
   if (!meta?.dobEncoding) {
@@ -56,6 +76,10 @@ interface DirectoryRow extends QtspSummary {
   dobKind: DobKind;
   dobLabel: string;
   state: string;
+  ecdsaLabel: string;
+  ecdsaTone: 'ok' | 'warn' | 'muted';
+  formatsLabel: string;
+  formatsCurated: boolean;
 }
 
 export function AllQtspsScreen() {
@@ -64,7 +88,22 @@ export function AllQtspsScreen() {
       const meta = findCuratedMeta(row);
       const dob = dobKindFor(meta);
       const state = meta?.state ?? 'queued';
-      return { ...row, meta, dobKind: dob.kind, dobLabel: dob.label, state };
+      const ecdsa = ecdsaStatusFor(row);
+      const formatsLabel =
+        meta?.supportedFormats && meta.supportedFormats.length > 0
+          ? meta.supportedFormats.join(' / ')
+          : 'unknown';
+      return {
+        ...row,
+        meta,
+        dobKind: dob.kind,
+        dobLabel: dob.label,
+        state,
+        ecdsaLabel: ecdsa.label,
+        ecdsaTone: ecdsa.tone,
+        formatsLabel,
+        formatsCurated: Boolean(meta?.supportedFormats?.length),
+      };
     }).slice().sort((a, b) => {
       // ECDSA-P-256 capable QTSPs come first — that's deploy priority.
       if (a.p256 !== b.p256) return a.p256 ? -1 : 1;
@@ -179,7 +218,11 @@ export function AllQtspsScreen() {
               </button>
             )}
           </div>
-          <div style={{ overflow: 'auto', border: '2px solid var(--cv-ink)' }}>
+          <div style={{
+            border: '2px solid var(--cv-ink)',
+            width: '100%',
+            background: 'var(--cv-card)',
+          }}>
             <EuMap byCountry={byCountry} selected={countryFilter} onSelect={setCountryFilter} />
           </div>
           <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap', fontSize: 11, color: 'var(--cv-mute)' }}>
@@ -240,7 +283,8 @@ export function AllQtspsScreen() {
                   <th>cc</th>
                   <th>QTSP</th>
                   <th>certs · services</th>
-                  <th>ECDSA P-256</th>
+                  <th>algorithms</th>
+                  <th>formats</th>
                   <th>DOB format</th>
                   <th>status</th>
                 </tr>
@@ -260,9 +304,17 @@ export function AllQtspsScreen() {
                       {r.certCount} · {r.serviceCount}
                     </td>
                     <td>
-                      {r.p256
-                        ? <span className="cv-pill is-ok">✓ supported</span>
-                        : <span className="cv-pill" style={{ color: 'var(--cv-mute)' }}>—</span>}
+                      {r.ecdsaTone === 'ok'
+                        ? <span className="cv-pill is-ok">{r.ecdsaLabel}</span>
+                        : r.ecdsaTone === 'warn'
+                          ? <span className="cv-pill is-warn">{r.ecdsaLabel}</span>
+                          : <span className="cv-pill" style={{ color: 'var(--cv-mute)' }}>{r.ecdsaLabel}</span>}
+                    </td>
+                    <td style={{ fontSize: 11.5, color: r.formatsCurated ? 'inherit' : 'var(--cv-mute)' }}>
+                      <div>{r.formatsLabel}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--cv-mute)' }}>
+                        {r.formatsCurated ? 'curated' : 'research pending'}
+                      </div>
                     </td>
                     <td>
                       {r.dobKind === 'custom'
@@ -283,7 +335,7 @@ export function AllQtspsScreen() {
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '32px 12px', color: 'var(--cv-mute)' }}>
+                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px 12px', color: 'var(--cv-mute)' }}>
                     no matches — broaden the filters
                   </td></tr>
                 )}
@@ -301,12 +353,12 @@ export function AllQtspsScreen() {
         </section>
 
         <p style={{ fontSize: 11, color: 'var(--cv-mute)', maxWidth: '90ch', lineHeight: 1.5 }}>
-          ECDSA-P-256 detection is heuristic: a TSP is flagged supported when at least one CA in
-          its chain advertises secp256r1 in its SPKI. It does NOT mean every leaf the TSP issues is
-          P-256 — many TSPs issue both RSA and ECDSA leaves under the same chain. DOB-format column
-          is curated against a small set of QTSPs (currently UA Diia's <code>1.2.804.2.1.1.1.11.1.4.11.1</code>);
-          most rows show "absent info" until the per-country meta surface is filled in. Source of
-          truth: live trust-list snapshots ({QTSP_SUMMARY_META.trustSources.join(' · ')}) —
+          Algorithm column is derived from current trust-list service certificates: `P-256 + RSA`
+          means the QTSP currently exposes both kinds across its listed chains; `RSA only` means we did
+          not see any EC key in the current service cert set; `EC (other)` means an EC key was present
+          but not secp256r1. Format + DOB columns are curated against the per-QTSP metadata surface;
+          most rows still show `unknown` / `absent info` until that research is filled in. Source of truth: live trust-list snapshots
+          ({QTSP_SUMMARY_META.trustSources.join(' · ')}) —
           {' '}<a href="https://eur-lex.europa.eu/eli/reg_impl/2015/1505/oj" rel="noopener noreferrer" className="cv-link">eIDAS Implementing Regulation 2015/1505</a>
           {' '}+ Ukraine's TL-EC (Article 15, Law 2155-VIII). Where a national TL host is
           temporarily unreachable from the build environment, rows fall back to the
