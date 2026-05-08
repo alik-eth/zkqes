@@ -1,9 +1,18 @@
-import { describe, expect, it } from 'vitest';
-import {
+import { describe, expect, it, vi } from 'vitest';
+
+// Local-dev `.env.local` typically points VITE_V5_*_URL/SHA at the
+// `public/local-zkey/` symlinks so the in-browser prover works. The
+// placeholder-sentinel assertions below need the unconfigured shape,
+// so stub the env vars + reset the module cache before importing.
+const STUBBED = ['VITE_V5_WASM_URL', 'VITE_V5_ZKEY_URL', 'VITE_V5_WASM_SHA256', 'VITE_V5_ZKEY_SHA256'] as const;
+for (const k of STUBBED) vi.stubEnv(k, '');
+vi.resetModules();
+
+const {
   V5_PROVER_ARTIFACTS,
   assertV5ArtifactsConfigured,
   isV5ArtifactsConfigured,
-} from '../../src/lib/circuitArtifacts';
+} = await import('../../src/lib/circuitArtifacts');
 
 describe('V5_PROVER_ARTIFACTS', () => {
   it('exposes the V5 single-circuit envelope (qkb/2.0, ~3M constraints)', () => {

@@ -1,17 +1,11 @@
 // Auto-generated full ABI from
-// /data/Develop/qkb-wt-v5/v5_4-contracts/packages/contracts/out/
-//   ZKQESRegistryUA.sol/ZKQESRegistryUA.json
-// — pumped 2026-05-07 to enable register() + setTrustedRoot() etc.
+// packages/contracts/out/ZKQESRegistryUA.sol/ZKQESRegistryUA.json
+// — repumped 2026-05-08 for V5.6 unified-register (rotateWallet removed,
+//   registerWithAge added, BindingRebound event added).
 //
-// 67 entries (functions, events, errors). Refresh procedure when
-// circuits-eng pumps a new ABI:
-//   1. node -e `require('/path/to/.../ZKQESRegistryUA.json').abi` |
-//      pbcopy
-//   2. paste below as the array literal.
-//
-// The narrower hand-curated ABI lived here pre-2026-05-07 (View functions
-// + proveAge only); restore from git if a smaller bundle target ever
-// matters.
+// Refresh procedure: forge build, then
+//   node -e "require(\".../ZKQESRegistryUA.json\").abi" | json-stringify
+//   and paste below as the array literal.
 
 export const zkqesRegistryUaAbi = [
   {
@@ -613,12 +607,29 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "function",
-    "name": "rotateWallet",
+    "name": "registerWithAge",
     "inputs": [
       {
-        "name": "bindingId",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "chainProof",
+        "type": "tuple",
+        "internalType": "struct IZKQESRegistry.ChainProof",
+        "components": [
+          {
+            "name": "rTL",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "algorithmTag",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "leafSpkiCommit",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
       },
       {
         "name": "leafProof",
@@ -753,17 +764,105 @@ export const zkqesRegistryUaAbi = [
         ]
       },
       {
-        "name": "newWallet",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "sig",
+        "name": "leafSpki",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "intSpki",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "signedAttrs",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "leafSig",
+        "type": "bytes32[2]",
+        "internalType": "bytes32[2]"
+      },
+      {
+        "name": "intSig",
+        "type": "bytes32[2]",
+        "internalType": "bytes32[2]"
+      },
+      {
+        "name": "trustMerklePath",
+        "type": "bytes32[16]",
+        "internalType": "bytes32[16]"
+      },
+      {
+        "name": "trustMerklePathBits",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "policyMerklePath",
+        "type": "bytes32[16]",
+        "internalType": "bytes32[16]"
+      },
+      {
+        "name": "policyMerklePathBits",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ageCutoffDate",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ageProof",
+        "type": "tuple",
+        "internalType": "struct IZKQESRegistry.AgeProof",
+        "components": [
+          {
+            "name": "a",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          },
+          {
+            "name": "b",
+            "type": "uint256[2][2]",
+            "internalType": "uint256[2][2]"
+          },
+          {
+            "name": "c",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          },
+          {
+            "name": "ageQualified",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ageCutoffDate",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "nullifierCtx",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "bindingId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "ageOk",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -901,6 +1000,31 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "event",
+    "name": "BindingRebound",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "oldPk",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newPk",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "BindingRegistered",
     "inputs": [
       {
@@ -944,31 +1068,6 @@ export const zkqesRegistryUaAbi = [
         "name": "rotatedBy",
         "type": "address",
         "indexed": false,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "BindingRotated",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "oldPk",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newPk",
-        "type": "address",
-        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1101,11 +1200,6 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "error",
-    "name": "CtxAlreadyUsed",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "DobNotAvailable",
     "inputs": []
   },
@@ -1126,17 +1220,7 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "error",
-    "name": "InvalidNewWallet",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidRotationAuth",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NewWalletArgMismatch",
+    "name": "NullifierUsed",
     "inputs": []
   },
   {
@@ -1176,17 +1260,7 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "error",
-    "name": "UnknownIdentity",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "WalletDerivationMismatch",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "WalletNotBound",
     "inputs": []
   },
   {

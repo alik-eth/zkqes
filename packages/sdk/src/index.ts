@@ -214,6 +214,15 @@ export {
   type LeafPublicSignalsV4AgeCapable,
   type RegisterArgsV4,
   type RegisterArgsV4Age,
+  // V5.4/V5.6 22-signal proof shape (sourced from registry/registryV5_2.ts;
+  // file retains V5.2 name because the layout is byte-identical V5.2→V5.6).
+  PUBLIC_SIGNALS_V5_2_LENGTH,
+  assertRegisterArgsV5_2Shape,
+  publicSignalsV5_2FromArray,
+  publicSignalsV5_2ToArray,
+  type Groth16ProofV5_2,
+  type PublicSignalsV5_2,
+  type RegisterArgsV5_2,
 } from './registry/index.js';
 
 export {
@@ -272,24 +281,6 @@ export {
 
 export { zkqesRegistryUaAbi } from './abi/ZkqesRegistryUA.js';
 export { zkqesCertificateUaAbi } from './abi/ZKQESCertificateUA.js';
-
-// V5.4 register's LeafProof is byte-identical to the V5.2 22-signal
-// shape; the helpers + types are reused under their original names
-// rather than aliased through a v5_4 facade. The V5.2 register flow
-// itself (the `ZkqesRegistryV5_2.register()` ABI) was deleted; what
-// stays is the proof-shape + slot-order canon.
-export {
-  PUBLIC_SIGNALS_V5_2_LENGTH,
-  assertRegisterArgsV5_2Shape,
-  encodeV5_2RegisterCalldata,
-  encodeV5_2RotateWalletCalldata,
-  publicSignalsV5_2FromArray,
-  publicSignalsV5_2ToArray,
-  type Groth16ProofV5_2,
-  type PublicSignalsV5_2,
-  type RegisterArgsV5_2,
-  type RotateWalletArgsV5_2,
-} from './registry/registryV5_2.js';
 
 export {
   bytes32ToHiLo,

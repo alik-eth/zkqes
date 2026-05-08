@@ -49,13 +49,13 @@ describe('zkqesRegistryUaAbi — V5.4 minimal ABI subset', () => {
     expect(pkInput?.type).toBe('address');
   });
 
-  it('exports BindingRotated with both oldPk + newPk indexed (resolver formula gate)', () => {
+  it('exports BindingRebound with both oldPk + newPk indexed (V5.6 unified-register)', () => {
     const ev = zkqesRegistryUaAbi.find(
-      (e) => e.type === 'event' && e.name === 'BindingRotated',
+      (e) => e.type === 'event' && e.name === 'BindingRebound',
     );
     expect(ev).toBeDefined();
-    const oldPk = ev!.inputs.find((i) => i.name === 'oldPk');
-    const newPk = ev!.inputs.find((i) => i.name === 'newPk');
+    const oldPk = ev!.inputs.find((i: { name: string }) => i.name === 'oldPk');
+    const newPk = ev!.inputs.find((i: { name: string }) => i.name === 'newPk');
     expect(oldPk?.indexed).toBe(true);
     expect(newPk?.indexed).toBe(true);
   });

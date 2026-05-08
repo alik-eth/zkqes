@@ -4,6 +4,7 @@
 // samples · trust anchors · state-driven CTA.
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import type { QtspMeta } from '@zkqes/sdk';
 
@@ -57,6 +58,7 @@ export interface QtspPageViewProps {
 }
 
 export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps): JSX.Element {
+  const { t } = useTranslation();
   const qtspPathParam = `${meta.country}/${meta.qtspSlug}`;
 
   return (
@@ -81,7 +83,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
             <span>QTSP DOSSIER · {countryName(meta.country)} · {meta.qtspSlug}</span>
             <span style={{ flex: 1 }} />
             <span className={`cv-pill ${meta.country === 'UA' ? 'is-ua' : ''}`}>{meta.country}</span>
-            <span className={`cv-pill ${STATE_PILL[meta.state] ?? ''}`}>{meta.state.toUpperCase()}</span>
+            <span className={`cv-pill ${STATE_PILL[meta.state] ?? ''}`}>{t(`qtsp.state.${meta.state}`, meta.state.toUpperCase())}</span>
           </div>
           <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div style={{ fontSize: 80, lineHeight: 1 }} aria-label={countryName(meta.country)}>
@@ -92,7 +94,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
                 {meta.displayName.toUpperCase()}<span className="b">.</span>
               </h1>
               <p style={{ maxWidth: 700, fontSize: 14, marginTop: 18, lineHeight: 1.55 }}>
-                {STATE_LABELS[meta.state] ?? meta.state} · {countryName(meta.country)} ({meta.country})
+                <span data-testid="qtsp-display-name">{meta.displayName}</span> · {STATE_LABELS[meta.state] ?? meta.state} · {countryName(meta.country)} ({meta.country})
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
@@ -114,7 +116,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />
-              <span>SIGNING TOOL</span>
+              <span>{t('qtsp.page.signing', 'SIGNING TOOL')}</span>
             </div>
             <div style={{ fontFamily: 'var(--cv-display)', fontSize: 26, color: 'var(--cv-ua-blue)' }}>
               {meta.signingTool.name}
@@ -133,10 +135,10 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
           <div className={`cv-card ${meta.state === 'live' ? 'is-blue' : meta.state === 'gold' ? 'is-yellow' : 'is-paper'}`}>
             <div className="cv-cardhead" style={meta.state === 'live' ? { color: '#fff' } : undefined}>
               <span className={`dot ${meta.state === 'live' || meta.state === 'gold' ? 'live' : ''}`} />
-              <span>PARSER STATUS</span>
+              <span>{t('qtsp.page.parserStatus', 'PARSER STATUS')}</span>
             </div>
             <div style={{ fontFamily: 'var(--cv-display)', fontSize: 26 }}>
-              {meta.state.toUpperCase()}
+              {t(`qtsp.state.${meta.state}`, meta.state.toUpperCase())}
             </div>
             <div style={{ fontSize: 12, color: meta.state === 'live' ? 'var(--cv-ua-yellow)' : 'var(--cv-mute)', marginTop: 4, lineHeight: 1.45 }}>
               {STATE_LABELS[meta.state] ?? '—'}
@@ -162,7 +164,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
           <section className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="cv-ix">§</span>
-              <span>ABOUT</span>
+              <span>{t('qtsp.page.about', 'ABOUT')}</span>
             </div>
             <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55 }}>{meta.notes}</p>
           </section>
@@ -174,12 +176,13 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />
-              <span>VERIFIED SAMPLES · ledger</span>
+              <span>{t('qtsp.page.samplesLedger', 'VERIFIED SAMPLES · ledger')}</span>
               <span style={{ flex: 1 }} />
               {samples !== null && <span className="cv-pill">{samples.length} entries</span>}
             </div>
             {samples === null ? (
               <div style={{ padding: '18px 4px', fontSize: 13, color: 'var(--cv-mute)', textAlign: 'center' }}>
+                <b>—</b><br />
                 No samples ledger published yet. Contributors can submit verified <code>.p7s</code> samples
                 that confirm parser correctness against this QTSP's real outputs.
               </div>
@@ -212,7 +215,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
           {/* Trust anchors */}
           <div className="cv-card is-yellow">
             <div className="cv-cardhead">
-              <span>TRUST ANCHORS · intermediate PEMs</span>
+              <span>{t('qtsp.page.trustAnchors', 'TRUST ANCHORS · intermediate PEMs')}</span>
             </div>
             {intermediates === null ? (
               <div style={{ fontSize: 13, lineHeight: 1.55 }}>
@@ -254,8 +257,8 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
                 The {meta.displayName} parser has landed and verified against synthetic samples on Base Sepolia.
                 Mint a real binding using your QES — testnet flow, no fees beyond gas.
               </div>
-              <Link to="/" search={{ qtsp: qtspPathParam }}
-                    className="cv-btn is-blue is-lg">▶ Try on testnet</Link>
+              <Link to="/v5/registerV5" search={{ qtsp: qtspPathParam }}
+                    className="cv-btn is-blue is-lg">{t('qtsp.page.cta.gold', '▶ Try on testnet')}</Link>
             </div>
           </section>
         )}
@@ -273,9 +276,9 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
                 {meta.displayName} is fully live. Bind your wallet to a qualified identity backed by this QTSP
                 — every-day pseudonymity, recoverable accountability.
               </div>
-              <Link to="/" search={{ qtsp: qtspPathParam }}
+              <Link to="/v5/registerV5" search={{ qtsp: qtspPathParam }}
                     className="cv-btn" style={{ background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)', fontSize: 16, padding: '12px 20px' }}>
-                ▶ Register
+                {t('qtsp.page.cta.live', '▶ Register')}
               </Link>
             </div>
           </section>
@@ -295,6 +298,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
 }
 
 function NotifyMeStrip({ meta }: { meta: QtspMeta }) {
+  const { t } = useTranslation();
   const [submitted, setSubmitted] = useState(false);
   const [email, setEmail] = useState('');
 
@@ -318,7 +322,7 @@ function NotifyMeStrip({ meta }: { meta: QtspMeta }) {
     <section className="cv-card is-yellow" style={{ padding: '20px 24px' }}>
       <div className="cv-cardhead">
         <span className="cv-ix">+</span>
-        <span>NOTIFY ME WHEN READY</span>
+        <span>{t('qtsp.page.cta.silver', 'NOTIFY ME WHEN READY')}</span>
         <span style={{ flex: 1 }} />
         <span className="cv-pill is-blue">parser landed · awaiting samples</span>
       </div>
@@ -331,6 +335,7 @@ function NotifyMeStrip({ meta }: { meta: QtspMeta }) {
         <input
           name="email"
           type="email"
+          aria-label="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}

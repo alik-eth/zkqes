@@ -66,7 +66,7 @@ export function LandingHero() {
       <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14 }}>
 
         {/* HERO STRIP — monumental */}
-        <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
+        <section data-section="hero" className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
           <div className="cv-cardhead" style={{ marginBottom: 12 }}>
             <span className="cv-ix">01</span>
             <span>ANONYMOUS QUALIFIED IDENTITY · eIDAS · UA DSP</span>
@@ -204,7 +204,7 @@ export function LandingHero() {
           ceremony for everyone.
         </p>
 
-        <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <section data-section="path-cards" className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <PathCard
             n="01"
             label="Local snarkjs"
@@ -238,7 +238,7 @@ export function LandingHero() {
         </section>
 
         {/* QTSP DIRECTORY + ABOUT */}
-        <section id="coverage" className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, scrollMarginTop: 80 }}>
+        <section id="coverage" data-section="coverage" className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, scrollMarginTop: 80 }}>
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />

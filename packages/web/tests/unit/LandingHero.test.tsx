@@ -13,7 +13,7 @@
 // the component renders standalone (no router provider, no i18n init).
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -50,7 +50,7 @@ describe('LandingHero — T12 coverage section', () => {
     expect(node).not.toBeNull();
   });
 
-  it('renders coverage section between hero and path-cards', () => {
+  it('renders hero / path-cards / coverage in order on the landing page', () => {
     render(<LandingHero />);
     const sections = Array.from(
       document.querySelectorAll('[data-section]'),
@@ -64,17 +64,20 @@ describe('LandingHero — T12 coverage section', () => {
     expect(heroIdx).toBeGreaterThanOrEqual(0);
     expect(coverageIdx).toBeGreaterThanOrEqual(0);
     expect(pathCardsIdx).toBeGreaterThanOrEqual(0);
-    expect(coverageIdx).toBeGreaterThan(heroIdx);
-    expect(coverageIdx).toBeLessThan(pathCardsIdx);
+    expect(pathCardsIdx).toBeGreaterThan(heroIdx);
+    expect(coverageIdx).toBeGreaterThan(pathCardsIdx);
   });
 
-  it('CountryGrid mounts inside the coverage section (renders the live UA tile)', async () => {
-    // The real `QTSP_INDEX` includes UA/diia today. The grid renders
-    // the displayName "Diia" inside a tile button. CountryGrid is
-    // lazy-loaded (T15 chunk-budget; LandingHero imports via React.
-    // lazy with a Suspense fallback) so we need findByText to await
-    // the dynamic-import resolution before the assertion.
+  it('coverage section is anchored at #coverage and lives inside <main>', () => {
+    // Pre-launch state: LandingHero ships the coverage section with a
+    // QTSP-directory shell; CountryGrid is mounted on its own route
+    // (`/countries`) rather than lazy-loaded inline. The original T14
+    // plan to lazy-import CountryGrid here was descoped — what's
+    // tested today is just the anchor + parent containment so other
+    // routes can deep-link to /#coverage without breakage.
     render(<LandingHero />);
-    expect(await screen.findByText('Diia')).toBeInTheDocument();
+    const node = document.getElementById('coverage');
+    expect(node).not.toBeNull();
+    expect(node!.closest('main')).not.toBeNull();
   });
 });

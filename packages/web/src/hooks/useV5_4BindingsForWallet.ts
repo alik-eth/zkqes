@@ -10,8 +10,8 @@
 // Resolution formula (lead-broadcast):
 //
 //   bindings(wallet) = (BindingRegistered.pk == wallet)
-//                    ∪ (BindingRotated.newPk == wallet)
-//                    ∖ (BindingRotated.oldPk == wallet)
+//                    ∪ (BindingRebound.newPk == wallet)
+//                    ∖ (BindingRebound.oldPk == wallet)
 //
 // All three event topics are indexed (verified in T5.1 commit
 // `eff9fbd`'s ABI tests); the resolver runs as three parallel
@@ -49,16 +49,16 @@ export interface UseV5_4BindingsForWalletReturn {
 const ABI_BINDING_REGISTERED = zkqesRegistryUaAbi.find(
   (e) => e.type === 'event' && e.name === 'BindingRegistered',
 );
-const ABI_BINDING_ROTATED = zkqesRegistryUaAbi.find(
-  (e) => e.type === 'event' && e.name === 'BindingRotated',
+const ABI_BINDING_REBOUND = zkqesRegistryUaAbi.find(
+  (e) => e.type === 'event' && e.name === 'BindingRebound',
 );
 
-if (!ABI_BINDING_REGISTERED || !ABI_BINDING_ROTATED) {
+if (!ABI_BINDING_REGISTERED || !ABI_BINDING_REBOUND) {
   // Defensive — would only trigger on a regression in the ABI subset
   // file (`packages/sdk/src/abi/ZkqesRegistryUA.ts`); the unit tests
   // there pin both events' presence + indexed flags.
   throw new Error(
-    'useV5_4BindingsForWallet: zkqesRegistryUaAbi missing BindingRegistered or BindingRotated — ABI subset is broken',
+    'useV5_4BindingsForWallet: zkqesRegistryUaAbi missing BindingRegistered or BindingRebound — ABI subset is broken',
   );
 }
 
@@ -125,14 +125,14 @@ export function useV5_4BindingsForWallet(
       // (verified in T5.1's ABI subset tests).
       const [registeredLogs, rotatedInLogs, rotatedOutLogs] = await Promise.all([
         getLogsChunked(ABI_BINDING_REGISTERED, { pk: wallet }),
-        getLogsChunked(ABI_BINDING_ROTATED, { newPk: wallet }),
-        getLogsChunked(ABI_BINDING_ROTATED, { oldPk: wallet }),
+        getLogsChunked(ABI_BINDING_REBOUND, { newPk: wallet }),
+        getLogsChunked(ABI_BINDING_REBOUND, { oldPk: wallet }),
       ]);
 
       // Set semantics: union (registered + rotated-in) minus rotated-out.
       // viem's Log type when event is `any` doesn't surface `.args` on the
       // narrow type — cast each log to the indexed-decoded shape we know
-      // it has at runtime (the ABI subset's BindingRegistered + BindingRotated
+      // it has at runtime (the ABI subset's BindingRegistered + BindingRebound
       // both put `bytes32 indexed id` in slot 0 → topic1 → args.id).
       const idOf = (l: unknown): `0x${string}` | undefined =>
         (l as { args?: { id?: `0x${string}` } }).args?.id;

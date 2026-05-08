@@ -6,6 +6,7 @@ import {
   useAccount,
   useChainId,
   usePublicClient,
+  useReadContract,
   useWalletClient,
   useWriteContract,
   useWaitForTransactionReceipt,
@@ -22,7 +23,7 @@ import {
   packAgeProof,
 } from '@zkqes/sdk';
 import { SnarkjsWorkerProver } from '@zkqes/sdk/prover/snarkjsWorker';
-import { keccak256, encodeAbiParameters, encodePacked } from 'viem';
+import { keccak256, encodeAbiParameters, encodePacked, toBytes } from 'viem';
 import { V5_4_AGE_ARTIFACTS } from '../../../lib/v5_4AgeArtifacts';
 import {
   isV5ArtifactsConfigured,
@@ -166,7 +167,19 @@ export function Step4ProveAndRegister({
 
   const { writeContract, data: txHash, isPending: txPending, error: writeError } =
     useWriteContract();
-  const { isSuccess: txMined } = useWaitForTransactionReceipt({ hash: txHash });
+  const { isSuccess: txMined, data: txReceipt } =
+    useWaitForTransactionReceipt({ hash: txHash });
+
+  // V5.6: BindingRebound event signature topic. Present in tx receipt
+  // logs when register/registerWithAge rebound an existing binding's
+  // pk to a new wallet; absent on first-claim.
+  const BINDING_REBOUND_TOPIC = keccak256(
+    toBytes('BindingRebound(bytes32,address,address)'),
+  );
+  const wasRebind = !!(
+    txMined &&
+    txReceipt?.logs?.some((l) => l.topics?.[0] === BINDING_REBOUND_TOPIC)
+  );
 
   // Independent wagmi write for the V5.4 `proveAge` follow-up tx so the
   // register-tx state (`txHash`, `txMined`, `writeError`) keeps its
@@ -215,88 +228,52 @@ export function Step4ProveAndRegister({
   }, []);
 
   /**
-   * Build + prove the V5.4 AgeDiiaUA witness, then submit `proveAge()`
-   * via the parallel writeContract instance. Driven by the post-mine
-   * effect below. Same `.p7s` Step 3 collected; same wallet that just
-   * signed the register tx.
+   * Build + prove the V5.4 AgeDiiaUA witness. Returns the packed
+   * calldata so callers can either submit a standalone `proveAge()`
+   * (replay path) or fold it into a V5.6 atomic `registerWithAge()`.
    */
-  const runAgeProveAndSubmit = async (
+  const proveAgeOnly = async (
     bindingId: `0x${string}`,
     cutoffYmd: number,
-  ): Promise<void> => {
-    if (!ageProver || !uaDep) return;
-    setAgeError(null);
-    setAgeStage('proving');
-    try {
-      const nullifierCtxKeccak = keccak256(
-        encodePacked(
-          ['string', 'bytes32', 'uint256'],
-          [NULLIFIER_CTX_DOMAIN, bindingId, BigInt(cutoffYmd)],
-        ),
-      );
-      const witnessOut = await buildAgeWitness({
-        signedCades: p7s as unknown as Buffer,
-        bindingId,
-        ageCutoffDate: cutoffYmd,
-        nullifierCtxKeccak,
-      });
-      const proveResult = await ageProver.prove(witnessOut.witness, {
-        side: 'v5',
-        wasmUrl: V5_4_AGE_ARTIFACTS.wasmUrl,
-        zkeyUrl: V5_4_AGE_ARTIFACTS.zkeyUrl,
-      });
-      if (witnessOut.publicSignals.ageQualified !== 1) {
-        throw new Error(
-          `age cutoff ${cutoffYmd} is after the cert's DOB — not eligible (ageQualified=0)`,
-        );
-      }
-      setAgeStage('submitting');
-      const calldata = packAgeProof(proveResult.proof, proveResult.publicSignals);
-      // Lift into state BEFORE the writeContract call so the JSON
-      // download captures it even if the wallet rejects the tx.
-      setAgeProvedArgs({ bindingId, cutoffYmd, calldata });
-      writeAgeContract({
-        address: uaDep.address,
-        abi: zkqesRegistryUaAbi,
-        functionName: 'proveAge',
-        args: [bindingId, BigInt(cutoffYmd), calldata],
-        gas: 1_500_000n,
-      });
-    } catch (err) {
-      setAgeError(err instanceof Error ? err.message : String(err));
-      setAgeStage('error');
-    }
-  };
-
-  // Auto-fire the age proof + submit chain ONCE the register tx mines,
-  // when the user opted in and we have everything the witness builder
-  // needs. The effect is guarded by `ageStage === 'idle'` so re-renders
-  // (StrictMode, parent re-mounts) don't spawn a second prove run. The
-  // bindingId is computed deterministically off the leaf proof's
-  // identityFingerprint (slot 13) per the V5.4 contract's bindingId
-  // formula: keccak256(abi.encode("UA", identityFingerprint)).
-  useEffect(() => {
-    if (!txMined) return;
-    if (!ageOptIn) {
-      if (ageStage === 'idle') setAgeStage('skipped');
-      return;
-    }
-    if (ageStage !== 'idle') return;
-    if (!provedArgs || !ageProver || !uaDep) return;
-    const bindingId = keccak256(
-      encodeAbiParameters(
-        [{ type: 'string' }, { type: 'uint256' }],
-        ['UA', provedArgs.sig.identityFingerprint],
+  ): Promise<ReturnType<typeof packAgeProof> | null> => {
+    if (!ageProver || !uaDep) return null;
+    const nullifierCtxKeccak = keccak256(
+      encodePacked(
+        ['string', 'bytes32', 'uint256'],
+        [NULLIFIER_CTX_DOMAIN, bindingId, BigInt(cutoffYmd)],
       ),
     );
-    void runAgeProveAndSubmit(bindingId, ageCutoffYmd);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [txMined]);
+    const witnessOut = await buildAgeWitness({
+      signedCades: p7s as unknown as Buffer,
+      bindingId,
+      ageCutoffDate: cutoffYmd,
+      nullifierCtxKeccak,
+    });
+    const proveResult = await ageProver.prove(witnessOut.witness, {
+      side: 'v5',
+      wasmUrl: V5_4_AGE_ARTIFACTS.wasmUrl,
+      zkeyUrl: V5_4_AGE_ARTIFACTS.zkeyUrl,
+    });
+    if (witnessOut.publicSignals.ageQualified !== 1) {
+      throw new Error(
+        `age cutoff ${cutoffYmd} is after the cert's DOB — not eligible (ageQualified=0)`,
+      );
+    }
+    return packAgeProof(proveResult.proof, proveResult.publicSignals);
+  };
 
   // Track `ageTxMined` → 'mined' state transition.
   useEffect(() => {
     if (ageTxMined && ageStage === 'submitting') setAgeStage('mined');
   }, [ageTxMined, ageStage]);
+
+  // V5.6 atomic registerWithAge folds proveAge into the same tx as
+  // register, so when the receipt for that single tx lands the age
+  // sub-call has already succeeded. Lift the age stage to 'mined'
+  // alongside the register tx.
+  useEffect(() => {
+    if (txMined && ageStage === 'submitting') setAgeStage('mined');
+  }, [txMined, ageStage]);
 
   const [pipelineDone, setPipelineDone] = useState(false);
   // Captured `RegisterArgsV5_2` from the most recent successful prove
@@ -305,6 +282,33 @@ export function Step4ProveAndRegister({
   // — useful for replay, debugging revert reasons against an Anvil
   // fork, or sharing a witness with circuits-eng without re-proving.
   const [provedArgs, setProvedArgs] = useState<RegisterArgsV5_2 | null>(null);
+
+  // V5.6 pre-flight: bindingId derived off the proven identityFingerprint;
+  // used to read existing binding state and detect a rebind case BEFORE
+  // the wallet popup so the button copy + banner can warn the user.
+  const provedBindingId = useMemo<`0x${string}` | null>(() => {
+    if (!provedArgs) return null;
+    return keccak256(
+      encodeAbiParameters(
+        [{ type: 'string' }, { type: 'uint256' }],
+        ['UA', provedArgs.sig.identityFingerprint],
+      ),
+    );
+  }, [provedArgs]);
+  const { data: existingBinding } = useReadContract({
+    address: uaDep?.address,
+    abi: zkqesRegistryUaAbi,
+    functionName: 'getBinding',
+    args: provedBindingId ? [provedBindingId] : undefined,
+    query: { enabled: !!(uaDep && provedBindingId) },
+  });
+  const existingPk = (existingBinding as { pk?: `0x${string}` } | undefined)?.pk;
+  const isRebindCandidate = !!(
+    existingPk &&
+    existingPk !== '0x0000000000000000000000000000000000000000' &&
+    address &&
+    existingPk.toLowerCase() !== address.toLowerCase()
+  );
   /** Captured V5.4 age-proof output. Populated after `runAgeProveAndSubmit`
    *  succeeds at the prove step (BEFORE the on-chain proveAge submit
    *  fires). Lifted here so the proof.json download includes it and the
@@ -420,11 +424,40 @@ export function Step4ProveAndRegister({
       );
       return;
     }
-    // V5.2 register() consumes the new 22-field sig tuple. msgSender is
-    // dropped from the public signals; the contract recomputes
-    // keccak(bindingPk) on-chain from the four proven bindingPk* limbs
-    // (slots 18-21) and gates against the caller's address.
-    void submitRegister(registerArgs);
+
+    // V5.6: when the user opted into age-proof, prove age inline + submit
+    // an atomic `registerWithAge()` (one tx, one wallet prompt). Falls
+    // back to standalone `register()` if age prove fails — the user can
+    // retry age via the upload-replay path or the post-mine button.
+    let ageCalldata: Awaited<ReturnType<typeof proveAgeOnly>> = null;
+    if (ageOptIn && ageProver) {
+      const bindingId = keccak256(
+        encodeAbiParameters(
+          [{ type: 'string' }, { type: 'uint256' }],
+          ['UA', registerArgs.sig.identityFingerprint],
+        ),
+      );
+      try {
+        setAgeStage('proving');
+        ageCalldata = await proveAgeOnly(bindingId, ageCutoffYmd);
+        if (ageCalldata) {
+          setAgeProvedArgs({ bindingId, cutoffYmd: ageCutoffYmd, calldata: ageCalldata });
+          setAgeStage('submitting');
+        } else {
+          setAgeStage('skipped');
+        }
+      } catch (err) {
+        // Age prove failed — surface error but don't block the register
+        // submission. User can retry age standalone post-mine.
+        setAgeError(err instanceof Error ? err.message : String(err));
+        setAgeStage('error');
+        ageCalldata = null;
+      }
+    } else if (!ageOptIn) {
+      setAgeStage('skipped');
+    }
+
+    void submitRegister(registerArgs, ageCalldata);
   };
 
   /** Fire V5.4 `ZKQESRegistryUA.register()` with a known-good
@@ -434,10 +467,13 @@ export function Step4ProveAndRegister({
    *  `ChainProof` + a flattened `LeafProof` (a/b/c + 22 publics) +
    *  the same supporting bytes. The on-chain trustedRoot must match
    *  `chainProof.rTL` — admin rotates it via setTrustedRoot. */
-  const submitRegister = async (registerArgs: RegisterArgsV5_2): Promise<void> => {
+  const submitRegister = async (
+    registerArgs: RegisterArgsV5_2,
+    ageCalldata: Awaited<ReturnType<typeof proveAgeOnly>> = null,
+  ): Promise<void> => {
     if (!uaDep || !publicClient) return;
     // Read the on-chain `trustedRoot` and use it verbatim for
-    // chainProof.rTL — the V5.4 register's Gate 0b reverts BadTrustList
+    // chainProof.rTL — the V5.6 register's Gate 0b reverts BadTrustList
     // if these don't byte-match. Reading at submit time tolerates
     // admin rotations between page loads.
     const rTL = await publicClient.readContract({
@@ -445,43 +481,54 @@ export function Step4ProveAndRegister({
       abi: zkqesRegistryUaAbi,
       functionName: 'trustedRoot',
     });
-    // ChainProof — 3 cross-bind values (NOT a Groth16 proof).
     const chainProof = {
       rTL: BigInt(rTL),
       algorithmTag: 0n,
       leafSpkiCommit: registerArgs.sig.leafSpkiCommit,
     };
-    // LeafProof — flatten a/b/c + 22 public-signal fields.
     const leafProof = {
       a: registerArgs.proof.a,
       b: registerArgs.proof.b,
       c: registerArgs.proof.c,
       ...registerArgs.sig,
     };
+    const baseRegisterArgs = [
+      chainProof,
+      leafProof,
+      registerArgs.leafSpki,
+      registerArgs.intSpki,
+      registerArgs.signedAttrs,
+      registerArgs.leafSig,
+      registerArgs.intSig,
+      registerArgs.trustMerklePath,
+      registerArgs.trustMerklePathBits,
+      registerArgs.policyMerklePath,
+      registerArgs.policyMerklePathBits,
+    ] as const;
+
+    if (ageCalldata) {
+      // V5.6 atomic path — one tx covers register + proveAge.
+      writeContract({
+        address: uaDep.address,
+        abi: zkqesRegistryUaAbi,
+        functionName: 'registerWithAge',
+        args: [
+          ...baseRegisterArgs,
+          BigInt(ageCutoffYmd),
+          ageCalldata,
+        ],
+        // register (~2.5M ceiling) + proveAge (~1.5M) + bridging
+        // overhead — leave headroom for calldata-heavy QTSP certs.
+        gas: 4_000_000n,
+      });
+      return;
+    }
+
     writeContract({
       address: uaDep.address,
       abi: zkqesRegistryUaAbi,
       functionName: 'register',
-      args: [
-        chainProof,
-        leafProof,
-        registerArgs.leafSpki,
-        registerArgs.intSpki,
-        registerArgs.signedAttrs,
-        registerArgs.leafSig,
-        registerArgs.intSig,
-        registerArgs.trustMerklePath,
-        registerArgs.trustMerklePathBits,
-        registerArgs.policyMerklePath,
-        registerArgs.policyMerklePathBits,
-      ],
-      // Pin an explicit gas limit. V5.2 register() runs the on-chain
-      // Groth16 verifier + ECDSA-via-EIP-7212 + 4 storage writes; on
-      // Base Sepolia that lands ~900k–1.2M gas. Leave headroom for
-      // calldata-cost variation across QTSP cert sizes. Wagmi's auto-
-      // estimation has been observed returning sub-intrinsic values
-      // for calldata-heavy txs (~5.5KB here), tripping the node's
-      // "intrinsic gas too low" pre-flight reject.
+      args: baseRegisterArgs,
       gas: 2_500_000n,
     });
   };
@@ -818,6 +865,38 @@ export function Step4ProveAndRegister({
           proved via: {proofSource}
         </p>
       )}
+      {isRebindCandidate && existingPk && (
+        <div
+          role="status"
+          data-testid="v5-rebind-notice"
+          style={{
+            border: '2px solid var(--cv-ink)',
+            background: '#fff8d6',
+            padding: '10px 12px',
+            fontFamily: 'var(--cv-mono)',
+            fontSize: 12.5,
+            color: 'var(--cv-ink)',
+          }}
+        >
+          {t(
+            'registerV5.step4.rebindNotice',
+            'An existing binding for this identity is bound to {{oldPk}}. Submitting will rebind it to your connected wallet ({{newPk}}).',
+            { oldPk: `${existingPk.slice(0, 6)}…${existingPk.slice(-4)}`, newPk: address ? `${address.slice(0, 6)}…${address.slice(-4)}` : '?' },
+          )}
+        </div>
+      )}
+      {wasRebind && (
+        <p
+          role="status"
+          data-testid="v5-rebind-success"
+          style={{ ...statusStyle, color: '#2e7d32' }}
+        >
+          {t(
+            'registerV5.step4.rebindSuccess',
+            '✓ Rebound to this wallet. Existing nullifier + age cutoffs preserved.',
+          )}
+        </p>
+      )}
       {provedArgs && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -831,12 +910,21 @@ export function Step4ProveAndRegister({
           {proofSource === 'uploaded' && v5Deployed && (
             <button
               type="button"
-              onClick={() => void submitRegister(provedArgs)}
+              onClick={() =>
+                void submitRegister(
+                  provedArgs,
+                  ageProvedArgs?.calldata ?? null,
+                )
+              }
               disabled={txPending}
               className="cv-btn"
               data-testid="v5-submit-uploaded-proof"
             >
-              ▶ Submit register() with this proof
+              {isRebindCandidate
+                ? t('registerV5.step4.replayRebind', '▶ Submit rebind() with this proof')
+                : ageProvedArgs
+                  ? t('registerV5.step4.replayWithAge', '▶ Submit register + age (1 tx)')
+                  : t('registerV5.step4.replay', '▶ Submit register() with this proof')}
             </button>
           )}
           {proofSource === 'uploaded' && v5Deployed && ageProvedArgs && uaDep && (
@@ -1004,7 +1092,11 @@ export function Step4ProveAndRegister({
           alignSelf: 'flex-start',
         }}
       >
-        {t('registerV5.step4.cta')}
+        {isRebindCandidate
+          ? t('registerV5.step4.ctaRebind', '▶ Prove + rebind to this wallet')
+          : ageOptIn
+            ? t('registerV5.step4.ctaWithAge', '▶ Prove + register + prove age (1 tx)')
+            : t('registerV5.step4.cta')}
       </button>
       <button
         type="button"

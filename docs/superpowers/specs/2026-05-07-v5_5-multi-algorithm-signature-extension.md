@@ -471,9 +471,35 @@ Land:
 3. Port current P-256 path onto V5.5 using the generic key-commit flow.
 4. Add RSA host-side verifier.
 5. Regenerate trusted-list root with generic commits.
-6. Run a new ceremony for V5.5.
+6. Run a new ceremony for V5.5 (**pot23** — see §13.4 below).
 7. Deploy V5.5 registry on testnet.
 8. Add RSA fixtures and end-to-end tests.
+
+### 13.4 Ceremony — pot23 (founder-locked 2026-05-08)
+
+V5.5's main circuit (`ZkqesPresentationV5_5.circom`) compiles at
+**5,604,985 non-linear constraints** (-O1, MAX_LEAF_SPKI=600 covering
+RSA-4096). This exceeds pot22's 4,194,304 cap by ~1.4M, driven
+entirely by the §6.5 byte-equality gate (per-byte `Multiplexer(1, 1408)`
+× `MAX_LEAF_SPKI` = ~1.68M added vs V5.4's two SpkiCommit blocks).
+
+**Decision (founder, 2026-05-08):** accept pot23 ceremony.
+
+- Pot23 cap: 2²³ = 8,388,608 non-linear constraints (~33% headroom).
+- Wall-clock: roughly 2× pot22's universal phase (per Powers-of-Tau
+  contributor-time scaling); contributor count similar (~5-10).
+- Reusable public pot23 inputs exist (Filecoin/Aleo); the V5.5
+  ceremony can either bootstrap from a public pot23 or run its own
+  recruitment per V5.4's Phase B precedent.
+- The byte-equality gate is the load-bearing soundness primitive
+  binding `leafSpkiBytes` to the issuer-signed cert (spec §12
+  invariant 4); cost-cutting it via SHA-commit, Merkle-window, or
+  `MAX_LEAF_SPKI` shrinkage would weaken or fragment the
+  algorithm-agnostic trust story. Pot23 is the cleaner trade.
+
+V5.5 ceremony coord scripts (`scripts/ceremony-coord/`) will need a
+`--ptau-power 23` parameter pump alongside the V5.4 inheritance.
+fly-eng's cookbook gets the corresponding entry in Phase B.
 
 ### 13.3 Recommended first acceptance target
 

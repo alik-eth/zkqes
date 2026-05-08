@@ -15,6 +15,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
+
+// Stub TanStack Router's <Link> so the component renders without a
+// wrapping <RouterProvider> (same pattern as CivicTerminalLanding).
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to, ...rest }: { children?: React.ReactNode; to?: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>) =>
+    React.createElement('a', { href: typeof to === 'string' ? to : '#', ...rest }, children),
+}));
 
 vi.mock('@zkqes/sdk', async () => {
   // Pull the real module so MockProver and types still come through;
@@ -244,14 +252,16 @@ describe('ProveAgeFlow — V5.4 civic-terminal v3 surface', () => {
     expect(screen.queryByTestId('prove-age-step-cutoff')).not.toBeInTheDocument();
   });
 
-  it('binding-pick: N=0 surfaces empty-state with /ua/registerV5 CTA', () => {
+  it('binding-pick: N=0 surfaces empty-state with home register-flow CTA', () => {
     primeBindings({ data: [] });
     render(<ProveAgeFlow prover={v5_4MockProver()} />);
     expect(
       screen.getByTestId('prove-age-step-binding-pick-empty'),
     ).toBeInTheDocument();
     const cta = screen.getByTestId('prove-age-binding-pick-register-cta');
-    expect(cta).toHaveAttribute('href', '/ua/registerV5');
+    // V5.4 nuke pass moved register Step1-4 inline on `/` (HomeDocument);
+    // the legacy /ua/registerV5 route is gone.
+    expect(cta).toHaveAttribute('href', '/');
   });
 
   it('binding-pick: N=1 auto-advances to cutoff (vast-majority path)', async () => {

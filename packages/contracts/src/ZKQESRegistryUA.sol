@@ -84,22 +84,12 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     string public constant override country = "UA";
 
     /// @notice Source-version tag for off-chain inspection.
-    string public constant VERSION = "ZKQES/V5.4";
+    string public constant VERSION = "ZKQES/V5.6";
 
     /// @notice Maximum acceptable proof-binding age. Proofs whose
     ///         `leafProof.timestamp` is older than `block.timestamp -
     ///         MAX_BINDING_AGE` revert `StaleBinding`. Mirrors V5.2.
     uint256 public constant MAX_BINDING_AGE = 1 hours;
-
-    /// @notice Frozen ProtocolBytes literal for the rotation auth
-    ///         payload's domain tag. NEVER renamed — changing this
-    ///         invalidates every existing rotation auth signature
-    ///         (which is fine for fresh deploys but would break
-    ///         consumer-tooling assumptions if drift lands silently).
-    ///         Per V5.4 naming convention (spec §2.3), new entities
-    ///         use the `zkqes-*-v1` lowercase tag pattern (mirrors
-    ///         the orchestration §1.4 age-ctx tag).
-    bytes  internal constant ROTATE_AUTH_TAG = bytes("zkqes-rotate-auth-v1");
 
     /* ---------- immutables ---------- */
 
@@ -136,7 +126,7 @@ contract ZKQESRegistryUA is IZKQESRegistry {
 
     /* ---------- errors (V5.4-NEW + V5.2-port + admin) ---------- */
 
-    /* register / rotateWallet — V5.2 port */
+    /* register — V5.2 port + V5.6 unified-register */
     error WrongMode();
     error WalletDerivationMismatch();
     error WrongRegisterModeNoOp();
@@ -152,13 +142,7 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     error BadPolicy();
     error StaleBinding();
     error FutureBinding();
-    error WalletNotBound();
-    error CtxAlreadyUsed();
-    error UnknownIdentity();
-    error InvalidNewWallet();
-    error InvalidRotationAuth();
-    error NewWalletArgMismatch();   // V5.4 belt-and-suspenders: rotateWallet's
-                                    //  `address newWallet` arg vs LeafProof.rotationNewWallet
+    error NullifierUsed();          // V5.6: cross-identity nullifier reuse on first-claim
 
     /* proveAge — V5.4 NEW (silent reverts; no string interpolation —
        eliminates revert-string side-channel risk per spec §3.3) */
@@ -287,18 +271,47 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         bytes32[16] calldata policyMerklePath,
         uint256              policyMerklePathBits
     ) external override returns (bytes32 bindingId) {
+        return _register(
+            msg.sender,
+            chainProof, leafProof,
+            leafSpki, intSpki, signedAttrs,
+            leafSig, intSig,
+            trustMerklePath, trustMerklePathBits,
+            policyMerklePath, policyMerklePathBits
+        );
+    }
+
+    /// @dev Internal register entry point — takes the caller as an
+    ///      explicit argument so `registerWithAge` can call it without
+    ///      bouncing through an external `this.register(...)` (which
+    ///      would re-set msg.sender to address(this) and break the
+    ///      WalletDerivationMismatch gate).
+    function _register(
+        address              caller,
+        ChainProof  calldata chainProof,
+        LeafProof   calldata leafProof,
+        bytes       calldata leafSpki,
+        bytes       calldata intSpki,
+        bytes       calldata signedAttrs,
+        bytes32[2]  calldata leafSig,
+        bytes32[2]  calldata intSig,
+        bytes32[16] calldata trustMerklePath,
+        uint256              trustMerklePathBits,
+        bytes32[16] calldata policyMerklePath,
+        uint256              policyMerklePathBits
+    ) internal returns (bytes32 bindingId) {
         /* ===== Gate 0: mode gate ===== */
         if (leafProof.rotationMode != 0) revert WrongMode();
 
-        /* ===== Gate 2a-prime: keccak-derive msg.sender from binding-pk limbs ===== */
+        /* ===== Gate 2a-prime: keccak-derive caller from binding-pk limbs ===== */
         // V5.2 keccak-on-chain port. Reconstructs the 64-byte uncompressed
         // secp256k1 wallet pubkey from the 4×128-bit limbs (slots 18..21,
         // big-endian), runs keccak256[12:32] to derive an Ethereum address.
         address derivedAddr = _deriveAddrFromBindingLimbs(leafProof);
-        if (derivedAddr != msg.sender) revert WalletDerivationMismatch();
+        if (derivedAddr != caller) revert WalletDerivationMismatch();
 
         // V5.2 register-mode rotation no-op gate.
-        if (leafProof.rotationNewWallet != uint256(uint160(msg.sender))) {
+        if (leafProof.rotationNewWallet != uint256(uint160(caller))) {
             revert WrongRegisterModeNoOp();
         }
 
@@ -372,27 +385,29 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         if (leafProof.timestamp > block.timestamp) revert FutureBinding();
         if (block.timestamp - leafProof.timestamp > MAX_BINDING_AGE) revert StaleBinding();
 
-        /* ===== Gate 6/7: binding-write + per-nullifier anti-Sybil ===== */
-        // V5.4 schema: bindingId = keccak(country, identityFingerprint).
-        // Stable across rotation (identityFingerprint is rotation-stable
-        // per V5.1 — depends only on subjectSerial). Country-scoped so
-        // V5.5+ countries with the same QES holder get distinct bindings.
+        /* ===== Gate 6/7: binding-write — first-claim or rebind ===== */
+        // V5.6 unified-register: bindingId = keccak(country,
+        // identityFingerprint), stable across wallet swaps. A valid
+        // proof for the same fingerprint authorizes rebinding to the
+        // current msg.sender — no separate rotateWallet entry point.
         bindingId = keccak256(abi.encode(country, leafProof.identityFingerprint));
 
         Binding storage b = bindings[bindingId];
 
-        // ctxKey: 32-byte sha256(ctxBytes) reassembled from slots [2..3].
         uint256 ctxHash = (leafProof.ctxHashHi << 128) | leafProof.ctxHashLo;
         uint256 nullifier = leafProof.nullifier;
+        address oldPk = b.pk;
 
-        if (b.pk == address(0)) {
-            // ----- First claim path -----
-            // V5.1 invariant 5 (wallet uniqueness across identities) is
-            // RELAXED in V5.4 — no wallet→bindingId reverse mapping.
-            // Acceptable per the schema-migration analysis (rotation
-            // auth sig still gates the load-bearing rebind path).
+        if (oldPk == address(0)) {
+            // ----- First-claim path -----
+            // Cross-identity nullifier reuse guard: each binding's
+            // first-claim nullifier must be globally unique. Subsequent
+            // rebinds intentionally reuse the same first-claim
+            // nullifier (V5.1 write-once invariant), so the
+            // usedNullifiers check is gated on the first-claim branch.
+            if (usedNullifiers[nullifier]) revert NullifierUsed();
 
-            b.pk             = msg.sender;
+            b.pk             = caller;
             b.ctxHash        = ctxHash;
             b.policyLeafHash = leafProof.policyLeafHash;
             b.timestamp      = block.timestamp;
@@ -402,105 +417,59 @@ contract ZKQESRegistryUA is IZKQESRegistry {
             b.nullifier      = nullifier;     // first-claim write-once
 
             usedNullifiers[nullifier] = true;
+
+            emit BindingRegistered(bindingId, caller, ctxHash);
         } else {
-            // ----- Repeat-claim path -----
-            if (b.revoked)              revert BindingRevoked();
-            if (b.pk != msg.sender)     revert WalletNotBound();
-            if (usedNullifiers[nullifier]) revert CtxAlreadyUsed();
+            // ----- Rebind path (V5.6 unified-register) -----
+            // Authorization is the proof itself: same identityFingerprint
+            // means same QES-anchored identity, and the proof's
+            // structural validity was already verified above.
+            if (b.revoked) revert BindingRevoked();
 
-            usedNullifiers[nullifier] = true;
-            // V5.1 invariant 4: bindings[bindingId].nullifier is write-
-            // once on first-claim — DO NOT overwrite. Other Binding
-            // slots (ctxHash, policyLeafHash, timestamp) are also
-            // first-claim-frozen by design.
+            // Refresh wallet-and-context fields. Nullifier and the
+            // first-claim write-once invariant are preserved — the
+            // identity's anti-Sybil anchor doesn't change on rebind.
+            b.pk             = caller;
+            b.ctxHash        = ctxHash;
+            b.policyLeafHash = leafProof.policyLeafHash;
+            b.timestamp      = block.timestamp;
+            // ageProvenCutoffs[bindingId][*] persists across rebinds —
+            // proven cutoffs are properties of the QES-anchored
+            // identity, not of any wallet that proved them.
+
+            if (oldPk != caller) {
+                emit BindingRebound(bindingId, oldPk, caller);
+            }
         }
-
-        emit BindingRegistered(bindingId, msg.sender, ctxHash);
     }
 
-    /* ---------- rotateWallet() — V5.2 port + V5.4 schema ---------- */
+    /* ---------- registerWithAge() — V5.6 atomic register + proveAge ---------- */
 
     /// @inheritdoc IZKQESRegistry
-    function rotateWallet(
-        bytes32         bindingId,
-        LeafProof calldata leafProof,
-        address         newWallet,
-        bytes calldata  sig
-    ) external override {
-        /* ----- Mode gate ----- */
-        if (leafProof.rotationMode != 1) revert WrongMode();
-
-        /* ----- V5.3 F2: rotationNewWallet 160-bit range check ----- */
-        // Closes the silent-truncation vector at the
-        // `address(uint160(leafProof.rotationNewWallet))` cast below.
-        if (leafProof.rotationNewWallet != uint256(uint160(leafProof.rotationNewWallet))) {
-            revert InvalidNewWallet();
-        }
-
-        /* ----- V5.4 belt-and-suspenders: explicit-arg vs in-circuit-bound ----- */
-        // The interface passes `newWallet` explicitly for ABI clarity;
-        // `LeafProof.rotationNewWallet` (slot 17) is the in-circuit-
-        // bound truth. They MUST agree — typo / wallet-spoof guard.
-        if (uint256(uint160(newWallet)) != leafProof.rotationNewWallet) {
-            revert NewWalletArgMismatch();
-        }
-
-        /* ----- Groth16 verify ----- */
-        uint256[22] memory input = _packPublicSignals(leafProof);
-        if (!identityVerifierImpl.verifyProof(leafProof.a, leafProof.b, leafProof.c, input)) {
-            revert BadProof();
-        }
-
-        /* ----- Lookup binding + validate rotation invariants ----- */
-        Binding storage b = bindings[bindingId];
-        address oldWallet = b.pk;
-        if (oldWallet == address(0)) revert UnknownIdentity();
-        if (b.revoked)               revert BindingRevoked();
-        if (newWallet == address(0)) revert InvalidNewWallet();
-        if (newWallet == oldWallet)  revert InvalidNewWallet();
-
-        // Note: V5.2's `CommitmentMismatch` check
-        // (`identityCommitments[fp] == sig.rotationOldCommitment`) is
-        // intentionally absent — V5.4 has no commitment storage slot.
-        // The in-circuit `rotationOldCommitment === identityCommitment`
-        // ForceEqualIfEnabled gate plus the rotation auth sig are the
-        // load-bearing protections (per the schema-migration analysis
-        // in the contract docstring).
-        // Note: V5.2's `nullifierOf[newWallet] != 0 → AlreadyRegistered`
-        // (V5.1 invariant 5) is intentionally absent — V5.4 has no
-        // wallet→bindingId reverse mapping.
-
-        /* ----- Verify old-wallet authorization signature ----- */
-        // Domain tag binds the signature to: this rotation use case
-        // (`zkqes-rotate-auth-v1` ProtocolBytes literal), this chain
-        // (`block.chainid`), this exact registry (`address(this)`),
-        // this binding (`bindingId`), and the new wallet
-        // (`newWallet`). Per V5.2's [P2] cross-deployment-replay fix
-        // (codex review on Task 3).
-        bytes32 authPayload = keccak256(
-            abi.encodePacked(
-                ROTATE_AUTH_TAG,
-                block.chainid,
-                address(this),
-                bindingId,
-                newWallet
-            )
+    function registerWithAge(
+        ChainProof  calldata chainProof,
+        LeafProof   calldata leafProof,
+        bytes       calldata leafSpki,
+        bytes       calldata intSpki,
+        bytes       calldata signedAttrs,
+        bytes32[2]  calldata leafSig,
+        bytes32[2]  calldata intSig,
+        bytes32[16] calldata trustMerklePath,
+        uint256              trustMerklePathBits,
+        bytes32[16] calldata policyMerklePath,
+        uint256              policyMerklePathBits,
+        uint256              ageCutoffDate,
+        AgeProof    calldata ageProof
+    ) external override returns (bytes32 bindingId, bool ageOk) {
+        bindingId = _register(
+            msg.sender,
+            chainProof, leafProof,
+            leafSpki, intSpki, signedAttrs,
+            leafSig, intSig,
+            trustMerklePath, trustMerklePathBits,
+            policyMerklePath, policyMerklePathBits
         );
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", authPayload)
-        );
-        address recovered = _recoverSigner(ethSignedHash, sig);
-        if (recovered != oldWallet) revert InvalidRotationAuth();
-
-        /* ----- Atomic state update ----- */
-        b.pk = newWallet;
-        // bindings[bindingId].nullifier is write-once first-claim
-        // (V5.1 invariant 4). It stays put — unaffected by rotation.
-        // ageProvenCutoffs[bindingId][*] also persists (V5.1 invariant
-        // 3 analog — proven cutoffs are properties of the BINDING,
-        // not the wallet).
-
-        emit BindingRotated(bindingId, oldWallet, newWallet);
+        ageOk = _proveAge(msg.sender, bindingId, ageCutoffDate, ageProof);
     }
 
     /* ---------- proveAge() — V5.4 NEW ---------- */
@@ -516,6 +485,19 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         uint256          ageCutoffDate,
         AgeProof  calldata proof
     ) external override returns (bool) {
+        return _proveAge(msg.sender, bindingId, ageCutoffDate, proof);
+    }
+
+    /// @dev Internal proveAge entry point — takes the prover address as
+    ///      an explicit argument so `registerWithAge` can call it
+    ///      without the AgeProven event recording address(this) as the
+    ///      prover.
+    function _proveAge(
+        address          prover,
+        bytes32          bindingId,
+        uint256          ageCutoffDate,
+        AgeProof  calldata proof
+    ) internal returns (bool) {
         Binding memory b = bindings[bindingId];
         if (b.pk == address(0))   revert BindingNotFound();
         if (b.revoked)            revert BindingRevoked();
@@ -552,7 +534,7 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         }
 
         ageProvenCutoffs[bindingId][ageCutoffDate] = true;
-        emit AgeProven(bindingId, ageCutoffDate, msg.sender);
+        emit AgeProven(bindingId, ageCutoffDate, prover);
         return true;
     }
 
@@ -611,26 +593,4 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         input[21] = leafProof.bindingPkYLo;
     }
 
-    /// @dev Verbatim port from `ZkqesRegistryV5_2._recoverSigner`. EIP-2 /
-    ///      SEC 1 high-s rejection. Returns address(0) on s-malleability,
-    ///      wrong v, or wrong length; caller's `recovered != oldWallet`
-    ///      check funnels those into `InvalidRotationAuth`.
-    function _recoverSigner(bytes32 hash, bytes calldata signature)
-        internal pure returns (address)
-    {
-        if (signature.length != 65) return address(0);
-        bytes32 r;
-        bytes32 s;
-        uint8   v;
-        assembly {
-            r := calldataload(signature.offset)
-            s := calldataload(add(signature.offset, 0x20))
-            v := byte(0, calldataload(add(signature.offset, 0x40)))
-        }
-        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
-            return address(0);
-        }
-        if (v != 27 && v != 28) return address(0);
-        return ecrecover(hash, v, r, s);
-    }
 }
