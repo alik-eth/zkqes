@@ -5,7 +5,6 @@ import {IGroth16VerifierV5_5} from "./Groth16VerifierV5_5Stub.sol";
 import {KeyCommit} from "./libs/KeyCommit.sol";
 import {HostSig} from "./libs/HostSig.sol";
 import {Poseidon} from "./libs/Poseidon.sol";
-import {PoseidonBytecode} from "./libs/PoseidonBytecode.sol";
 import {PoseidonMerkle} from "./libs/PoseidonMerkle.sol";
 
 /// @title  ZkqesRegistryV5_5 — multi-algorithm signature extension.
@@ -105,20 +104,31 @@ contract ZkqesRegistryV5_5 {
 
     /* ---------- constructor ---------- */
 
+    /// @dev Poseidon T3/T7 are pre-deployed by the deploy script and
+    ///      passed in (V5.4 pattern, post-2026-05-05 Base Sepolia
+    ///      MAX_INITCODE_SIZE failure). Embedding the ~33 KB Poseidon
+    ///      initcodes inside the registry's own constructor pushes total
+    ///      registry initcode over the EIP-3860 ~24.5 KB cap on Base
+    ///      Sepolia. Pre-deploy + pass keeps the registry's own initcode
+    ///      compact.
     constructor(
         IGroth16VerifierV5_5 _verifier,
         address _admin,
         bytes32 _initialTrustedListRoot,
-        bytes32 _initialPolicyRoot
+        bytes32 _initialPolicyRoot,
+        address _poseidonT3,
+        address _poseidonT7
     ) {
         if (address(_verifier) == address(0)) revert ZeroAddress();
         if (_admin == address(0)) revert ZeroAddress();
+        if (_poseidonT3 == address(0)) revert ZeroAddress();
+        if (_poseidonT7 == address(0)) revert ZeroAddress();
         groth16Verifier = _verifier;
         admin = _admin;
         trustedListRoot = _initialTrustedListRoot;
         policyRoot = _initialPolicyRoot;
-        poseidonT3 = Poseidon.deploy(PoseidonBytecode.t3Initcode());
-        poseidonT7 = Poseidon.deploy(PoseidonBytecode.t7Initcode());
+        poseidonT3 = _poseidonT3;
+        poseidonT7 = _poseidonT7;
     }
 
     /* ---------- views ---------- */

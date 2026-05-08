@@ -23,6 +23,8 @@ contract ZkqesRegistryV5_5SmokeTest is Test {
     ZkqesRegistryV5_5 internal reg;
     Groth16VerifierV5_5Stub internal verifierAccept;
     Groth16VerifierV5_5Stub internal verifierReject;
+    address internal poseidonT3;
+    address internal poseidonT7;
 
     bytes32 internal constant TRUSTED_ROOT = bytes32(uint256(1));
     bytes32 internal constant POLICY_ROOT = bytes32(uint256(2));
@@ -30,11 +32,17 @@ contract ZkqesRegistryV5_5SmokeTest is Test {
     function setUp() public {
         verifierAccept = new Groth16VerifierV5_5Stub(true);
         verifierReject = new Groth16VerifierV5_5Stub(false);
+        // V5.4 pre-deploy pattern: deploy Poseidon once, reuse across
+        // every registry instance in this test contract.
+        poseidonT3 = Poseidon.deploy(PoseidonBytecode.t3Initcode());
+        poseidonT7 = Poseidon.deploy(PoseidonBytecode.t7Initcode());
         reg = new ZkqesRegistryV5_5(
             IGroth16VerifierV5_5(address(verifierAccept)),
             address(this),
             TRUSTED_ROOT,
-            POLICY_ROOT
+            POLICY_ROOT,
+            poseidonT3,
+            poseidonT7
         );
     }
 
@@ -54,7 +62,9 @@ contract ZkqesRegistryV5_5SmokeTest is Test {
             IGroth16VerifierV5_5(address(0)),
             address(this),
             TRUSTED_ROOT,
-            POLICY_ROOT
+            POLICY_ROOT,
+            poseidonT3,
+            poseidonT7
         );
     }
 
@@ -64,7 +74,33 @@ contract ZkqesRegistryV5_5SmokeTest is Test {
             IGroth16VerifierV5_5(address(verifierAccept)),
             address(0),
             TRUSTED_ROOT,
-            POLICY_ROOT
+            POLICY_ROOT,
+            poseidonT3,
+            poseidonT7
+        );
+    }
+
+    function test_constructor_revertsOnZeroPoseidonT3() public {
+        vm.expectRevert(ZkqesRegistryV5_5.ZeroAddress.selector);
+        new ZkqesRegistryV5_5(
+            IGroth16VerifierV5_5(address(verifierAccept)),
+            address(this),
+            TRUSTED_ROOT,
+            POLICY_ROOT,
+            address(0),
+            poseidonT7
+        );
+    }
+
+    function test_constructor_revertsOnZeroPoseidonT7() public {
+        vm.expectRevert(ZkqesRegistryV5_5.ZeroAddress.selector);
+        new ZkqesRegistryV5_5(
+            IGroth16VerifierV5_5(address(verifierAccept)),
+            address(this),
+            TRUSTED_ROOT,
+            POLICY_ROOT,
+            poseidonT3,
+            address(0)
         );
     }
 
@@ -108,7 +144,9 @@ contract ZkqesRegistryV5_5SmokeTest is Test {
             IGroth16VerifierV5_5(address(verifierReject)),
             address(this),
             TRUSTED_ROOT,
-            POLICY_ROOT
+            POLICY_ROOT,
+            poseidonT3,
+            poseidonT7
         );
         // Build sig with bindingPk limbs that derive to msg.sender so
         // Gate 2a-prime passes. The keccak of an all-zero 64-byte buffer
