@@ -1033,3 +1033,217 @@ the natural-person serial-number (V5.3 OID-anchored) and NOT the
 cert serial-number / SPKI / signature.  That's a circuit-layer
 fact.  The SDK CLAUDE.md should reference this V5.35 entry rather
 than restate it.
+
+
+## V5.5 — Multi-algorithm signature extension amendment (current)
+
+V5.5 layers on V5.4 per spec
+`docs/superpowers/specs/2026-05-07-v5_5-multi-algorithm-signature-extension.md`.
+Every V5.x invariant above (§V5.1–§V5.35) remains in force; the V5.5
+items below are amendments to the **trust-list commitment scheme**
+(P-256-only → algorithm-agnostic) and the **circuit envelope** (pot22
+→ pot23). The soundness story (wallet-bound nullifier, rotation-mode
+gates, ETSI namespace identifier semantics) is unchanged.
+
+### V5.51 — Algorithm-agnostic KeyCommit replaces P-256 SpkiCommit
+
+V5.4's `leafSpkiCommit = Poseidon₂(Poseidon₆(Xlimbs), Poseidon₆(Ylimbs))`
+hardcoded ECDSA-P256 affine-coord packing. V5.5 replaces it with a
+**byte-level Poseidon-domain commitment** over the canonical SPKI DER:
+
+```
+keyCommit(spki) = Poseidon₂( KEY_COMMIT_DOMAIN,
+                             PoseidonChunkHashVarT7(spkiDerBytes) )
+```
+
+Where `KEY_COMMIT_DOMAIN = bigint(keccak256("zkqes-key-commit-v1")) mod p_bn254`,
+yielding the frozen field constant
+`18645781269818968495274020647839177040876380151358417993861915365514852958754`.
+The string `"zkqes-key-commit-v1"` is a frozen ProtocolBytes literal
+(see CLAUDE.md ProtocolBytes invariant); never renamed in any future
+amendment.
+
+**Why algorithm-blind**: removes the per-algorithm circuit specialization
+that V5.4 baked in (P-256 limb-decomposition + Poseidon₆ over the limbs).
+V5.5 commits the SPKI bytes verbatim, making the trust-list construction
+itself algorithm-neutral. Adding RSA-2048/3072/4096 (or any future
+algorithm whose canonical SPKI fits ≤ MAX_LEAF_SPKI=600 bytes) requires
+zero circuit changes — just a new host-side verifier dispatch in
+`HostSig.sol`.
+
+### V5.52 — Three-language byte-parity tripod
+
+KeyCommit's value MUST be byte-identical across THREE implementations:
+- **Circom**: `circuits/primitives/KeyCommitVar.circom` (witness/circuit gate)
+- **Solidity**: `packages/contracts/src/libs/KeyCommit.sol` (on-chain Gate 5
+  trust-list verification + caller-supplied `leafKeyCommit` check)
+- **TS**: `packages/sdk/src/witness/v5_5/key-commit.ts` (witness builder
+  + flattener trust-list root construction)
+
+A fourth byte-identical implementation lives in
+`packages/lotl-flattener/src/ca/keyCommit.ts` (mirrors the SDK file
+verbatim with hardcoded domain constant; depends only on `circomlibjs`,
+no `@noble/hashes` pull-in). The flattener's parity test asserts
+equivalence against the shared
+`fixtures/v5_5/key-commit-parity.json` fixture (10 vectors covering
+empty SPKI, sponge boundaries, P-256 SPKI, RSA-2048/3072/4096 SPKIs).
+
+Drift between any two implementations breaks the V5.5 trust-list /
+proof equality invariant (spec §12 invariants 5+6) — Gate 5 trust-list
+membership check fails silently. The shared parity fixture is the
+single source of truth; regenerate via
+`pnpm --filter @zkqes/sdk exec tsx scripts/gen-key-commit-parity.ts`
+and pump to the flattener via the standard cross-worktree fixture
+copy pattern.
+
+### V5.53 — PoseidonChunkHashVarT7 (NEW primitive, T7 not T16)
+
+V5.4's `PoseidonChunkHashVar` uses RATE=15 (Poseidon-T16 per round).
+**V5.5 introduces a parallel primitive at T7** (RATE=5, Poseidon-6
+per round) — additive, not breaking; V5.4's T16 chunk-hash stays
+in tree for V5.x archive consumers and current
+`canonicalizeCertHash` / nullifier-derivation paths.
+
+**Why T7 over T16**: Solidity has `Poseidon.hashT7` deployed via
+`PoseidonBytecode` (the existing PoseidonT7 contract — `hashT7` is
+arity 6→1) but does NOT have `hashT16`. Using T16 in V5.5 would
+require deploying a new opaque bytecode contract + extending the
+reproducibility-check gate. Picking T7 keeps on-chain `KeyCommit.sol`
+as a `hashT7`-in-loop and reuses existing infrastructure.
+
+Sponge sizing for V5.5:
+- RATE = 5 (5 field elements absorbed per round)
+- CHUNK = 31 bytes per field element (matches V5.4)
+- MAX_LEAF_SPKI = 600 bytes (covers RSA-4096 SPKI ~550 bytes)
+- N_FE_MAX = ⌈600/31⌉ + 1 = 21 (chunks ‖ length)
+- N_ROUNDS_MAX = ⌈21/5⌉ = 5
+
+In practice: P-256 SPKI (91B) → 1 round; RSA-2048 (~294B) → 3 rounds;
+RSA-4096 (~550B) → 4 rounds. MAX_ROUNDS=5 leaves headroom for SPKIs
+up to 620 bytes.
+
+### V5.54 — 21-signal public layout (down from V5.4's 22)
+
+V5.5 drops `intSpkiCommit` (V5.4's slot 12) and renames `leafSpkiCommit`
+(V5.4 slot 11) → `leafKeyCommit`. All V5.4 slots [13..21] shift down
+by 1:
+
+| V5.5 slot | Signal | V5.4 source |
+|---|---|---|
+| [11] | `leafKeyCommit` | replaces `leafSpkiCommit`, new construction (V5.51) |
+| [12] | `identityFingerprint` | V5.4 [13] |
+| [13] | `identityCommitment` | V5.4 [14] |
+| [14] | `rotationMode` | V5.4 [15] |
+| [15] | `rotationOldCommitment` | V5.4 [16] |
+| [16] | `rotationNewWallet` | V5.4 [17] |
+| [17..20] | `bindingPkXHi/Lo` + `bindingPkYHi/Lo` | V5.4 [18..21] |
+
+Slots [0..10] unchanged from V5.4. Layout is **FROZEN per spec §6**;
+the `verifyProof(uint[21])` ABI is the cross-worker breaking-change
+boundary. V5.4 fixtures (22-signal layout) will NOT round-trip against
+V5.5 stub vkey or vice versa.
+
+The intermediate-key commitment is no longer emitted from the proof.
+The contract computes `KeyCommit.commitSpki(intSpki)` at register time
+(Gate 5 trust-list Merkle membership), dropping the V5.4 requirement
+that the prover witness intermediate-SPKI parsing.
+
+### V5.55 — Per-byte Multiplexer cost + pot23 envelope (FROZEN)
+
+The V5.5 byte-equality gate (proves `leafSpkiBytes[0..len]` matches
+the corresponding `leafTbsBytes` slice at `leafSpkiOffsetInTbs`) uses
+`Multiplexer(1, MAX_LEAF_TBS=1408)` per byte. Empirical cost:
+**~2,800 constraints/mux × 600 SPKI bytes ≈ 1.68M constraints** for
+the slice-and-equate, dominating the V5.5 envelope.
+
+| | V5.3 measured | V5.5 measured |
+|---|---|---|
+| Constraints | 3,896,356 | **5,604,985** (+1,708,629) |
+| Public inputs | 22 | **21** (-1, intSpkiCommit dropped) |
+| Powers-of-tau | pot22 (cap 4.19M) | **pot23 (cap 8.39M)** |
+| ptau download | 4.83 GB | **9.1 GB** |
+| Phase 2 setup wall | ~10-15 min | **~25-35 min** |
+| Phase 2 setup peak RSS | ~30 GB | **~40 GB** |
+
+**Pot23 is locked** per spec §13.4 (founder accepted 2026-05-08).
+~33% headroom over the 5.6M envelope — sufficient room for V5.5
+follow-ups (V5.6 lost-wallet recovery is design-stage, expected
+≤200K extra constraints if it lands as a parallel branch in the
+same circuit).
+
+Cap policy: same as V5.4 (`4,500,000` was the V5.3 cap; V5.5
+implicitly raises this to `~6,000,000` for amendment fit). Mobile-
+browser prove-time + zkey-download envelope shifts upward
+proportionally — ~120s prove + ~3 GB zkey is the new V5.5 floor.
+
+### V5.56 — Witness builder layers on V5.4 (no full rewrite)
+
+`packages/sdk/src/witness/v5_5/build-witness-v5_5.ts` delegates to
+`buildWitnessV5_2` (V5.4 builder) for shared computation, then
+reshapes:
+
+1. Drops 4 V5.4 P-256 limb arrays: `leafXLimbs[6]`, `leafYLimbs[6]`,
+   `intXLimbs[6]`, `intYLimbs[6]`.
+2. Drops 2 V5.4 public signals: `leafSpkiCommit`, `intSpkiCommit`.
+3. Walks `leafTbsBytes` to locate the leaf SPKI sub-DER via
+   `findLeafSpkiInTbs(tbs)` (added to `leaf-cert-walk.ts`).
+4. Computes `leafKeyCommit = keyCommit(spkiDer)` via the shared TS
+   reference.
+5. Adds 3 new private inputs: `leafSpkiBytes` (padded to MAX_LEAF_SPKI),
+   `leafSpkiLength`, `leafSpkiOffsetInTbs`.
+
+V5.4 inherited inputs (binding bytes, signed-attrs, leafTbsBytes,
+identity-extraction offsets, V5.3 OID anchor) flow through unchanged
+via spread. Caller responsibility unchanged from V5.4 — same input
+shape (`BuildWitnessV5_2Input`); divergence is on the output side.
+
+### V5.57 — Stub ceremony at `ceremony/v5_5/` supersedes `ceremony/v5_3/`
+
+Reproduce: `pnpm -F @zkqes/circuits ceremony:v5_5:stub` (~60-120 min
+cold including pot23 fetch over EU broadband; ~40-50 min warm).
+
+Same single-contributor caveat as V5.3 stub: sound IF the contributor
+is honest AND the pot23 ptau was honestly generated. Real Phase B
+ceremony (20-30 contributors per spec §13.4) is a separate dispatch.
+Pot23 sha256 pin (first-trust-on-use):
+`047f16d75daaccd6fb3f859acc8cc26ad1fb41ef030da070431e95edb126d19d`.
+
+V5.3 stub at `ceremony/v5_3/` (22 public signals, P-256-only
+spkiCommit) is left as an archive. V5.5 stub at `ceremony/v5_5/`
+(21 public signals, algorithm-agnostic keyCommit) is the canonical
+downstream consumer for V5.5 contracts-eng + web-eng integration.
+
+### V5.58 — Signal-input contract lock
+
+`test/v5_5-signal-contract.test.ts` parses
+`ZkqesPresentationV5_5.circom` for `signal input` declarations and
+asserts the set matches the canonical V5.5 contract (21 public + 43
+private signals enumerated in spec §6 + §7.2). Pairs with the
+web-side `build-witness-v5_5.test.ts` shape assertion: if both pass,
+builder JSON keys are byte-equal to circuit signal declarations,
+making "Signal X not found" / "Too many values" failures at
+witness-calc time impossible without a CI-visible regression first.
+
+Run: `mocha --grep "V5.5 signal-input contract"` (full mocha suite
+OOMs unrelated; use `--grep` to filter).
+
+This is a **static-analysis test** — it does NOT run circom_tester
+on the 5.6M-constraint main circuit. A semantic round-trip
+(buildWitness output passes calculateWitness) requires the full
+~10-min compile and is best run as part of Phase B ceremony dry-run
+rather than per-CI.
+
+### V5.59 — Pre-deployed Poseidon pattern back-ported to ZkqesRegistryV5_5
+
+V5.5 contract refactor: `ZkqesRegistryV5_5` constructor now accepts
+pre-deployed `poseidonT3` + `poseidonT7` addresses (V5.4 pattern,
+post-2026-05-05 Base Sepolia MAX_INITCODE_SIZE failure). Embedding
+the ~33 KB Poseidon initcodes inside the registry constructor pushes
+total registry initcode over EIP-3860's ~24.5 KB cap on Base Sepolia.
+Pre-deploy + pass keeps registry initcode compact.
+
+`script/DeployV5_5.s.sol` does the pre-deploy + wiring; defaults to
+`Groth16VerifierV5_5Stub(accepts=true)` so Anvil dry-runs +
+pre-ceremony Sepolia smoke land without a real zkey. Real verifier
+swaps in via `IDENTITY_VERIFIER_ADDR` env override (drop-in
+compatible — same `verifyProof(uint[21])` ABI).
