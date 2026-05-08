@@ -14,6 +14,8 @@
     "ceremony:v5:stub": "bash ceremony/scripts/stub-v5.sh",
     "ceremony:v5_1:stub": "bash ceremony/scripts/stub-v5_1.sh",
     "ceremony:v5_2:stub": "bash ceremony/scripts/stub-v5_2.sh",
+    "ceremony:v5_3:stub": "bash ceremony/scripts/stub-v5_3.sh",
+    "ceremony:v5_5:stub": "bash ceremony/scripts/stub-v5_5.sh",
     "lint": "biome check .",
     "extract:spkis": "ts-node scripts/extract-spkis.ts",
     "parity:v5": "vitest run test/SpkiCommitParity.vitest.ts",
