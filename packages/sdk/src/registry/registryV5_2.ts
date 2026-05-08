@@ -1,25 +1,12 @@
-// ZkqesRegistryV5.2 client-side types + calldata encoder.
+// ZkqesRegistry V5.4/V5.6 client-side types + register-calldata encoder.
 //
-// V5.1 → V5.2 deltas (spec ref: 2026-05-01-keccak-on-chain-amendment.md):
-//   - PublicSignals shrinks by 1 (drop `msgSender`) and grows by 4 (add
-//     bindingPkXHi, bindingPkXLo, bindingPkYHi, bindingPkYLo).
-//   - Net public-signal count: 19 → 22.
-//   - Slots 1-18 in V5.1 shift down by 1 (msgSender removal frees slot
-//     0). New pkLimb signals append at slots 18-21.
-//   - The `register()` calldata struct shape changes correspondingly.
-//   - The `rotateWallet()` calldata struct shape changes correspondingly.
-//
-// FROZEN per spec §"Public-signal layout V5.1 → V5.2" — adding/reordering
-// a slot is a cross-worker breaking change. Contracts-eng's
-// `Groth16VerifierV5_2.sol` and the V5.2 `verification_key.json` (when
-// pumped from circuits-eng) MUST pin to this exact order.
-//
-// The `zkqesRegistryV5_2Abi` consumed by the encoder lives at
-// `packages/sdk/src/abi/ZkqesRegistryV5_2.ts` (auto-generated from
-// `forge inspect ZkqesRegistryV5_2 abi --json` against contracts-eng's
-// `feat/v5_2arch-contracts`).
-import { encodeFunctionData } from 'viem';
-import { zkqesRegistryV5_2Abi } from '../abi/ZkqesRegistryV5_2.js';
+// FROZEN 22-signal public-signal layout (spec ref:
+// 2026-05-01-keccak-on-chain-amendment.md). The byte-identical proof
+// shape is reused unchanged from V5.2 → V5.4 → V5.6, so this file
+// keeps its historical name `registryV5_2.ts` while pointing at the
+// active V5.4/V5.6 `zkqesRegistryUaAbi`. V5.6 dropped `rotateWallet`
+// (unified into `register` repeat-claim → rebind); the encoder for
+// it has been removed.
 import { ZkqesError } from '../errors/index.js';
 
 // ===========================================================================
@@ -276,118 +263,11 @@ function assertU256(v: bigint, field: string): void {
   }
 }
 
-// ===========================================================================
-// Calldata encoders — populated once contracts-eng pumps zkqesRegistryV5_2Abi.
-// ===========================================================================
+// V5.6 unified-register changed the on-chain register() ABI from
+// (proof, sig, ...) to (chainProof, leafProof, ...) where leafProof
+// inlines a/b/c with the 22 public signals. Step4 builds the calldata
+// inline via wagmi's writeContract (no SDK encoder), so the
+// `encodeV5_2RegisterCalldata` helper that lived here pre-V5.6 has
+// been removed. The shape-validators + array converters above remain
+// the canonical pre-encode gate.
 
-/**
- * Encode a `register()` call against the V5.2 ABI. Shape-validate via
- * `assertRegisterArgsV5_2Shape` before calling.
- *
- * The explicit generic `<typeof zkqesRegistryV5_2Abi, 'register'>` pins
- * viem's TFunctionName so it doesn't union the `register` 11-arg shape
- * with `rotateWallet`'s 3-arg shape — same pattern as V5.1's encoder
- * (V5.1 commit `73ba255`).
- */
-export function encodeV5_2RegisterCalldata(args: RegisterArgsV5_2): `0x${string}` {
-  return encodeFunctionData<typeof zkqesRegistryV5_2Abi, 'register'>({
-    abi: zkqesRegistryV5_2Abi,
-    functionName: 'register',
-    args: [
-      {
-        a: [args.proof.a[0], args.proof.a[1]] as const,
-        b: [
-          [args.proof.b[0][0], args.proof.b[0][1]] as const,
-          [args.proof.b[1][0], args.proof.b[1][1]] as const,
-        ] as const,
-        c: [args.proof.c[0], args.proof.c[1]] as const,
-      },
-      {
-        timestamp: args.sig.timestamp,
-        nullifier: args.sig.nullifier,
-        ctxHashHi: args.sig.ctxHashHi,
-        ctxHashLo: args.sig.ctxHashLo,
-        bindingHashHi: args.sig.bindingHashHi,
-        bindingHashLo: args.sig.bindingHashLo,
-        signedAttrsHashHi: args.sig.signedAttrsHashHi,
-        signedAttrsHashLo: args.sig.signedAttrsHashLo,
-        leafTbsHashHi: args.sig.leafTbsHashHi,
-        leafTbsHashLo: args.sig.leafTbsHashLo,
-        policyLeafHash: args.sig.policyLeafHash,
-        leafSpkiCommit: args.sig.leafSpkiCommit,
-        intSpkiCommit: args.sig.intSpkiCommit,
-        identityFingerprint: args.sig.identityFingerprint,
-        identityCommitment: args.sig.identityCommitment,
-        rotationMode: args.sig.rotationMode,
-        rotationOldCommitment: args.sig.rotationOldCommitment,
-        rotationNewWallet: args.sig.rotationNewWallet,
-        bindingPkXHi: args.sig.bindingPkXHi,
-        bindingPkXLo: args.sig.bindingPkXLo,
-        bindingPkYHi: args.sig.bindingPkYHi,
-        bindingPkYLo: args.sig.bindingPkYLo,
-      },
-      args.leafSpki,
-      args.intSpki,
-      args.signedAttrs,
-      args.leafSig,
-      args.intSig,
-      args.trustMerklePath,
-      args.trustMerklePathBits,
-      args.policyMerklePath,
-      args.policyMerklePathBits,
-    ],
-  });
-}
-
-// ===========================================================================
-// RotateWalletArgsV5_2 — shape parallels V5.1 RotateWalletArgsV5
-// (proof + sig + oldWalletAuthSig); only the sig.* fields change.
-// ===========================================================================
-
-export interface RotateWalletArgsV5_2 {
-  readonly proof: Groth16ProofV5_2;
-  readonly sig: PublicSignalsV5_2;
-  readonly oldWalletAuthSig: `0x${string}`;
-}
-
-export function encodeV5_2RotateWalletCalldata(args: RotateWalletArgsV5_2): `0x${string}` {
-  return encodeFunctionData<typeof zkqesRegistryV5_2Abi, 'rotateWallet'>({
-    abi: zkqesRegistryV5_2Abi,
-    functionName: 'rotateWallet',
-    args: [
-      {
-        a: [args.proof.a[0], args.proof.a[1]] as const,
-        b: [
-          [args.proof.b[0][0], args.proof.b[0][1]] as const,
-          [args.proof.b[1][0], args.proof.b[1][1]] as const,
-        ] as const,
-        c: [args.proof.c[0], args.proof.c[1]] as const,
-      },
-      {
-        timestamp: args.sig.timestamp,
-        nullifier: args.sig.nullifier,
-        ctxHashHi: args.sig.ctxHashHi,
-        ctxHashLo: args.sig.ctxHashLo,
-        bindingHashHi: args.sig.bindingHashHi,
-        bindingHashLo: args.sig.bindingHashLo,
-        signedAttrsHashHi: args.sig.signedAttrsHashHi,
-        signedAttrsHashLo: args.sig.signedAttrsHashLo,
-        leafTbsHashHi: args.sig.leafTbsHashHi,
-        leafTbsHashLo: args.sig.leafTbsHashLo,
-        policyLeafHash: args.sig.policyLeafHash,
-        leafSpkiCommit: args.sig.leafSpkiCommit,
-        intSpkiCommit: args.sig.intSpkiCommit,
-        identityFingerprint: args.sig.identityFingerprint,
-        identityCommitment: args.sig.identityCommitment,
-        rotationMode: args.sig.rotationMode,
-        rotationOldCommitment: args.sig.rotationOldCommitment,
-        rotationNewWallet: args.sig.rotationNewWallet,
-        bindingPkXHi: args.sig.bindingPkXHi,
-        bindingPkXLo: args.sig.bindingPkXLo,
-        bindingPkYHi: args.sig.bindingPkYHi,
-        bindingPkYLo: args.sig.bindingPkYLo,
-      },
-      args.oldWalletAuthSig,
-    ],
-  });
-}

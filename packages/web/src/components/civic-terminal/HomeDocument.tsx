@@ -93,17 +93,7 @@ export function HomeDocument() {
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cv-page)' }}>
-      <TopBar
-        active="home"
-        extraNav={
-          <Link
-            to="/account/rotate"
-            style={{ padding: '4px 10px', border: '2px solid transparent', color: '#f4f0e0', fontWeight: 500, fontSize: 13, textDecoration: 'none' }}
-          >
-            Account
-          </Link>
-        }
-      />
+      <TopBar active="home" />
 
       <div style={{ padding: '14px 22px 24px', display: 'grid', gap: 14 }}>
 
@@ -305,7 +295,6 @@ export function HomeDocument() {
                     </td>
                     <td><span className="cv-pill is-ok">active</span></td>
                     <td style={{ display: 'flex', gap: 6 }}>
-                      <Link to="/account/rotate" className="cv-btn is-sm is-ghost">⟲ rotate</Link>
                       <Link to="/account/prove-age" className="cv-btn is-sm is-ghost">▷ prove-age</Link>
                     </td>
                   </tr>
@@ -324,7 +313,6 @@ export function HomeDocument() {
             }}>
               actions
             </span>
-            <Link to="/account/rotate" className="cv-btn is-sm">⟲ Rotate wallet</Link>
             <Link to="/account/prove-age" className="cv-btn is-sm">▷ Prove age</Link>
             <Link to="/verify" className="cv-btn is-sm is-ghost">↗ Verify</Link>
             <Link to="/ua/cli" className="cv-btn is-sm is-ghost">

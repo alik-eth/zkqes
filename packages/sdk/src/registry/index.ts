@@ -1,6 +1,8 @@
-// Read-side viem helpers (added M4 T14). The write-side calldata encoder
-// + revert classifier below stay as-is.
-export { isVerified, nullifierOf, trustedListRoot } from './reads.js';
+// V5.4 active surface: viem read-side helpers + V4 ABI re-exports were
+// removed when the historical V4/V5/V5.1/V5.2 ABIs (`zkqesRegistryV4Abi`,
+// `zkqesRegistryV5_1Abi`, `zkqesRegistryV5_2Abi`) were deleted. The V4
+// calldata encoder + revert classifier below stay as-is — they are pure
+// (no ABI imports) and consumed by `lib/registryV4.ts` and `facade/index.ts`.
 
 /**
  * Draft QKBRegistryV4 bindings — policy-root successor surface.
@@ -776,3 +778,19 @@ function extractV4RevertData(err: unknown): string | undefined {
   }
   return undefined;
 }
+
+// ---------------------------------------------------------------------------
+// V5.4/V5.6 (registryV5_2.ts) — 22-signal proof shape + helpers. The file
+// keeps its V5.2 historical name; same byte-for-byte proof layout flows
+// through V5.2 → V5.4 → V5.6 unchanged.
+// ---------------------------------------------------------------------------
+
+export {
+  PUBLIC_SIGNALS_V5_2_LENGTH,
+  assertRegisterArgsV5_2Shape,
+  publicSignalsV5_2FromArray,
+  publicSignalsV5_2ToArray,
+  type Groth16ProofV5_2,
+  type PublicSignalsV5_2,
+  type RegisterArgsV5_2,
+} from './registryV5_2.js';

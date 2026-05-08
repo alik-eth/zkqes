@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {ZKQESRegistryUA} from "../src/ZKQESRegistryUA.sol";
-import {Groth16VerifierV5_2Stub} from "../src/Groth16VerifierV5_2Stub.sol";
+import {Groth16VerifierV5_2Placeholder} from "../src/Groth16VerifierV5_2Placeholder.sol";
 import {Groth16AgeVerifierUAStub} from "../src/Groth16AgeVerifierUAStub.sol";
 import {Poseidon} from "../src/libs/Poseidon.sol";
 import {PoseidonBytecode} from "../src/libs/PoseidonBytecode.sol";
@@ -79,9 +79,9 @@ contract DeployV5_4UA is Script {
         if (identityVerifier == REUSE_IDENTITY_VERIFIER) {
             console2.log("Reusing identity verifier (V5.3-compatible stub):", identityVerifier);
         } else {
-            Groth16VerifierV5_2Stub idStub = new Groth16VerifierV5_2Stub();
+            Groth16VerifierV5_2Placeholder idStub = new Groth16VerifierV5_2Placeholder();
             identityVerifier = address(idStub);
-            console2.log("Deployed fresh Groth16VerifierV5_2Stub:           ", identityVerifier);
+            console2.log("Deployed fresh Groth16VerifierV5_2Placeholder:           ", identityVerifier);
         }
 
         // 2. Age verifier (same reuse pattern).

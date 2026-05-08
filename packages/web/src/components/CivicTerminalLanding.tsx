@@ -301,7 +301,6 @@ function PhaseAwareTabs({ phase }: { phase: CeremonyPhase }) {
     return (
       <>
         <ActiveTab href="https://app.zkqes.org/ua/registerV5">Register</ActiveTab>
-        <ActiveTab href="https://app.zkqes.org/account/rotate">Rotate wallet</ActiveTab>
         <ActiveTab href="https://app.zkqes.org/ceremony/verify">
           Verify a binding
         </ActiveTab>
@@ -311,7 +310,6 @@ function PhaseAwareTabs({ phase }: { phase: CeremonyPhase }) {
   return (
     <>
       <DisabledTab>Register</DisabledTab>
-      <DisabledTab>Rotate wallet</DisabledTab>
       <DisabledTab>Verify a binding</DisabledTab>
     </>
   );

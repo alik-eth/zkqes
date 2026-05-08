@@ -227,17 +227,6 @@ interface IZKQESRegistry {
         uint256              policyMerklePathBits
     ) external returns (bytes32 bindingId);
 
-    /// @notice Atomically rotate the wallet pubkey of an existing
-    ///         binding. `sig` is the rotation auth signature from the
-    ///         OLD wallet over the canonical rotation payload (chain-
-    ///         id-bound + registry-address-bound + new wallet).
-    function rotateWallet(
-        bytes32         bindingId,
-        LeafProof calldata,
-        address         newWallet,
-        bytes calldata  sig
-    ) external;
-
     /// @notice Verify an age proof for an existing DOB-supporting
     ///         binding. Reverts on any gate failure (silent reverts —
     ///         no string interpolation).
@@ -251,6 +240,32 @@ interface IZKQESRegistry {
         AgeProof calldata
     ) external returns (bool ok);
 
+    /// @notice Atomic register + proveAge in one transaction. Internally
+    ///         runs the full register() pipeline followed by the full
+    ///         proveAge() pipeline; either gate failure reverts the
+    ///         entire tx (no partial state). Same authorization rules
+    ///         as the two functions called separately — this is a
+    ///         transaction-level convenience for the common UA flow
+    ///         where a user binds and proves age from one .p7s in a
+    ///         single wallet prompt.
+    /// @dev    V5.6 amendment. `ageCutoffDate` MUST equal
+    ///         `ageProof.ageCutoffDate` (cross-bind), 19000101..99991231.
+    function registerWithAge(
+        ChainProof  calldata chainProof,
+        LeafProof   calldata leafProof,
+        bytes       calldata leafSpki,
+        bytes       calldata intSpki,
+        bytes       calldata signedAttrs,
+        bytes32[2]  calldata leafSig,
+        bytes32[2]  calldata intSig,
+        bytes32[16] calldata trustMerklePath,
+        uint256              trustMerklePathBits,
+        bytes32[16] calldata policyMerklePath,
+        uint256              policyMerklePathBits,
+        uint256              ageCutoffDate,
+        AgeProof    calldata ageProof
+    ) external returns (bytes32 bindingId, bool ageOk);
+
     /* ---------- events ---------- */
 
     /// @notice Emitted on successful `register()`. `pk` is the binding's
@@ -262,10 +277,13 @@ interface IZKQESRegistry {
         uint256         ctxHash
     );
 
-    /// @notice Emitted on successful `rotateWallet()`. `oldPk` is the
-    ///         pre-rotation wallet; `newPk` is the post-rotation wallet
-    ///         (== `Binding.pk` after the call returns).
-    event BindingRotated(
+    /// @notice Emitted on a `register()` call that swaps an existing
+    ///         binding's wallet pointer to a new wallet (same identity,
+    ///         different msg.sender). V5.6 unified-register replaces
+    ///         V5.4's separate `rotateWallet()` + `BindingRotated` event;
+    ///         authorization is the proof itself (same fingerprint =
+    ///         same identity).
+    event BindingRebound(
         bytes32 indexed id,
         address indexed oldPk,
         address indexed newPk

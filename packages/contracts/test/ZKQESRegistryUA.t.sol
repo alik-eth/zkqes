@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {IZKQESRegistry} from "../src/IZKQESRegistry.sol";
 import {ZKQESRegistryUA} from "../src/ZKQESRegistryUA.sol";
 import {Groth16VerifierV5_2Placeholder} from "../src/Groth16VerifierV5_2Placeholder.sol";
@@ -340,6 +340,250 @@ contract ZKQESRegistryUATest is Test {
 
         // ageProvenCutoffs not yet populated.
         assertFalse(registry.ageProvenCutoffs(bindingId, 20070101), "ageProvenCutoffs starts empty");
+    }
+
+    /* ================ V5.6 unified-register tests ================ */
+
+    /// @dev V5.6: a fresh proof for the same fingerprint from a
+    ///      different wallet should rebind `b.pk` rather than revert.
+    function test_register_v56_rebind_swapsPk_emitsRebound() public {
+        bytes32 bindingId = _registerSampleBinding();
+
+        // Choose a different wallet with its own pk-limb set so the
+        // WalletDerivationMismatch gate stays happy.
+        uint256 newPkXHi = 0x11111111111111111111111111111111;
+        uint256 newPkXLo = 0x22222222222222222222222222222222;
+        uint256 newPkYHi = 0x33333333333333333333333333333333;
+        uint256 newPkYLo = 0x44444444444444444444444444444444;
+        address newHolder = _addrFromLimbs(newPkXHi, newPkXLo, newPkYHi, newPkYLo);
+
+        IZKQESRegistry.LeafProof  memory lp = _baselineLeafProof(newHolder);
+        lp.bindingPkXHi = newPkXHi;
+        lp.bindingPkXLo = newPkXLo;
+        lp.bindingPkYHi = newPkYHi;
+        lp.bindingPkYLo = newPkYLo;
+        lp.nullifier    = uint256(0xCAFEBABE); // different ctx → different nullifier
+        IZKQESRegistry.ChainProof memory cp = _baselineChainProof(lp);
+
+        bytes32[2] memory leafSig;
+        bytes32[2] memory intSig;
+
+        vm.expectEmit(true, true, true, true);
+        emit IZKQESRegistry.BindingRebound(bindingId, holder, newHolder);
+
+        vm.prank(newHolder);
+        bytes32 rebindBindingId = registry.register(
+            cp, lp,
+            leafSpki, intSpki, BASELINE_SIGNED_ATTRS,
+            leafSig, intSig,
+            baselineTrustPath, 0,
+            baselinePolicyPath, 0
+        );
+
+        assertEq(rebindBindingId, bindingId, "rebind preserves bindingId");
+        IZKQESRegistry.Binding memory b = registry.getBinding(bindingId);
+        assertEq(b.pk,        newHolder,    "b.pk swapped to newHolder");
+        // Nullifier write-once: stays the original first-claim value.
+        assertEq(b.nullifier, 0xDEADBEEF,    "first-claim nullifier preserved");
+    }
+
+    /// @dev Re-running register from the SAME wallet must succeed
+    ///      idempotently, refresh fields, and NOT emit BindingRebound.
+    function test_register_v56_rebind_sameWallet_idempotent_noEvent() public {
+        bytes32 bindingId = _registerSampleBinding();
+        uint256 firstTs = registry.getBinding(bindingId).timestamp;
+
+        vm.warp(block.timestamp + 60);
+
+        // Build a fresh proof from the same holder (different ctx).
+        IZKQESRegistry.LeafProof  memory lp = _baselineLeafProof(holder);
+        lp.nullifier = uint256(0xFACEFEED);
+        IZKQESRegistry.ChainProof memory cp = _baselineChainProof(lp);
+
+        // No Rebound event expected — recordLogs and check none matches.
+        vm.recordLogs();
+        _callRegister(cp, lp);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 reboundSig = keccak256("BindingRebound(bytes32,address,address)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(logs[i].topics[0] != reboundSig, "no Rebound on same-wallet repeat");
+        }
+
+        IZKQESRegistry.Binding memory b = registry.getBinding(bindingId);
+        assertEq(b.pk,        holder,           "pk unchanged");
+        assertEq(b.timestamp, block.timestamp,  "timestamp refreshed");
+        assertGt(b.timestamp, firstTs,          "timestamp moved forward");
+        // First-claim nullifier preserved.
+        assertEq(b.nullifier, 0xDEADBEEF,        "first-claim nullifier preserved");
+    }
+
+    /// @dev Rebind against a revoked binding must revert; admin's
+    ///      setRevoked is terminal.
+    function test_register_v56_rebind_revertsBindingRevoked() public {
+        bytes32 bindingId = _registerSampleBinding();
+        vm.prank(admin);
+        registry.setRevoked(bindingId, true);
+
+        uint256 newPkXHi = 0x11111111111111111111111111111111;
+        uint256 newPkXLo = 0x22222222222222222222222222222222;
+        uint256 newPkYHi = 0x33333333333333333333333333333333;
+        uint256 newPkYLo = 0x44444444444444444444444444444444;
+        address newHolder = _addrFromLimbs(newPkXHi, newPkXLo, newPkYHi, newPkYLo);
+
+        IZKQESRegistry.LeafProof  memory lp = _baselineLeafProof(newHolder);
+        lp.bindingPkXHi = newPkXHi;
+        lp.bindingPkXLo = newPkXLo;
+        lp.bindingPkYHi = newPkYHi;
+        lp.bindingPkYLo = newPkYLo;
+        lp.nullifier    = uint256(0xCAFEBABE);
+        IZKQESRegistry.ChainProof memory cp = _baselineChainProof(lp);
+
+        bytes32[2] memory leafSig;
+        bytes32[2] memory intSig;
+
+        vm.expectRevert(ZKQESRegistryUA.BindingRevoked.selector);
+        vm.prank(newHolder);
+        registry.register(
+            cp, lp,
+            leafSpki, intSpki, BASELINE_SIGNED_ATTRS,
+            leafSig, intSig,
+            baselineTrustPath, 0,
+            baselinePolicyPath, 0
+        );
+    }
+
+    /// @dev First-claim with a nullifier already used under a different
+    ///      bindingId must revert NullifierUsed (cross-identity replay).
+    function test_register_v56_revertsNullifierUsed_crossIdentity_firstClaim() public {
+        bytes32 bindingId = _registerSampleBinding();
+        IZKQESRegistry.Binding memory firstB = registry.getBinding(bindingId);
+
+        // Different identity (different fingerprint) but reusing the
+        // first-claim nullifier from above.
+        uint256 newPkXHi = 0x11111111111111111111111111111111;
+        uint256 newPkXLo = 0x22222222222222222222222222222222;
+        uint256 newPkYHi = 0x33333333333333333333333333333333;
+        uint256 newPkYLo = 0x44444444444444444444444444444444;
+        address newHolder = _addrFromLimbs(newPkXHi, newPkXLo, newPkYHi, newPkYLo);
+
+        IZKQESRegistry.LeafProof  memory lp = _baselineLeafProof(newHolder);
+        lp.bindingPkXHi        = newPkXHi;
+        lp.bindingPkXLo        = newPkXLo;
+        lp.bindingPkYHi        = newPkYHi;
+        lp.bindingPkYLo        = newPkYLo;
+        lp.identityFingerprint = uint256(keccak256("v56-different-identity"));
+        lp.nullifier           = firstB.nullifier; // collide
+        IZKQESRegistry.ChainProof memory cp = _baselineChainProof(lp);
+
+        bytes32[2] memory leafSig;
+        bytes32[2] memory intSig;
+
+        vm.expectRevert(ZKQESRegistryUA.NullifierUsed.selector);
+        vm.prank(newHolder);
+        registry.register(
+            cp, lp,
+            leafSpki, intSpki, BASELINE_SIGNED_ATTRS,
+            leafSig, intSig,
+            baselineTrustPath, 0,
+            baselinePolicyPath, 0
+        );
+    }
+
+    /// @dev ageProvenCutoffs[bindingId][cutoff] must persist across a
+    ///      rebind to a new wallet.
+    function test_register_v56_rebind_preservesAgeProvenCutoffs() public {
+        bytes32 bindingId = _registerSampleBinding();
+        uint256 cutoff = 20070101;
+        IZKQESRegistry.AgeProof memory ap = _baselineAgeProof(bindingId, cutoff);
+        registry.proveAge(bindingId, cutoff, ap);
+        assertTrue(registry.ageProvenCutoffs(bindingId, cutoff), "pre-rebind ageProvenCutoff set");
+
+        uint256 newPkXHi = 0x11111111111111111111111111111111;
+        uint256 newPkXLo = 0x22222222222222222222222222222222;
+        uint256 newPkYHi = 0x33333333333333333333333333333333;
+        uint256 newPkYLo = 0x44444444444444444444444444444444;
+        address newHolder = _addrFromLimbs(newPkXHi, newPkXLo, newPkYHi, newPkYLo);
+        IZKQESRegistry.LeafProof  memory lp = _baselineLeafProof(newHolder);
+        lp.bindingPkXHi = newPkXHi;
+        lp.bindingPkXLo = newPkXLo;
+        lp.bindingPkYHi = newPkYHi;
+        lp.bindingPkYLo = newPkYLo;
+        lp.nullifier    = uint256(0xCAFEBABE);
+        IZKQESRegistry.ChainProof memory cp = _baselineChainProof(lp);
+
+        bytes32[2] memory leafSig;
+        bytes32[2] memory intSig;
+        vm.prank(newHolder);
+        registry.register(
+            cp, lp,
+            leafSpki, intSpki, BASELINE_SIGNED_ATTRS,
+            leafSig, intSig,
+            baselineTrustPath, 0,
+            baselinePolicyPath, 0
+        );
+
+        assertTrue(
+            registry.ageProvenCutoffs(bindingId, cutoff),
+            "ageProvenCutoff persists across rebind"
+        );
+    }
+
+    /// @dev V5.6 atomic registerWithAge happy path — single tx writes
+    ///      the binding + sets ageProvenCutoffs[id][cutoff].
+    function test_registerWithAge_v56_happyPath_atomic() public {
+        IZKQESRegistry.LeafProof  memory lp = _baselineLeafProof(holder);
+        IZKQESRegistry.ChainProof memory cp = _baselineChainProof(lp);
+
+        uint256 cutoff = 20070101;
+        bytes32 expectedId = _expectedBindingId(uint256(BASELINE_FP_SEED));
+        IZKQESRegistry.AgeProof memory ap = _baselineAgeProof(expectedId, cutoff);
+
+        bytes32[2] memory leafSig;
+        bytes32[2] memory intSig;
+
+        vm.prank(holder);
+        (bytes32 bindingId, bool ageOk) = registry.registerWithAge(
+            cp, lp,
+            leafSpki, intSpki, BASELINE_SIGNED_ATTRS,
+            leafSig, intSig,
+            baselineTrustPath, 0,
+            baselinePolicyPath, 0,
+            cutoff, ap
+        );
+
+        assertEq(bindingId, expectedId, "bindingId");
+        assertTrue(ageOk, "ageOk");
+        assertEq(registry.getBinding(bindingId).pk, holder, "binding written");
+        assertTrue(registry.ageProvenCutoffs(bindingId, cutoff), "ageProvenCutoffs set");
+    }
+
+    /// @dev If the age-side fails, the entire tx reverts including
+    ///      register-side state (atomic).
+    function test_registerWithAge_v56_atomicRevert_onAgeFailure() public {
+        IZKQESRegistry.LeafProof  memory lp = _baselineLeafProof(holder);
+        IZKQESRegistry.ChainProof memory cp = _baselineChainProof(lp);
+
+        uint256 cutoff = 20070101;
+        bytes32 expectedId = _expectedBindingId(uint256(BASELINE_FP_SEED));
+        IZKQESRegistry.AgeProof memory ap = _baselineAgeProof(expectedId, cutoff);
+        ap.ageQualified = 0; // force AgeNotQualified
+
+        bytes32[2] memory leafSig;
+        bytes32[2] memory intSig;
+
+        vm.expectRevert(ZKQESRegistryUA.AgeNotQualified.selector);
+        vm.prank(holder);
+        registry.registerWithAge(
+            cp, lp,
+            leafSpki, intSpki, BASELINE_SIGNED_ATTRS,
+            leafSig, intSig,
+            baselineTrustPath, 0,
+            baselinePolicyPath, 0,
+            cutoff, ap
+        );
+
+        // No binding written.
+        assertEq(registry.getBinding(expectedId).pk, address(0), "binding not written");
     }
 
     function test_register_revertsBadProof_whenAlgorithmTagNotZero() public {
