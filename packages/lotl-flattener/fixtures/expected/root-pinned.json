@@ -1,7 +1,7 @@
 {
-  "rTL": "0x053fec6e1b7b2980a47a9c4c9c53e94c44ee868bdb7d2c1565f80bb138773cd7",
+  "rTL": "0x25f6ae46387ff84e1484f7381208da36e95e4a42aa18b2a58f1742e4434a6b51",
   "treeDepth": 16,
   "lotlVersion": "pinned-synthetic-2026-04-17",
   "builtAt": "2026-04-17T00:00:00Z",
-  "note": "Pinned reproducibility baseline for synthetic LOTL fixture chain. Update deliberately only."
+  "note": "Pinned reproducibility baseline for synthetic LOTL fixture chain. rTL updated 2026-05-08 for V5.5 algorithm-agnostic keyCommit (Poseidon-domain over canonical SPKI DER) replacing V5.x's P-256-only spkiCommit. Update only on deliberate further protocol-layer change."
 }

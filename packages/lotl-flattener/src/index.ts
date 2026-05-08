@@ -3,8 +3,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { Command } from 'commander';
 import { extractCAs } from './ca/extract.js';
-import { extractIntSpki } from './ca/extractIntSpki.js';
-import { spkiCommit } from './ca/spkiCommit.js';
+import { extractSpki } from './ca/extractSpki.js';
+import { keyCommit } from './ca/keyCommit.js';
 import { type LotlPointer, fetchLotl, parseLotl } from './fetch/lotl.js';
 import { parseMsTl } from './fetch/msTl.js';
 import {
@@ -319,8 +319,8 @@ export async function run(opts: RunOpts): Promise<RunResult> {
   const leaves: bigint[] = [];
   const cas = [];
   for (const e of extracted) {
-    const intSpki = extractIntSpki(e.certDer);
-    const h = await spkiCommit(intSpki);
+    const intSpki = extractSpki(e.certDer);
+    const h = await keyCommit(intSpki);
     leaves.push(h);
     cas.push({ ...e, poseidonHash: h });
   }
@@ -371,8 +371,8 @@ async function readOutputCas(dir: string): Promise<FlattenedCA[]> {
   for (const [idx, ca] of trustedCas.cas.entries()) {
     const source = `${dir}/trusted-cas.json#${idx}`;
     const certDer = decodeB64(assertString(ca.certDerB64, 'certDerB64', source));
-    const intSpki = extractIntSpki(certDer);
-    const poseidonHash = await spkiCommit(intSpki);
+    const intSpki = extractSpki(certDer);
+    const poseidonHash = await keyCommit(intSpki);
     if (ca.poseidonHash && BigInt(ca.poseidonHash) !== poseidonHash) {
       throw new Error(`malformed trusted-cas ${source}: poseidonHash does not match certDerB64`);
     }
