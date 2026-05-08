@@ -4,11 +4,19 @@
 
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, cleanup, within } from '@testing-library/react';
+import React from 'react';
 
 // Mock useCeremonyPhase so the shell renders deterministically without
 // fetching status.json or running the polling interval.
 vi.mock('../../src/hooks/useCeremonyPhase', () => ({
   useCeremonyPhase: vi.fn(),
+}));
+
+// Stub TanStack Router's <Link> so the component renders without a
+// wrapping <RouterProvider> (same pattern as CivicTerminalLanding).
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to, ...rest }: { children?: React.ReactNode; to?: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>) =>
+    React.createElement('a', { href: typeof to === 'string' ? to : '#', ...rest }, children),
 }));
 
 import { VerifyShell } from '../../src/components/ceremony/VerifyShell';

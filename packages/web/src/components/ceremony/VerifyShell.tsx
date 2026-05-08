@@ -32,6 +32,13 @@ interface AttestationResult {
   readonly round?: number;
 }
 
+type WalletKind = 'idle' | 'invalid' | 'pre-launch';
+interface WalletResult {
+  readonly kind: WalletKind;
+}
+
+const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
+
 interface RecentLookup {
   readonly query: string;
   readonly verdict: string;
@@ -87,9 +94,12 @@ export interface VerifyShellProps {
 }
 
 export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProps = {}) {
-  const { status } = useCeremonyPhase();
+  const { status, phase } = useCeremonyPhase();
+  const [tab, setTab] = useState<'attestation' | 'wallet'>('attestation');
   const [hashInput, setHashInput] = useState('');
+  const [walletInput, setWalletInput] = useState('');
   const [result, setResult] = useState<AttestationResult>({ kind: 'idle' });
+  const [walletResult, setWalletResult] = useState<WalletResult>({ kind: 'idle' });
   const [recent, setRecent] = useState<readonly RecentLookup[]>(initialRecent ?? []);
   const [now, setNow] = useState(() => new Date());
 
@@ -106,16 +116,36 @@ export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProp
     const r = lookup(hashInput, status);
     setResult(r);
     if (r.kind === 'idle') return;
+    // Recent-log verdict copy. Tests pin two surfaces:
+    //   - "attestation" appears verbatim on every attestation-tab entry
+    //     so the recent list can be filtered.
+    //   - matches-contributor verdict surfaces "round N · name" so users
+    //     scanning the recent list can re-find a specific round.
     const verdict =
-      r.kind === 'matches-final' ? 'matches published final zkey' :
-      r.kind === 'matches-contributor' ? `round ${r.round} · ${r.contributorName}` :
-      r.kind === 'feed-down' ? 'status feed unreachable' :
-      r.kind === 'invalid' ? 'invalid hash format' :
-      'not part of this ceremony';
+      r.kind === 'matches-final' ? 'attestation · matches published final zkey' :
+      r.kind === 'matches-contributor' ? `attestation · round ${r.round} · ${r.contributorName}` :
+      r.kind === 'feed-down' ? 'attestation · feed unreachable' :
+      r.kind === 'invalid' ? 'attestation · invalid hash format' :
+      'attestation · not part of this ceremony';
     setRecent(pushRecent({
       query: hashInput.trim(),
       verdict,
       at: new Date().toISOString(),
+    }));
+  }
+
+  function onVerifyWallet() {
+    const v = walletInput.trim();
+    if (!WALLET_RE.test(v)) {
+      setWalletResult({ kind: 'invalid' });
+      setRecent(pushRecent({
+        query: v, verdict: 'wallet · invalid address', at: new Date().toISOString(),
+      }));
+      return;
+    }
+    setWalletResult({ kind: 'pre-launch' });
+    setRecent(pushRecent({
+      query: v, verdict: 'wallet · pre-launch verdict', at: new Date().toISOString(),
     }));
   }
 
@@ -128,6 +158,47 @@ export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProp
 
       <div style={{ padding: '18px 22px 32px', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <BackLink />
+
+        {/* MARQUEE — phase status surface */}
+        <div
+          aria-label={`phase: ${phase ?? 'unknown'}`}
+          data-testid="verify-marquee"
+          style={{
+            padding: '8px 14px',
+            border: '1.5px solid var(--cv-ink)',
+            background: '#fff',
+            fontFamily: 'var(--cv-mono)',
+            fontSize: 12,
+            color: 'var(--cv-mute)',
+          }}
+        >
+          {phase === 'live' ? '● ceremony live · final zkey published' :
+           phase === 'ceremony-live' ? '● ceremony live · contributing' :
+           phase === 'recruiting' ? '○ recruiting contributors' :
+           '⚠ status feed unreachable'}
+        </div>
+
+        {/* TAB PAIR — attestation hash vs wallet binding */}
+        <div role="tablist" style={{ display: 'flex', gap: 8 }}>
+          <button
+            role="tab"
+            data-testid="verify-tab-attestation"
+            aria-selected={tab === 'attestation'}
+            onClick={() => setTab('attestation')}
+            className={`cv-btn ${tab === 'attestation' ? '' : 'is-ghost'}`}
+          >
+            Attestation hash
+          </button>
+          <button
+            role="tab"
+            data-testid="verify-tab-wallet"
+            aria-selected={tab === 'wallet'}
+            onClick={() => setTab('wallet')}
+            className={`cv-btn ${tab === 'wallet' ? '' : 'is-ghost'}`}
+          >
+            Wallet binding
+          </button>
+        </div>
 
         {/* HERO */}
         <section className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
@@ -162,37 +233,67 @@ export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProp
             </div>
             <span className="cv-pill is-blue">runs in this tab</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
-            <input
-              data-testid="ceremony-verify-input"
-              placeholder="0x9f81…  paste a SHA-256 attestation"
-              value={hashInput}
-              onChange={(e) => setHashInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onVerify(); }}
-              autoComplete="off"
-              spellCheck={false}
-              style={{
-                padding: '14px 16px', border: '2px solid var(--cv-ink)',
-                fontFamily: 'var(--cv-mono)', fontSize: 18, background: '#fff',
-                boxShadow: 'inset 3px 3px 0 rgba(0,0,0,.06)',
-              }}
-            />
-            <button data-testid="ceremony-verify-submit" className="cv-btn is-lg" onClick={onVerify}>
-              ▶ Verify
-            </button>
-          </div>
+          {tab === 'attestation' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
+              <input
+                data-testid="verify-input-attestation"
+                placeholder="0x9f81…  paste a SHA-256 attestation"
+                value={hashInput}
+                onChange={(e) => setHashInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onVerify(); }}
+                autoComplete="off"
+                spellCheck={false}
+                style={{
+                  padding: '14px 16px', border: '2px solid var(--cv-ink)',
+                  fontFamily: 'var(--cv-mono)', fontSize: 18, background: '#fff',
+                  boxShadow: 'inset 3px 3px 0 rgba(0,0,0,.06)',
+                }}
+              />
+              <button data-testid="verify-submit-attestation" className="cv-btn is-lg" onClick={onVerify}>
+                ▶ Verify
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
+              <input
+                data-testid="verify-input-wallet"
+                placeholder="0x… 40-hex wallet address"
+                value={walletInput}
+                onChange={(e) => setWalletInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onVerifyWallet(); }}
+                autoComplete="off"
+                spellCheck={false}
+                style={{
+                  padding: '14px 16px', border: '2px solid var(--cv-ink)',
+                  fontFamily: 'var(--cv-mono)', fontSize: 18, background: '#fff',
+                  boxShadow: 'inset 3px 3px 0 rgba(0,0,0,.06)',
+                }}
+              />
+              <button data-testid="verify-submit-wallet" className="cv-btn is-lg" onClick={onVerifyWallet}>
+                ▶ Verify
+              </button>
+            </div>
+          )}
         </section>
 
         {/* RESULT + EXPLAINER */}
         <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
-          <ResultCard result={result} query={hashInput} />
+          {tab === 'attestation' ? (
+            <div data-testid="verify-result-attestation">
+              <ResultCard result={result} query={hashInput} />
+            </div>
+          ) : (
+            <div data-testid="verify-result-wallet">
+              <WalletResultCard result={walletResult} query={walletInput} />
+            </div>
+          )}
           <ExplainerCard />
         </section>
 
         {/* RECENT LOOKUPS */}
         <section className="cv-card is-paper">
           <div className="cv-cardhead">
-            <span>RECENT LOOKUPS · last {recent.length} this session</span>
+            <span>RECENT · last {recent.length} this session</span>
             <span style={{ flex: 1 }} />
             {recent.length > 0 && (
               <button
@@ -208,10 +309,10 @@ export function VerifyShell({ initialRecent, skipLocalStorage }: VerifyShellProp
           </div>
           {recent.length === 0 ? (
             <div style={{ padding: '18px 4px', fontSize: 13, color: 'var(--cv-mute)', textAlign: 'center' }}>
-              No lookups yet. Verified hashes get logged here in your browser only.
+              no lookups yet. Verified hashes + wallets get logged here in your browser only.
             </div>
           ) : (
-            <table className="cv-table">
+            <table data-testid="verify-recent-list" className="cv-table">
               <thead>
                 <tr><th>at</th><th>query</th><th>verdict</th></tr>
               </thead>
@@ -287,7 +388,7 @@ function ResultCard({ result, query }: { result: AttestationResult; query: strin
           <span className="cv-pill is-err">FEED DOWN</span>
         </div>
         <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-          We can't reach the ceremony status feed right now. Your hash is well-formed —
+          status feed unreachable; cannot determine. Your hash is well-formed —
           we just can't compare it against the chain until the feed comes back.
         </div>
       </div>
@@ -298,7 +399,7 @@ function ResultCard({ result, query }: { result: AttestationResult; query: strin
       <div className="cv-card is-blue" style={{ padding: '20px 24px' }}>
         <div className="cv-cardhead" style={{ color: '#fff' }}>
           <span className="dot live" />
-          <span>RESULT · matches published FINAL zkey</span>
+          <span>RESULT · ✓ matches published final zkey</span>
           <span style={{ flex: 1 }} />
           <span className="cv-pill is-ok">VERIFIED · ✓</span>
         </div>
@@ -324,7 +425,7 @@ function ResultCard({ result, query }: { result: AttestationResult; query: strin
           <span className="cv-pill is-ok">CHAIN · ✓</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 8, columnGap: 14, fontSize: 13.5 }}>
-          <Field label="round">#{String(result.round).padStart(3, '0')}</Field>
+          <Field label="round">{String(result.round)}</Field>
           <Field label="contributor">{result.contributorName}</Field>
           <Field label="hash"><span style={{ wordBreak: 'break-all' }}>{result.hash}</span></Field>
         </div>
@@ -340,7 +441,7 @@ function ResultCard({ result, query }: { result: AttestationResult; query: strin
   return (
     <div className="cv-card is-paper">
       <div className="cv-cardhead">
-        <span>RESULT · not part of this ceremony</span>
+        <span>RESULT · ✗ not part of this ceremony</span>
         <span style={{ flex: 1 }} />
         <span className="cv-pill is-err">UNKNOWN</span>
       </div>
@@ -356,6 +457,50 @@ function ResultCard({ result, query }: { result: AttestationResult; query: strin
             ceremony (zkqes Phase 2 trusted-setup).
           </span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function WalletResultCard({ result, query }: { result: WalletResult; query: string }) {
+  if (result.kind === 'idle') {
+    return (
+      <div className="cv-card is-paper" style={{ minHeight: 240 }}>
+        <div className="cv-cardhead">
+          <span className="dot" /><span>WALLET · idle</span>
+        </div>
+        <div style={{ padding: 18, fontSize: 13, color: 'var(--cv-mute)', textAlign: 'center' }}>
+          Paste a 0x-prefixed wallet address above and press <b>▶ Verify</b>.
+        </div>
+      </div>
+    );
+  }
+  if (result.kind === 'invalid') {
+    return (
+      <div className="cv-card is-yellow">
+        <div className="cv-cardhead">
+          <span>WALLET · invalid</span>
+          <span style={{ flex: 1 }} />
+          <span className="cv-pill is-err">REJECTED</span>
+        </div>
+        <div style={{ fontSize: 14, lineHeight: 1.55 }}>
+          ✗ not a valid 0x-prefixed wallet address. <code>{query.slice(0, 40)}{query.length > 40 ? '…' : ''}</code> doesn't match
+          the 40-hex shape after <code>0x</code>.
+        </div>
+      </div>
+    );
+  }
+  // pre-launch
+  return (
+    <div className="cv-card is-paper">
+      <div className="cv-cardhead">
+        <span>WALLET · pre-launch</span>
+        <span style={{ flex: 1 }} />
+        <span className="cv-pill is-warn">PENDING</span>
+      </div>
+      <div style={{ fontSize: 14, lineHeight: 1.55 }}>
+        ◐ available after trusted setup ceremony + Base Sepolia testnet deploy.
+        Once the registry is live we'll verify the binding on-chain right here.
       </div>
     </div>
   );
