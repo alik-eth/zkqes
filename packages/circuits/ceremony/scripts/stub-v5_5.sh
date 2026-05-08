@@ -217,38 +217,44 @@ fi
 # round-trip.
 if [[ ! -f "$INPUT_SAMPLE" ]]; then
   echo "[witness] generating sample witness JSON via build-witness-v5_5 (SDK)..."
-  # Builder lives in @zkqes/sdk (workspace dep, ts-node-resolvable).
+  # Builder lives in @zkqes/sdk (ESM workspace package).  This script
+  # runs in @zkqes/circuits (CJS), so we shell out to tsx — workspace-
+  # root binary, ESM-aware — with the eval block written as a temp .ts
+  # file using `import` syntax (CJS `require()` of an ESM module trips
+  # ERR_REQUIRE_ESM under ts-node).
+  #
   # Fixtures come from THIS package — circuits owns the canonical
   # admin-ecdsa fixture set including synth-intermediate.der.  The
   # synth-cades helper exists in BOTH packages; we use SDK's because
   # it is the one the V5.5 builder pipeline composes against.
   SDK_DIR="$PKG_DIR/../sdk"
-  pnpm exec ts-node --transpile-only -e '
-      const { readFileSync, writeFileSync } = require("node:fs");
-      const { resolve } = require("node:path");
-      const { createHash } = require("node:crypto");
-      const { buildWitnessV5_5 } = require("'"$SDK_DIR"'/src/witness/v5_5/build-witness-v5_5");
-      const { buildSynthCades } = require("'"$PKG_DIR"'/test/helpers/build-synth-cades");
-      const fixtureDir = resolve("'"$PKG_DIR"'/fixtures/integration/admin-ecdsa");
-      const bindingBytes = readFileSync(resolve(fixtureDir, "binding.zkqes2.json"));
-      const leafCertDer  = readFileSync(resolve(fixtureDir, "leaf.der"));
-      const intCertDer   = readFileSync(resolve(fixtureDir, "synth-intermediate.der"));
-      const leafSpki     = readFileSync(resolve(fixtureDir, "leaf-spki.bin"));
-      const intSpki      = readFileSync(resolve(fixtureDir, "intermediate-spki.bin"));
-      const bindingDigest = createHash("sha256").update(bindingBytes).digest();
-      const cades = buildSynthCades({ contentDigest: bindingDigest, leafCertDer, intCertDer });
-      (async () => {
-        const witness = await buildWitnessV5_5({
-          bindingBytes,
-          leafCertDer,
-          leafSpki, intSpki,
-          signedAttrsDer: cades.signedAttrsDer,
-          signedAttrsMdOffset: cades.signedAttrsMdOffset,
-          walletSecret: Buffer.alloc(32, 0x42),
-        });
-        writeFileSync("'"$INPUT_SAMPLE"'", JSON.stringify(witness, null, 2));
-      })().catch((e) => { console.error(e); process.exit(1); });
-    '
+  WITNESS_GEN_TS="$BUILD_DIR/_witness-gen.mts"
+  cat > "$WITNESS_GEN_TS" <<EOTSX
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { buildWitnessV5_5 } from '$SDK_DIR/src/witness/v5_5/build-witness-v5_5';
+import { buildSynthCades } from '$SDK_DIR/src/witness/v5/_test-helpers/build-synth-cades';
+
+const fixtureDir = resolve('$PKG_DIR/fixtures/integration/admin-ecdsa');
+const bindingBytes = readFileSync(resolve(fixtureDir, 'binding.zkqes2.json'));
+const leafCertDer  = readFileSync(resolve(fixtureDir, 'leaf.der'));
+const intCertDer   = readFileSync(resolve(fixtureDir, 'synth-intermediate.der'));
+const leafSpki     = readFileSync(resolve(fixtureDir, 'leaf-spki.bin'));
+const intSpki      = readFileSync(resolve(fixtureDir, 'intermediate-spki.bin'));
+const bindingDigest = createHash('sha256').update(bindingBytes).digest();
+const cades = buildSynthCades({ contentDigest: bindingDigest, leafCertDer, intCertDer });
+const witness = await buildWitnessV5_5({
+  bindingBytes,
+  leafCertDer,
+  leafSpki, intSpki,
+  signedAttrsDer: cades.signedAttrsDer,
+  signedAttrsMdOffset: cades.signedAttrsMdOffset,
+  walletSecret: Buffer.alloc(32, 0x42),
+});
+writeFileSync('$INPUT_SAMPLE', JSON.stringify(witness, null, 2));
+EOTSX
+  pnpm exec tsx "$WITNESS_GEN_TS"
 fi
 
 if [[ ! -f "$WTNS_SAMPLE" ]]; then

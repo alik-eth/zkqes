@@ -46,6 +46,77 @@ export function findTbsInCert(der: Buffer): { offset: number; length: number } {
 }
 
 /**
+ * Locate the `SubjectPublicKeyInfo` sub-DER inside a TBSCertificate.
+ *
+ * Per RFC 5280 §4.1.2:
+ *   TBSCertificate ::= SEQUENCE {
+ *     version              [0] EXPLICIT Version DEFAULT v1,
+ *     serialNumber             CertificateSerialNumber,
+ *     signature                AlgorithmIdentifier,
+ *     issuer                   Name,
+ *     validity                 Validity,
+ *     subject                  Name,
+ *     subjectPublicKeyInfo     SubjectPublicKeyInfo,    <-- the one we need
+ *     ...
+ *   }
+ *
+ * Walks: skip optional `[0]` version, then 5 fields (serialNumber,
+ * signature, issuer, validity, subject), and returns the offset +
+ * total length of the SPKI SEQUENCE that follows.
+ *
+ * @param tbs Full TBSCertificate DER bytes including outer
+ *            `0x30 <length>` tag (NOT the inner content). Same shape
+ *            as `findTbsInCert(...)` returns when sliced from a leaf
+ *            cert.
+ * @returns offset (relative to `tbs`) of the SPKI's outer `0x30` tag,
+ *          and total byte length covering tag + length-header + content.
+ *          The slice `tbs[offset .. offset + length]` is what V5.5's
+ *          witness builder hands to the circuit as `leafSpkiBytes`.
+ */
+export function findLeafSpkiInTbs(tbs: Buffer): { offset: number; length: number } {
+  if (tbs[0] !== 0x30) {
+    throw new Error('leaf-cert-walk: TBSCertificate not a SEQUENCE');
+  }
+  const tbsHdr = readDerLength(tbs, 1);
+  let pos = 1 + tbsHdr.headerLen;
+  const tbsEnd = pos + tbsHdr.contentLen;
+
+  // Optional [0] EXPLICIT version (context-specific tag 0xa0).
+  if (tbs[pos] === 0xa0) {
+    const verHdr = readDerLength(tbs, pos + 1);
+    pos += 1 + verHdr.headerLen + verHdr.contentLen;
+  }
+
+  // Skip 5 fields in order: serialNumber, signature, issuer, validity, subject.
+  // Each is a top-level TLV; skip tag(1) + length-header + content.
+  for (let i = 0; i < 5; i++) {
+    if (pos >= tbsEnd) {
+      throw new Error(
+        `leaf-cert-walk: TBSCertificate truncated while skipping to SPKI (field ${i})`,
+      );
+    }
+    const hdr = readDerLength(tbs, pos + 1);
+    pos += 1 + hdr.headerLen + hdr.contentLen;
+  }
+
+  // Position now points at SPKI's outer SEQUENCE tag.
+  if (tbs[pos] !== 0x30) {
+    throw new Error(
+      `leaf-cert-walk: expected SubjectPublicKeyInfo SEQUENCE at offset ${pos}, ` +
+        `got 0x${tbs[pos]?.toString(16) ?? 'eof'}`,
+    );
+  }
+  const spkiHdr = readDerLength(tbs, pos + 1);
+  const totalLen = 1 + spkiHdr.headerLen + spkiHdr.contentLen;
+  if (pos + totalLen > tbsEnd) {
+    throw new Error(
+      `leaf-cert-walk: SPKI extends past TBS end (pos=${pos}, len=${totalLen}, tbsEnd=${tbsEnd})`,
+    );
+  }
+  return { offset: pos, length: totalLen };
+}
+
+/**
  * Find the subject.serialNumber RDN VALUE inside a leaf cert DER.
  *
  * OID 2.5.4.5 (encoded `06 03 55 04 05`) appears in BOTH the issuer DN
