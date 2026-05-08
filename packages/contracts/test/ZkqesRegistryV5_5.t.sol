@@ -142,6 +142,108 @@ contract ZkqesRegistryV5_5SmokeTest is Test {
         assertFalse(reg.isVerified(address(this)));
     }
 
+    /* ============ rotateWallet revert paths ============ */
+
+    // Distinct privkeys for vm.sign-derived rotation auth signatures.
+    uint256 internal constant ALICE_PK = uint256(0xA11CE);
+    uint256 internal constant BOB_PK   = uint256(0xB0B);
+
+    /// @dev V5.5 rotateWallet happy-path tests are deferred — they need a
+    ///      real secp256k1 fixture for the OLD wallet (so the keccak
+    ///      derivation from bindingPk* limbs hits a known-privkey address,
+    ///      enabling vm.sign of the rotation auth payload). The REVERT
+    ///      paths below all run BEFORE the auth ECDSA check or operate on
+    ///      degenerate state (no prior identity), so they don't require
+    ///      the privkey alignment.
+
+    function test_rotateWallet_revertsWrongMode_whenMode0() public {
+        ZkqesRegistryV5_5.PublicSignals memory sig = _emptySignals();
+        sig.rotationMode = 0; // register-mode signal hits rotateWallet entry
+        bytes memory authSig = new bytes(65); // unused — revert fires first
+        vm.expectRevert(Errors_V5_5.WrongMode.selector);
+        reg.rotateWallet(_emptyProof(), sig, authSig);
+    }
+
+    function test_rotateWallet_revertsInvalidNewWallet_when160bitsExceeded() public {
+        ZkqesRegistryV5_5.PublicSignals memory sig = _emptySignals();
+        sig.rotationMode = 1;
+        sig.rotationNewWallet = uint256(type(uint128).max) << 128 | 1;
+        // Range-check fires before Groth16, so the rejecting verifier
+        // wouldn't even matter here.
+        bytes memory authSig = new bytes(65);
+        vm.expectRevert(Errors_V5_5.InvalidNewWallet.selector);
+        reg.rotateWallet(_emptyProof(), sig, authSig);
+    }
+
+    function test_rotateWallet_revertsUnknownIdentity_whenFingerprintNotClaimed() public {
+        // No prior register → identityWallets[fp] == address(0).
+        ZkqesRegistryV5_5.PublicSignals memory sig = _emptySignals();
+        sig.rotationMode = 1;
+        sig.identityFingerprint = uint256(0xDEADBEEF);
+        sig.rotationNewWallet = uint256(uint160(vm.addr(BOB_PK)));
+        bytes memory authSig = _rotateAuthSig(ALICE_PK, bytes32(sig.identityFingerprint), vm.addr(BOB_PK));
+        vm.prank(vm.addr(BOB_PK));
+        vm.expectRevert(Errors_V5_5.UnknownIdentity.selector);
+        reg.rotateWallet(_emptyProof(), sig, authSig);
+    }
+
+    function test_rotateWallet_revertsInvalidRotationAuth_whenSigByWrongKey() public {
+        // Establish a registered identity at a known address via direct
+        // storage write — simulates a prior register() without needing
+        // privkey alignment for the keccak-derived old wallet.
+        bytes32 fingerprint = bytes32(uint256(0xC0FFEE));
+        bytes32 oldCommitment = bytes32(uint256(0xFEEDBEEF));
+        address oldWallet = vm.addr(ALICE_PK);
+        // identityWallets is a public mapping. Slot for ZkqesRegistryV5_5
+        // determined by Solidity layout: storage slot for `identityWallets`
+        // mapping = its declaration index. We don't compute it manually
+        // here; instead we mock via vm.store at the deterministic slot.
+        // Simpler path: use forge's `stdStorage` to find the slot.
+        bytes32 wSlot = keccak256(abi.encode(fingerprint, _slot_identityWallets()));
+        vm.store(address(reg), wSlot, bytes32(uint256(uint160(oldWallet))));
+        bytes32 cSlot = keccak256(abi.encode(fingerprint, _slot_identityCommitments()));
+        vm.store(address(reg), cSlot, oldCommitment);
+
+        ZkqesRegistryV5_5.PublicSignals memory sig = _emptySignals();
+        sig.rotationMode = 1;
+        sig.identityFingerprint = uint256(fingerprint);
+        sig.rotationOldCommitment = uint256(oldCommitment);
+        sig.identityCommitment = uint256(0xFACE); // new commit
+        sig.rotationNewWallet = uint256(uint160(vm.addr(BOB_PK)));
+        // Sign with BOB_PK instead of ALICE_PK — recovered won't match oldWallet.
+        bytes memory authSig = _rotateAuthSig(BOB_PK, fingerprint, vm.addr(BOB_PK));
+        vm.prank(vm.addr(BOB_PK));
+        vm.expectRevert(Errors_V5_5.InvalidRotationAuth.selector);
+        reg.rotateWallet(_emptyProof(), sig, authSig);
+    }
+
+    function _rotateAuthSig(uint256 pk, bytes32 fingerprint, address newWallet)
+        internal view returns (bytes memory)
+    {
+        bytes32 authPayload = keccak256(
+            abi.encodePacked(
+                "qkb-rotate-auth-v1",
+                block.chainid,
+                address(reg),
+                fingerprint,
+                newWallet
+            )
+        );
+        bytes32 ethSignedHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", authPayload)
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, ethSignedHash);
+        return abi.encodePacked(r, s, v);
+    }
+
+    // Storage slot calculations for direct vm.store. Matches the V5.5
+    // contract's storage declaration order. `admin` is slot 0,
+    // `trustedListRoot` is slot 1, `policyRoot` is slot 2,
+    // `nullifierOf` is slot 3, `identityCommitments` is slot 4,
+    // `identityWallets` is slot 5, `usedCtx` is slot 6.
+    function _slot_identityCommitments() internal pure returns (uint256) { return 4; }
+    function _slot_identityWallets() internal pure returns (uint256) { return 5; }
+
     // ----- helpers -----
 
     function _emptySignals() internal pure returns (ZkqesRegistryV5_5.PublicSignals memory sig) {

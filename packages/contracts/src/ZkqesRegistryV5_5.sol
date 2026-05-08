@@ -51,6 +51,10 @@ library Errors_V5_5 {
     error WalletNotBound();
     error CtxAlreadyUsed();
     error BindingPkLimbOutOfRange();
+    // rotateWallet errors
+    error UnknownIdentity();       // rotateWallet: identityWallets[fp] == 0
+    error InvalidNewWallet();      // rotateWallet: newWallet == 0 || == oldWallet || != msg.sender || >= 2^160
+    error InvalidRotationAuth();   // rotateWallet: ECDSA recovery ≠ oldWallet
 }
 
 contract ZkqesRegistryV5_5 {
@@ -78,6 +82,16 @@ contract ZkqesRegistryV5_5 {
     event TrustedListRootRotated(bytes32 indexed previous, bytes32 indexed current, address admin);
     event PolicyRootRotated(bytes32 indexed previous, bytes32 indexed current, address admin);
     event AdminTransferred(address indexed previous, address indexed current);
+    /// @notice Emitted on successful rotateWallet. `fingerprint` is the
+    ///         identity-stable key (lookup index for indexers), `oldWallet`
+    ///         and `newWallet` watched by wallet-rotation UX. `newCommitment`
+    ///         is the post-rotation `identityCommitment[fp]` slot value.
+    event WalletRotated(
+        bytes32 indexed fingerprint,
+        address indexed oldWallet,
+        address indexed newWallet,
+        bytes32 newCommitment
+    );
 
     /* ---------- common errors ---------- */
 
@@ -309,6 +323,79 @@ contract ZkqesRegistryV5_5 {
         emit Registered(msg.sender, nullifierBytes, sig.timestamp);
     }
 
+    /* ---------- rotateWallet — V5.2 carry-over with V5.5 21-signal pack ---------- */
+
+    /// @notice Atomically rotate a registered identity from oldWallet to
+    ///         newWallet. Caller MUST be newWallet; `oldWalletAuthSig`
+    ///         MUST be a 65-byte ECDSA signature from oldWallet over the
+    ///         canonical rotation payload (chainid + registry-bound).
+    ///
+    /// @dev    Mode gate enforces rotationMode == 1; the dual entry-point
+    ///         register() rejects mode == 1 via Gate 0. The Groth16 verify
+    ///         consumes the same 21-signal pack (rotationMode at slot [14]).
+    ///
+    /// @dev    Frozen ProtocolBytes literal "qkb-rotate-auth-v1" is REUSED
+    ///         from V5.2 (CLAUDE.md ProtocolBytes invariant — never renamed
+    ///         across versions; V5.6 / V6 must keep the same byte string).
+    function rotateWallet(
+        Groth16Proof  calldata proof,
+        PublicSignals calldata sig,
+        bytes         calldata oldWalletAuthSig
+    ) external {
+        if (sig.rotationMode != 1) revert Errors_V5_5.WrongMode();
+
+        // V5.3 F2 carry-over: 160-bit range check on rotationNewWallet to
+        // close the silent-truncation vector at the address(uint160(...))
+        // cast below.
+        if (sig.rotationNewWallet != uint256(uint160(sig.rotationNewWallet))) {
+            revert Errors_V5_5.InvalidNewWallet();
+        }
+
+        uint256[21] memory input = _packPublicSignals(sig);
+        if (!groth16Verifier.verifyProof(proof.a, proof.b, proof.c, input)) {
+            revert Errors_V5_5.BadProof();
+        }
+
+        bytes32 fingerprint   = bytes32(sig.identityFingerprint);
+        bytes32 newCommitment = bytes32(sig.identityCommitment);
+        bytes32 oldCommitment = bytes32(sig.rotationOldCommitment);
+        address newWallet     = address(uint160(sig.rotationNewWallet));
+
+        address oldWallet = identityWallets[fingerprint];
+        if (oldWallet == address(0))                   revert Errors_V5_5.UnknownIdentity();
+        if (identityCommitments[fingerprint] != oldCommitment) {
+            revert Errors_V5_5.CommitmentMismatch();
+        }
+        if (newWallet != msg.sender)                   revert Errors_V5_5.InvalidNewWallet();
+        if (newWallet == oldWallet)                    revert Errors_V5_5.InvalidNewWallet();
+        if (nullifierOf[newWallet] != bytes32(0))      revert Errors_V5_5.AlreadyRegistered();
+
+        // ----- ECDSA auth payload (chainid + registry-bound) -----
+        // frozen protocol byte string; see specs/2026-05-03-zkqes-rename-design.md §3
+        bytes32 authPayload = keccak256(
+            abi.encodePacked(
+                "qkb-rotate-auth-v1",
+                block.chainid,
+                address(this),
+                fingerprint,
+                newWallet
+            )
+        );
+        bytes32 ethSignedHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", authPayload)
+        );
+        address recovered = _recoverSigner(ethSignedHash, oldWalletAuthSig);
+        if (recovered != oldWallet) revert Errors_V5_5.InvalidRotationAuth();
+
+        // ----- atomic state update -----
+        identityCommitments[fingerprint] = newCommitment;
+        identityWallets[fingerprint]     = newWallet;
+        nullifierOf[newWallet] = nullifierOf[oldWallet];
+        delete nullifierOf[oldWallet];
+
+        emit WalletRotated(fingerprint, oldWallet, newWallet, newCommitment);
+    }
+
     /* ---------- helpers ---------- */
 
     /// @dev Reconstruct holder's Ethereum address from V5.2-style
@@ -331,6 +418,29 @@ contract ZkqesRegistryV5_5 {
             (sig.bindingPkYHi << 128) | sig.bindingPkYLo
         );
         return address(uint160(uint256(keccak256(abi.encodePacked(pkX, pkY)))));
+    }
+
+    /// @dev Recover ECDSA signer from a 65-byte (r||s||v) signature over
+    ///      `hash`. EIP-2 / SEC 1 high-s rejection. Returns address(0)
+    ///      on malformed input — caller's downstream comparison (e.g.
+    ///      `recovered != oldWallet`) surfaces that as InvalidRotationAuth.
+    function _recoverSigner(bytes32 hash, bytes calldata signature)
+        internal pure returns (address)
+    {
+        if (signature.length != 65) return address(0);
+        bytes32 r;
+        bytes32 s;
+        uint8   v;
+        assembly {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 0x20))
+            v := byte(0, calldataload(add(signature.offset, 0x40)))
+        }
+        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
+            return address(0);
+        }
+        if (v != 27 && v != 28) return address(0);
+        return ecrecover(hash, v, r, s);
     }
 
     /// @dev Pack 21-signal public input array per V5.5 spec §6 layout.
