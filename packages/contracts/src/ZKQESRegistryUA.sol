@@ -2,78 +2,34 @@
 pragma solidity ^0.8.24;
 
 import {IZKQESRegistry} from "./IZKQESRegistry.sol";
+import {IGroth16VerifierV5_5} from "./Groth16VerifierV5_5Stub.sol";
 import {IGroth16AgeVerifier} from "./Groth16AgeVerifierUAStub.sol";
-import {Poseidon} from "./libs/Poseidon.sol";
-import {P256Verify} from "./libs/P256Verify.sol";
+import {KeyCommit} from "./libs/KeyCommit.sol";
+import {HostSig} from "./libs/HostSig.sol";
 import {PoseidonMerkle} from "./libs/PoseidonMerkle.sol";
 
-/// @notice V5.3 22-input leaf+chain identity verifier ABI. Matches the
-///         existing `Groth16VerifierV5_2{Placeholder,Stub}` interface
-///         since V5.3 amended V5.2 in-place without changing the
-///         public-signal vector size (still 22). Phase A unit tests
-///         use `Groth16VerifierV5_2Placeholder.sol` (always-true);
-///         Phase C swaps in the post-ceremony real verifier per
-///         orchestration §1.7.
-interface IGroth16VerifierV5_3 {
-    function verifyProof(
-        uint256[2]    calldata a,
-        uint256[2][2] calldata b,
-        uint256[2]    calldata c,
-        uint256[22]   calldata input
-    ) external view returns (bool);
-}
-
-/// @title  ZKQESRegistryUA — Ukrainian per-country ZKQES registry (V5.4).
-/// @notice Implements the frozen `IZKQESRegistry` interface. Per-country
-///         deploy: one registry instance per supported eIDAS country.
-///         UA = first instance; V5.5+ adds country #2 against the same
-///         interface.
+/// @title  ZKQESRegistryUA — Ukrainian per-country ZKQES registry (V7).
+/// @notice V7 = V5.5 wire format (21-signal Groth16, KeyCommit leaves,
+///         HostSig dispatch, `bytes` signature calldata) + V5.6 features
+///         (unified register with rebind branch, atomic registerWithAge,
+///         per-country age verifier slot). Spec at
+///         `docs/superpowers/specs/2026-05-09-v7-merged-amendment.md`.
 ///
-/// @dev    Architecture (per spec §2.1):
-///           - `identityVerifier` (immutable) — V5.3 22-input Groth16
-///             verifier (chain+leaf unified circuit, country-agnostic).
+/// @dev    Architecture (per V7 spec §3.3):
+///           - `identityVerifier` (immutable) — V5.5 21-signal Groth16
+///             verifier (algorithm-agnostic; KeyCommit leaves; HostSig
+///             dispatch). Country-blind at the circuit level.
 ///           - `ageVerifier` (immutable) — V5.4 3-input AgeDiiaUA
 ///             verifier (UA-specific Tier-2 Diia DOB encoding).
-///           - On-chain chain verification (P-256 verify of intermediate
-///             cert + Poseidon Merkle climb of trust-list membership),
-///             ported verbatim from `ZkqesRegistryV5_2` — the V5.4
-///             interface revision dropped the brainstorm-draft "ChainProof
-///             Groth16 tuple" and reverted to V5.2's on-chain pattern.
+///           - On-chain chain verification: HostSig.verify of intermediate
+///             cert + Poseidon Merkle climb of trust-list membership over
+///             KeyCommit-recomputed-on-chain leaf (V5.5 NEW vs V5.4).
 ///
-/// @dev    Schema migration from V5.2 (per spec §3.2):
-///           - V5.2 `identityWallets[fp] => address`
-///             + `identityCommitments[fp] => bytes32`
-///             + `nullifierOf[wallet] => bytes32`
-///             COLLAPSE INTO
-///           - V5.4 `bindings[bindingId] => Binding` (single struct,
-///             keyed by `bindingId = keccak256(abi.encode("UA",
-///             leafProof.identityFingerprint))`).
-///           - V5.2 `usedCtx[fp][ctxKey] => bool`
-///             COLLAPSE INTO
-///           - V5.4 `usedNullifiers[nullifier] => bool` — V5.1 nullifier
-///             is `Poseidon₂(walletSecret, ctxHash)`, so per-nullifier
-///             uniqueness is a tighter guarantee than per-(fp, ctxKey)
-///             uniqueness (binds the wallet secret too).
-///         Two V5.2-only invariants are RELAXED in V5.4 because the
-///         backing storage isn't carried forward:
-///           - V5.1 invariant 5 (wallet uniqueness across rotation —
-///             no wallet holds two distinct identities) is dropped:
-///             V5.4 has no wallet→bindingId reverse mapping. Lifting
-///             the invariant is acceptable because the rotation
-///             ECDSA-auth gate already binds rotateWallet to the
-///             previously-bound wallet's privkey.
-///           - V5.2 `CommitmentMismatch` rotateWallet stale-state check
-///             (`identityCommitments[fp] == sig.rotationOldCommitment`)
-///             is dropped: V5.4 has no commitment slot. Stale-state risk
-///             is bounded by the rotation auth sig's domain-bound
-///             payload (chainid + registry addr + bindingId + newWallet)
-///             and the in-circuit `rotationOldCommitment ===
-///             identityCommitment` no-op (per V5.1 ForceEqualIfEnabled).
-///
-/// @dev    Both verifier slots are `immutable`. Verifier rotation =
-///         fresh registry redeploy + new `fixtures/contracts/<chain>.json`
-///         pump (no in-place setter exists). Same posture as
-///         `ZkqesRegistryV5_2`.
+/// @dev    Per CLAUDE.md "Country identifier privacy" §UA: V7 keeps UA
+///         in Bucket A. `identityFingerprint` derivation
+///         (`Poseidon₂(subjectSerialPacked, FINGERPRINT_DOMAIN)`) is
+///         dictionary-attackable for TINUA-prefixed serials; this is
+///         the honest characterization, not a privacy bug.
 contract ZKQESRegistryUA is IZKQESRegistry {
     /* ---------- constants ---------- */
 
@@ -84,31 +40,23 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     string public constant override country = "UA";
 
     /// @notice Source-version tag for off-chain inspection.
-    string public constant VERSION = "ZKQES/V5.6";
+    string public constant VERSION = "ZKQES/V7";
 
     /// @notice Maximum acceptable proof-binding age. Proofs whose
     ///         `leafProof.timestamp` is older than `block.timestamp -
-    ///         MAX_BINDING_AGE` revert `StaleBinding`. Mirrors V5.2.
+    ///         MAX_BINDING_AGE` revert `StaleBinding`.
     uint256 public constant MAX_BINDING_AGE = 1 hours;
 
     /* ---------- immutables ---------- */
 
-    IGroth16VerifierV5_3 public immutable identityVerifierImpl;
+    IGroth16VerifierV5_5 public immutable identityVerifierImpl;
     IGroth16AgeVerifier  public immutable ageVerifierImpl;
 
     /// @notice Pre-deployed Poseidon contract addresses, passed to the
-    ///         constructor. V5.4 deviation from V5.2: V5.2 CREATE-deployed
-    ///         T3 + T7 inside its constructor by inlining their initcodes
-    ///         as `PoseidonBytecode` library constants. That added ~33 KB
-    ///         to the registry's own initcode and tipped V5.4 over Base
-    ///         Sepolia's effective `MAX_INITCODE_SIZE` ceiling at deploy
-    ///         time (V5.2 squeaked under at 40,157 bytes; V5.4's +1.5 KB
-    ///         of new surface-area pushed it to 41,630 bytes which the
-    ///         public Base Sepolia RPC rejected with
-    ///         `error code -32000: max initcode size exceeded`).
-    ///         Pre-deploy + pass-as-args keeps the registry's own
-    ///         initcode under ~9 KB and is the canonical Solidity
-    ///         library-deploy pattern.
+    ///         constructor. Pre-deploy + pass-as-args keeps the
+    ///         registry's own initcode under the EIP-3860 cap on Base
+    ///         Sepolia (V5.4 lesson: embedding ~33 KB Poseidon initcodes
+    ///         in the registry constructor pushed total over the limit).
     address public immutable poseidonT3;
     address public immutable poseidonT7;
 
@@ -124,9 +72,9 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     mapping(uint256 => bool)    public usedNullifiers;
     mapping(bytes32 => mapping(uint256 => bool)) public override ageProvenCutoffs;
 
-    /* ---------- errors (V5.4-NEW + V5.2-port + admin) ---------- */
+    /* ---------- errors ---------- */
 
-    /* register — V5.2 port + V5.6 unified-register */
+    /* register — V5.5 wire + V5.6 unified */
     error WrongMode();
     error WalletDerivationMismatch();
     error WrongRegisterModeNoOp();
@@ -134,18 +82,16 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     error BadProof();
     error BadSignedAttrsHi();
     error BadSignedAttrsLo();
-    error BadLeafSpki();
-    error BadIntSpki();
+    error BadLeafKeyCommit();        // V7 (replaces V5.4 BadLeafSpki)
     error BadLeafSig();
     error BadIntSig();
     error BadTrustList();
     error BadPolicy();
     error StaleBinding();
     error FutureBinding();
-    error NullifierUsed();          // V5.6: cross-identity nullifier reuse on first-claim
+    error NullifierUsed();           // V5.6 cross-identity reuse on first-claim
 
-    /* proveAge — V5.4 NEW (silent reverts; no string interpolation —
-       eliminates revert-string side-channel risk per spec §3.3) */
+    /* proveAge */
     error BindingNotFound();
     error BindingRevoked();
     error DobNotAvailable();
@@ -158,7 +104,6 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     /* admin */
     error OnlyAdmin();
     error ZeroAddress();
-    error PoseidonDeployFailed();
 
     /* ---------- events (admin-only; user-facing events declared in interface) ---------- */
 
@@ -176,16 +121,6 @@ contract ZKQESRegistryUA is IZKQESRegistry {
 
     /* ---------- constructor ---------- */
 
-    /// @param _trustedRoot       Initial eIDAS trust-list Poseidon root.
-    /// @param _policyRoot        Initial policy-list Poseidon root.
-    /// @param _identityVerifier  V5.3 22-input identity verifier address.
-    /// @param _ageVerifier       V5.4 UA age verifier address.
-    /// @param _admin             Initial admin (rotateRoots + setRevoked + transferAdmin).
-    /// @param _poseidonT3        Pre-deployed circomlibjs PoseidonT3 contract.
-    ///                            Caller (deploy script) deploys via
-    ///                            `Poseidon.deploy(PoseidonBytecode.t3Initcode())`
-    ///                            BEFORE invoking this constructor.
-    /// @param _poseidonT7        Pre-deployed circomlibjs PoseidonT7 contract.
     constructor(
         bytes32 _trustedRoot,
         bytes32 _policyRoot,
@@ -203,7 +138,7 @@ contract ZKQESRegistryUA is IZKQESRegistry {
 
         trustedRoot = _trustedRoot;
         policyRoot  = _policyRoot;
-        identityVerifierImpl = IGroth16VerifierV5_3(_identityVerifier);
+        identityVerifierImpl = IGroth16VerifierV5_5(_identityVerifier);
         ageVerifierImpl      = IGroth16AgeVerifier(_ageVerifier);
         admin = _admin;
         poseidonT3 = _poseidonT3;
@@ -212,17 +147,14 @@ contract ZKQESRegistryUA is IZKQESRegistry {
 
     /* ---------- IZKQESRegistry view fns ---------- */
 
-    /// @inheritdoc IZKQESRegistry
     function identityVerifier() external view override returns (address) {
         return address(identityVerifierImpl);
     }
 
-    /// @inheritdoc IZKQESRegistry
     function ageVerifier() external view override returns (address) {
         return address(ageVerifierImpl);
     }
 
-    /// @inheritdoc IZKQESRegistry
     function getBinding(bytes32 id) external view override returns (Binding memory) {
         return bindings[id];
     }
@@ -240,10 +172,9 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     }
 
     /// @notice Admin-only revocation. Sets `Binding.revoked`; subsequent
-    ///         `proveAge` calls revert `BindingRevoked`. The binding's
-    ///         other slots (pk, nullifier, ctxHash, etc.) are preserved
-    ///         so off-chain consumers can still cross-reference the
-    ///         revoked binding.
+    ///         `proveAge` and rebind calls revert `BindingRevoked`. Other
+    ///         binding fields are preserved so off-chain consumers can
+    ///         still cross-reference the revoked binding.
     function setRevoked(bytes32 bindingId, bool revoked_) external onlyAdmin {
         bindings[bindingId].revoked = revoked_;
         emit BindingRevoke(bindingId, revoked_, msg.sender);
@@ -255,30 +186,12 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         admin = newAdmin;
     }
 
-    /* ---------- register() — V5.2 port + V5.4 schema ---------- */
+    /* ---------- register() — V7 unified ---------- */
 
-    /// @inheritdoc IZKQESRegistry
-    function register(
-        ChainProof  calldata chainProof,
-        LeafProof   calldata leafProof,
-        bytes       calldata leafSpki,
-        bytes       calldata intSpki,
-        bytes       calldata signedAttrs,
-        bytes32[2]  calldata leafSig,
-        bytes32[2]  calldata intSig,
-        bytes32[16] calldata trustMerklePath,
-        uint256              trustMerklePathBits,
-        bytes32[16] calldata policyMerklePath,
-        uint256              policyMerklePathBits
-    ) external override returns (bytes32 bindingId) {
-        return _register(
-            msg.sender,
-            chainProof, leafProof,
-            leafSpki, intSpki, signedAttrs,
-            leafSig, intSig,
-            trustMerklePath, trustMerklePathBits,
-            policyMerklePath, policyMerklePathBits
-        );
+    function register(RegisterCall calldata args)
+        external override returns (bytes32 bindingId)
+    {
+        return _register(msg.sender, args);
     }
 
     /// @dev Internal register entry point — takes the caller as an
@@ -287,26 +200,15 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     ///      would re-set msg.sender to address(this) and break the
     ///      WalletDerivationMismatch gate).
     function _register(
-        address              caller,
-        ChainProof  calldata chainProof,
-        LeafProof   calldata leafProof,
-        bytes       calldata leafSpki,
-        bytes       calldata intSpki,
-        bytes       calldata signedAttrs,
-        bytes32[2]  calldata leafSig,
-        bytes32[2]  calldata intSig,
-        bytes32[16] calldata trustMerklePath,
-        uint256              trustMerklePathBits,
-        bytes32[16] calldata policyMerklePath,
-        uint256              policyMerklePathBits
+        address               caller,
+        RegisterCall calldata args
     ) internal returns (bytes32 bindingId) {
+        ChainProof calldata chainProof = args.chainProof;
+        LeafProof  calldata leafProof  = args.leafProof;
         /* ===== Gate 0: mode gate ===== */
         if (leafProof.rotationMode != 0) revert WrongMode();
 
-        /* ===== Gate 2a-prime: keccak-derive caller from binding-pk limbs ===== */
-        // V5.2 keccak-on-chain port. Reconstructs the 64-byte uncompressed
-        // secp256k1 wallet pubkey from the 4×128-bit limbs (slots 18..21,
-        // big-endian), runs keccak256[12:32] to derive an Ethereum address.
+        /* ===== Gate 0a': keccak-derive caller from binding-pk limbs ===== */
         address derivedAddr = _deriveAddrFromBindingLimbs(leafProof);
         if (derivedAddr != caller) revert WalletDerivationMismatch();
 
@@ -316,80 +218,75 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         }
 
         /* ===== Gate 0b: ChainProof bind-values cross-check ===== */
-        // V5.4 NEW (vs V5.2): the caller-supplied ChainProof claims a
-        // (rTL, leafSpkiCommit) tuple that MUST match the registry's
-        // current state + the leaf proof's slot-11 leafSpkiCommit.
-        // `algorithmTag` is forward-compat for V5.5+ leaf-algorithm
-        // pluggability — bind it to `0` for now (single algorithm in
-        // V5.4) so a future proof carrying a non-zero tag fails fast.
-        if (chainProof.rTL            != uint256(trustedRoot))     revert BadTrustList();
-        if (chainProof.leafSpkiCommit != leafProof.leafSpkiCommit) revert BadLeafSpki();
-        if (chainProof.algorithmTag   != 0)                        revert BadProof();
+        if (chainProof.rTL           != uint256(trustedRoot))       revert BadTrustList();
+        if (chainProof.leafKeyCommit != leafProof.leafKeyCommit)    revert BadLeafKeyCommit();
 
-        /* ===== Gate 1: Groth16 verify ===== */
-        uint256[22] memory input = _packPublicSignals(leafProof);
+        /* ===== Gate 1: Groth16 verify (21 publics) ===== */
+        uint256[21] memory input = _packPublicSignals(leafProof);
         if (!identityVerifierImpl.verifyProof(leafProof.a, leafProof.b, leafProof.c, input)) {
             revert BadProof();
         }
 
-        /* ===== Gate 2a: bind public-input commits to calldata ===== */
+        /* ===== Gate 2a: signedAttrs hash + leafKeyCommit ===== */
+        bytes32 saHash = sha256(args.signedAttrs);
         {
-            bytes32 saHash = sha256(signedAttrs);
             uint256 saHi = uint256(saHash) >> 128;
             uint256 saLo = uint256(saHash) & ((uint256(1) << 128) - 1);
             if (saHi != leafProof.signedAttrsHashHi) revert BadSignedAttrsHi();
             if (saLo != leafProof.signedAttrsHashLo) revert BadSignedAttrsLo();
         }
-
-        if (P256Verify.spkiCommit(leafSpki, poseidonT3, poseidonT7) != leafProof.leafSpkiCommit) {
-            revert BadLeafSpki();
-        }
-        if (P256Verify.spkiCommit(intSpki, poseidonT3, poseidonT7) != leafProof.intSpkiCommit) {
-            revert BadIntSpki();
+        if (KeyCommit.commitSpki(poseidonT3, poseidonT7, args.leafSpki) != leafProof.leafKeyCommit) {
+            revert BadLeafKeyCommit();
         }
 
-        /* ===== Gate 2b: 2× P256Verify (leaf + intermediate) ===== */
-        if (!P256Verify.verifyWithSpki(leafSpki, sha256(signedAttrs), leafSig)) {
+        /* ===== Gate 2b: leaf signature (algorithm-dispatched) ===== */
+        if (!HostSig.verify(args.leafSpki, saHash, args.leafSig)) {
             revert BadLeafSig();
         }
-        bytes32 leafTbsHash = bytes32(
-            (leafProof.leafTbsHashHi << 128) | leafProof.leafTbsHashLo
-        );
-        if (!P256Verify.verifyWithSpki(intSpki, leafTbsHash, intSig)) {
-            revert BadIntSig();
+
+        /* ===== Gate 3: intermediate signature ===== */
+        {
+            bytes32 leafTbsHash = bytes32(
+                (leafProof.leafTbsHashHi << 128) | leafProof.leafTbsHashLo
+            );
+            if (!HostSig.verify(args.intSpki, leafTbsHash, args.intSig)) {
+                revert BadIntSig();
+            }
         }
 
-        /* ===== Gate 3: trust-list Merkle membership ===== */
-        if (!PoseidonMerkle.verify(
-            poseidonT3,
-            bytes32(leafProof.intSpkiCommit),
-            trustMerklePath,
-            trustMerklePathBits,
-            trustedRoot
-        )) {
-            revert BadTrustList();
+        /* ===== Gate 4: trust-list Merkle (intKeyCommit recomputed) ===== */
+        // V5.5 delta vs V5.4: intSpkiCommit is no longer a public signal;
+        // contract computes KeyCommit.commitSpki(intSpki) inline and uses
+        // that as the Merkle leaf.
+        {
+            uint256 intKeyCommit = KeyCommit.commitSpki(poseidonT3, poseidonT7, args.intSpki);
+            if (!PoseidonMerkle.verify(
+                poseidonT3,
+                bytes32(intKeyCommit),
+                args.trustMerklePath,
+                args.trustMerklePathBits,
+                trustedRoot
+            )) {
+                revert BadTrustList();
+            }
         }
 
-        /* ===== Gate 4: policy-list Merkle membership ===== */
+        /* ===== Gate 5: policy-list Merkle ===== */
         if (!PoseidonMerkle.verify(
             poseidonT3,
             bytes32(leafProof.policyLeafHash),
-            policyMerklePath,
-            policyMerklePathBits,
+            args.policyMerklePath,
+            args.policyMerklePathBits,
             policyRoot
         )) {
             revert BadPolicy();
         }
 
-        /* ===== Gate 5: timing ===== */
+        /* ===== Gate 6: timing ===== */
         if (leafProof.timestamp > block.timestamp) revert FutureBinding();
         if (block.timestamp - leafProof.timestamp > MAX_BINDING_AGE) revert StaleBinding();
 
-        /* ===== Gate 6/7: binding-write — first-claim or rebind ===== */
-        // V5.6 unified-register: bindingId = keccak(country,
-        // identityFingerprint), stable across wallet swaps. A valid
-        // proof for the same fingerprint authorizes rebinding to the
-        // current msg.sender — no separate rotateWallet entry point.
+        /* ===== Gate 7: binding-write — first-claim or rebind ===== */
         bindingId = keccak256(abi.encode(country, leafProof.identityFingerprint));
 
         Binding storage b = bindings[bindingId];
@@ -400,18 +297,13 @@ contract ZKQESRegistryUA is IZKQESRegistry {
 
         if (oldPk == address(0)) {
             // ----- First-claim path -----
-            // Cross-identity nullifier reuse guard: each binding's
-            // first-claim nullifier must be globally unique. Subsequent
-            // rebinds intentionally reuse the same first-claim
-            // nullifier (V5.1 write-once invariant), so the
-            // usedNullifiers check is gated on the first-claim branch.
             if (usedNullifiers[nullifier]) revert NullifierUsed();
 
             b.pk             = caller;
             b.ctxHash        = ctxHash;
             b.policyLeafHash = leafProof.policyLeafHash;
             b.timestamp      = block.timestamp;
-            b.dobCommit      = 0;             // spec §3.4 — default-private posture
+            b.dobCommit      = 0;             // default-private posture
             b.dobSupported   = 1;             // UA: Diia carries DOB
             b.revoked        = false;
             b.nullifier      = nullifier;     // first-claim write-once
@@ -421,14 +313,8 @@ contract ZKQESRegistryUA is IZKQESRegistry {
             emit BindingRegistered(bindingId, caller, ctxHash);
         } else {
             // ----- Rebind path (V5.6 unified-register) -----
-            // Authorization is the proof itself: same identityFingerprint
-            // means same QES-anchored identity, and the proof's
-            // structural validity was already verified above.
             if (b.revoked) revert BindingRevoked();
 
-            // Refresh wallet-and-context fields. Nullifier and the
-            // first-claim write-once invariant are preserved — the
-            // identity's anti-Sybil anchor doesn't change on rebind.
             b.pk             = caller;
             b.ctxHash        = ctxHash;
             b.policyLeafHash = leafProof.policyLeafHash;
@@ -443,43 +329,19 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         }
     }
 
-    /* ---------- registerWithAge() — V5.6 atomic register + proveAge ---------- */
+    /* ---------- registerWithAge() — V5.6 atomic ---------- */
 
-    /// @inheritdoc IZKQESRegistry
     function registerWithAge(
-        ChainProof  calldata chainProof,
-        LeafProof   calldata leafProof,
-        bytes       calldata leafSpki,
-        bytes       calldata intSpki,
-        bytes       calldata signedAttrs,
-        bytes32[2]  calldata leafSig,
-        bytes32[2]  calldata intSig,
-        bytes32[16] calldata trustMerklePath,
-        uint256              trustMerklePathBits,
-        bytes32[16] calldata policyMerklePath,
-        uint256              policyMerklePathBits,
-        uint256              ageCutoffDate,
-        AgeProof    calldata ageProof
+        RegisterCall calldata args,
+        uint256               ageCutoffDate,
+        AgeProof     calldata ageProof
     ) external override returns (bytes32 bindingId, bool ageOk) {
-        bindingId = _register(
-            msg.sender,
-            chainProof, leafProof,
-            leafSpki, intSpki, signedAttrs,
-            leafSig, intSig,
-            trustMerklePath, trustMerklePathBits,
-            policyMerklePath, policyMerklePathBits
-        );
+        bindingId = _register(msg.sender, args);
         ageOk = _proveAge(msg.sender, bindingId, ageCutoffDate, ageProof);
     }
 
-    /* ---------- proveAge() — V5.4 NEW ---------- */
+    /* ---------- proveAge() — V5.4 carry-over ---------- */
 
-    /// @inheritdoc IZKQESRegistry
-    /// @dev Verbatim from spec §3.3, with `ageVerifier.verifyProof`
-    ///      adapted to the snarkjs-style ABI (the spec snippet's
-    ///      `ageVerifier.verifyProof(proof)` is shorthand for the
-    ///      4-arg call below). Silent reverts (no string interpolation)
-    ///      eliminate the revert-string side-channel risk.
     function proveAge(
         bytes32          bindingId,
         uint256          ageCutoffDate,
@@ -504,21 +366,19 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         if (b.dobSupported != 1)  revert DobNotAvailable();
 
         // Range-check cutoff to plausible birth-window — policy-abuse
-        // mitigation (orchestration §1.3 frozen contract). Without
-        // this, a malicious dApp could binary-search the underlying
-        // `dobYmd` via try-multiple-cutoffs.
+        // mitigation. Without this, a malicious dApp could binary-search
+        // the underlying `dobYmd` via try-multiple-cutoffs.
         if (ageCutoffDate < 19000101 || ageCutoffDate > 99991231) {
             revert InvalidAgeCutoff();
         }
 
-        // Public-signal binding.
         if (proof.ageQualified  != 1)             revert AgeNotQualified();
         if (proof.ageCutoffDate != ageCutoffDate) revert AgeCutoffMismatch();
 
-        // V5.1 nullifier_ctx anti-replay derivation (orchestration §1.4
-        // FROZEN ProtocolBytes literal — three sites compute this same
-        // hash: circuit (private witness + passthrough public signal),
-        // SDK (consumer-supplied via `nullifierCtxKeccak`), this contract).
+        // V5.1 nullifier_ctx anti-replay derivation. Frozen ProtocolBytes
+        // literal "zkqes-age-ctx-v1" — three sites compute the same hash:
+        // circuit (private witness + passthrough public signal), SDK
+        // (consumer-supplied via `nullifierCtxKeccak`), this contract.
         uint256 expectedCtx = uint256(keccak256(abi.encodePacked(
             "zkqes-age-ctx-v1", bindingId, ageCutoffDate
         )));
@@ -526,8 +386,7 @@ contract ZKQESRegistryUA is IZKQESRegistry {
 
         // Pack the 3-input array for the snarkjs verifier ABI. Order
         // MUST match the `AgeDiiaUA` circuit's frozen public-output
-        // slot order (orchestration §1.3): [0] ageQualified, [1]
-        // ageCutoffDate, [2] nullifierCtx.
+        // slot order: [0] ageQualified, [1] ageCutoffDate, [2] nullifierCtx.
         uint256[3] memory input = [proof.ageQualified, proof.ageCutoffDate, proof.nullifierCtx];
         if (!ageVerifierImpl.verifyProof(proof.a, proof.b, proof.c, input)) {
             revert InvalidAgeProof();
@@ -541,8 +400,8 @@ contract ZKQESRegistryUA is IZKQESRegistry {
     /* ---------- helpers ---------- */
 
     /// @dev Reconstruct the holder's Ethereum address from the V5.2
-    ///      keccak-on-chain bindingPk* limbs (slots 18..21, big-endian).
-    ///      Verbatim port from `ZkqesRegistryV5_2._deriveAddrFromBindingLimbs`.
+    ///      keccak-on-chain bindingPk* limbs (slots 17..20 in V7's
+    ///      21-signal layout, big-endian).
     function _deriveAddrFromBindingLimbs(LeafProof calldata leafProof)
         internal pure returns (address)
     {
@@ -561,13 +420,13 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         return address(uint160(uint256(keccak256(pk))));
     }
 
-    /// @dev Pack `LeafProof`'s 22 named public-signal fields into the
-    ///      `uint256[22]` array the V5.3 verifier consumes. Field-by-
-    ///      field (vs struct-literal) assignment avoids the Yul-IR
-    ///      stack-too-deep that struck V5.1 at uint[19] (`04b4a71`).
-    ///      Slot order MUST match the V5.3 frozen public-signal layout.
+    /// @dev Pack `LeafProof`'s 21 named public-signal fields into the
+    ///      `uint256[21]` array the V5.5 verifier consumes. Field-by-
+    ///      field assignment avoids the Yul-IR stack-too-deep that
+    ///      struck V5.1 at uint[19]. Slot order MUST match the V5.5
+    ///      frozen public-signal layout (spec §3.1).
     function _packPublicSignals(LeafProof calldata leafProof)
-        internal pure returns (uint256[22] memory input)
+        internal pure returns (uint256[21] memory input)
     {
         input[ 0] = leafProof.timestamp;
         input[ 1] = leafProof.nullifier;
@@ -580,17 +439,15 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         input[ 8] = leafProof.leafTbsHashHi;
         input[ 9] = leafProof.leafTbsHashLo;
         input[10] = leafProof.policyLeafHash;
-        input[11] = leafProof.leafSpkiCommit;
-        input[12] = leafProof.intSpkiCommit;
-        input[13] = leafProof.identityFingerprint;
-        input[14] = leafProof.identityCommitment;
-        input[15] = leafProof.rotationMode;
-        input[16] = leafProof.rotationOldCommitment;
-        input[17] = leafProof.rotationNewWallet;
-        input[18] = leafProof.bindingPkXHi;
-        input[19] = leafProof.bindingPkXLo;
-        input[20] = leafProof.bindingPkYHi;
-        input[21] = leafProof.bindingPkYLo;
+        input[11] = leafProof.leafKeyCommit;
+        input[12] = leafProof.identityFingerprint;
+        input[13] = leafProof.identityCommitment;
+        input[14] = leafProof.rotationMode;
+        input[15] = leafProof.rotationOldCommitment;
+        input[16] = leafProof.rotationNewWallet;
+        input[17] = leafProof.bindingPkXHi;
+        input[18] = leafProof.bindingPkXLo;
+        input[19] = leafProof.bindingPkYHi;
+        input[20] = leafProof.bindingPkYLo;
     }
-
 }
