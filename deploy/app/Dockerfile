@@ -48,11 +48,23 @@ RUN pnpm -F @zkqes/sdk build
 ARG VITE_CHAIN=base-sepolia
 ARG VITE_WALLETCONNECT_PROJECT_ID=c46544572774f96e20db476d5cc565be
 ARG VITE_USE_MOCK_PROVER=
+# V7 / V5.5 prover artifacts pumped to R2 (prove.zkqes.org/v5_5-stub/).
+# Defaults pinned to the single-contributor ceremony output committed
+# at packages/web/fixtures/circuits/urls.json. Override at deploy time
+# via --build-arg when a fresh ceremony lands.
+ARG VITE_V5_WASM_URL=https://prove.zkqes.org/v5_5-stub/ZkqesPresentationV5_5.wasm
+ARG VITE_V5_ZKEY_URL=https://prove.zkqes.org/v5_5-stub/zkqes-v5_5-stub.zkey
+ARG VITE_V5_WASM_SHA256=f70864efc6ce96adfd25a879725360efa0033dc360970352b3c1c5e7600758b9
+ARG VITE_V5_ZKEY_SHA256=d79ecbe06958d850b2de92031504dc182463b013217829e8ccc75ae8ef7daedf
 ENV VITE_TARGET=app \
     VITE_BASE=/ \
     VITE_CHAIN=${VITE_CHAIN} \
     VITE_WALLETCONNECT_PROJECT_ID=${VITE_WALLETCONNECT_PROJECT_ID} \
-    VITE_USE_MOCK_PROVER=${VITE_USE_MOCK_PROVER}
+    VITE_USE_MOCK_PROVER=${VITE_USE_MOCK_PROVER} \
+    VITE_V5_WASM_URL=${VITE_V5_WASM_URL} \
+    VITE_V5_ZKEY_URL=${VITE_V5_ZKEY_URL} \
+    VITE_V5_WASM_SHA256=${VITE_V5_WASM_SHA256} \
+    VITE_V5_ZKEY_SHA256=${VITE_V5_ZKEY_SHA256}
 
 RUN pnpm -F @zkqes/web build
 
