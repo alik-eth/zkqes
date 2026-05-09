@@ -780,17 +780,16 @@ function extractV4RevertData(err: unknown): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// V5.4/V5.6 (registryV5_2.ts) — 22-signal proof shape + helpers. The file
-// keeps its V5.2 historical name; same byte-for-byte proof layout flows
-// through V5.2 → V5.4 → V5.6 unchanged.
+// V7 (registryV7.ts) — 21-signal proof shape (V5.5 wire) + V5.6 features.
+// Spec: docs/superpowers/specs/2026-05-09-v7-merged-amendment.md
 // ---------------------------------------------------------------------------
 
 export {
-  PUBLIC_SIGNALS_V5_2_LENGTH,
-  assertRegisterArgsV5_2Shape,
-  publicSignalsV5_2FromArray,
-  publicSignalsV5_2ToArray,
-  type Groth16ProofV5_2,
-  type PublicSignalsV5_2,
-  type RegisterArgsV5_2,
-} from './registryV5_2.js';
+  PUBLIC_SIGNALS_V7_LENGTH,
+  assertRegisterArgsV7Shape,
+  publicSignalsV7FromArray,
+  publicSignalsV7ToArray,
+  type Groth16ProofV7,
+  type PublicSignalsV7,
+  type RegisterArgsV7,
+} from './registryV7.js';

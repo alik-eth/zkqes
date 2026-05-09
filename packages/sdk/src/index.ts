@@ -214,15 +214,16 @@ export {
   type LeafPublicSignalsV4AgeCapable,
   type RegisterArgsV4,
   type RegisterArgsV4Age,
-  // V5.4/V5.6 22-signal proof shape (sourced from registry/registryV5_2.ts;
-  // file retains V5.2 name because the layout is byte-identical V5.2→V5.6).
-  PUBLIC_SIGNALS_V5_2_LENGTH,
-  assertRegisterArgsV5_2Shape,
-  publicSignalsV5_2FromArray,
-  publicSignalsV5_2ToArray,
-  type Groth16ProofV5_2,
-  type PublicSignalsV5_2,
-  type RegisterArgsV5_2,
+  // V7 21-signal proof shape (V5.5 wire + V5.6 features), sourced from
+  // registry/registryV7.ts. Spec:
+  //   docs/superpowers/specs/2026-05-09-v7-merged-amendment.md
+  PUBLIC_SIGNALS_V7_LENGTH,
+  assertRegisterArgsV7Shape,
+  publicSignalsV7FromArray,
+  publicSignalsV7ToArray,
+  type Groth16ProofV7,
+  type PublicSignalsV7,
+  type RegisterArgsV7,
 } from './registry/index.js';
 
 export {

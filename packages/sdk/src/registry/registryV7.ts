@@ -1,20 +1,22 @@
-// ZkqesRegistry V5.4/V5.6 client-side types + register-calldata encoder.
+// ZkqesRegistry V7 client-side types + register-calldata pre-encode shape.
 //
-// FROZEN 22-signal public-signal layout (spec ref:
-// 2026-05-01-keccak-on-chain-amendment.md). The byte-identical proof
-// shape is reused unchanged from V5.2 → V5.4 → V5.6, so this file
-// keeps its historical name `registryV5_2.ts` while pointing at the
-// active V5.4/V5.6 `zkqesRegistryUaAbi`. V5.6 dropped `rotateWallet`
-// (unified into `register` repeat-claim → rebind); the encoder for
-// it has been removed.
+// V7 = V5.5 wire format (21-signal Groth16, KeyCommit leaves, HostSig
+// dispatch, variable-length `bytes` signature calldata) + V5.6 features
+// (unified register, registerWithAge). Spec:
+//   docs/superpowers/specs/2026-05-09-v7-merged-amendment.md
+//
+// Frozen 21-signal public-signal layout (spec §3.1):
+//   slot [11] = leafKeyCommit  (V5.5 — replaces V5.4 leafSpkiCommit)
+//   V5.4 slot [12] (intSpkiCommit) is DROPPED — registry recomputes
+//   `KeyCommit(intSpki)` on-chain at Gate 4. All slots after the dropped
+//   one renumber down by −1 → 21 publics total.
 import { ZkqesError } from '../errors/index.js';
 
 // ===========================================================================
-// PublicSignalsV5_2 — 22-element struct. Order is FROZEN per spec
-// §"Public-signal layout V5.1 → V5.2".
+// PublicSignalsV7 — 21-element struct. Order is FROZEN per V7 spec §3.1.
 // ===========================================================================
 
-export interface PublicSignalsV5_2 {
+export interface PublicSignalsV7 {
   readonly timestamp: bigint;
   readonly nullifier: bigint;
   readonly ctxHashHi: bigint;
@@ -26,36 +28,34 @@ export interface PublicSignalsV5_2 {
   readonly leafTbsHashHi: bigint;
   readonly leafTbsHashLo: bigint;
   readonly policyLeafHash: bigint;
-  readonly leafSpkiCommit: bigint;
-  readonly intSpkiCommit: bigint;
+  /** V5.5 — algorithm-agnostic SPKI commitment (slot 11). */
+  readonly leafKeyCommit: bigint;
   readonly identityFingerprint: bigint;
   readonly identityCommitment: bigint;
   readonly rotationMode: bigint;
   readonly rotationOldCommitment: bigint;
   readonly rotationNewWallet: bigint;
-  // V5.2 additions — slots 18-21 (FROZEN). Each is a 16-byte BE limb of
-  // the binding's claimed wallet pk (the 64 bytes of pkBytes[1..65],
-  // dropping the SEC1 0x04 prefix).
+  // bindingPk* limbs — 16-byte BE limbs of the binding's claimed wallet pk
+  // (the 64 bytes of pkBytes[1..65], dropping the SEC1 0x04 prefix).
   readonly bindingPkXHi: bigint;
   readonly bindingPkXLo: bigint;
   readonly bindingPkYHi: bigint;
   readonly bindingPkYLo: bigint;
 }
 
-export const PUBLIC_SIGNALS_V5_2_LENGTH = 22;
+export const PUBLIC_SIGNALS_V7_LENGTH = 21;
 
 /**
- * Pack PublicSignalsV5_2 into the 22-bigint array consumed by snarkjs
- * verifiers and the on-chain `uint256[22]` Groth16 input. Order MUST
- * match spec §"Public-signal layout V5.1 → V5.2" exactly. Verified by
- * registryV5_2.test.ts.
+ * Pack PublicSignalsV7 into the 21-bigint array consumed by snarkjs
+ * verifiers and the on-chain `uint256[21]` Groth16 input. Order MUST
+ * match V7 spec §3.1 exactly.
  */
-export function publicSignalsV5_2ToArray(
-  ps: PublicSignalsV5_2,
+export function publicSignalsV7ToArray(
+  ps: PublicSignalsV7,
 ): readonly [
     bigint, bigint, bigint, bigint, bigint, bigint, bigint,
     bigint, bigint, bigint, bigint, bigint, bigint, bigint,
-    bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint,
+    bigint, bigint, bigint, bigint, bigint, bigint, bigint,
   ] {
   return [
     ps.timestamp,
@@ -69,8 +69,7 @@ export function publicSignalsV5_2ToArray(
     ps.leafTbsHashHi,
     ps.leafTbsHashLo,
     ps.policyLeafHash,
-    ps.leafSpkiCommit,
-    ps.intSpkiCommit,
+    ps.leafKeyCommit,
     ps.identityFingerprint,
     ps.identityCommitment,
     ps.rotationMode,
@@ -84,19 +83,19 @@ export function publicSignalsV5_2ToArray(
 }
 
 /**
- * Inverse: 22 decimal strings (snarkjs publicSignals output) → typed
- * struct. Throws when the array isn't exactly 22 long — protects against
+ * Inverse: 21 decimal strings (snarkjs publicSignals output) → typed
+ * struct. Throws when the array isn't exactly 21 long — protects against
  * drift in either the circuit's public-signal count or the call site's
  * slicing.
  */
-export function publicSignalsV5_2FromArray(
+export function publicSignalsV7FromArray(
   arr: readonly (string | bigint)[],
-): PublicSignalsV5_2 {
-  if (arr.length !== PUBLIC_SIGNALS_V5_2_LENGTH) {
+): PublicSignalsV7 {
+  if (arr.length !== PUBLIC_SIGNALS_V7_LENGTH) {
     throw new ZkqesError('witness.fieldTooLong', {
-      reason: 'public-signals-v5_2-length',
+      reason: 'public-signals-v7-length',
       got: arr.length,
-      want: PUBLIC_SIGNALS_V5_2_LENGTH,
+      want: PUBLIC_SIGNALS_V7_LENGTH,
     });
   }
   const b = (i: number): bigint =>
@@ -113,46 +112,47 @@ export function publicSignalsV5_2FromArray(
     leafTbsHashHi: b(8),
     leafTbsHashLo: b(9),
     policyLeafHash: b(10),
-    leafSpkiCommit: b(11),
-    intSpkiCommit: b(12),
-    identityFingerprint: b(13),
-    identityCommitment: b(14),
-    rotationMode: b(15),
-    rotationOldCommitment: b(16),
-    rotationNewWallet: b(17),
-    bindingPkXHi: b(18),
-    bindingPkXLo: b(19),
-    bindingPkYHi: b(20),
-    bindingPkYLo: b(21),
+    leafKeyCommit: b(11),
+    identityFingerprint: b(12),
+    identityCommitment: b(13),
+    rotationMode: b(14),
+    rotationOldCommitment: b(15),
+    rotationNewWallet: b(16),
+    bindingPkXHi: b(17),
+    bindingPkXLo: b(18),
+    bindingPkYHi: b(19),
+    bindingPkYLo: b(20),
   };
 }
 
 // ===========================================================================
-// Groth16Proof — same shape as V5.1 (no proof structure change).
+// Groth16Proof — same shape across V5.x → V7 (no proof structure change).
 // ===========================================================================
 
-export interface Groth16ProofV5_2 {
+export interface Groth16ProofV7 {
   readonly a: readonly [bigint, bigint];
   readonly b: readonly [readonly [bigint, bigint], readonly [bigint, bigint]];
   readonly c: readonly [bigint, bigint];
 }
 
 // ===========================================================================
-// RegisterArgsV5_2 — calldata shape for ZkqesRegistryV5_2.register()
+// RegisterArgsV7 — calldata shape for ZKQESRegistryUA.register() (V7).
 //
-// Same supporting-bytes payload as V5.1 (leafSpki, intSpki, signedAttrs,
-// leafSig, intSig, trust + policy Merkle paths). Only the `sig` field's
-// shape changes (22 fields instead of 19).
+// V7 deltas vs V5.4/V5.6 RegisterArgsV5_2:
+//   * `leafSig` / `intSig` widen from `bytes32[2]` to variable-length
+//     `bytes` (V5.5 enables RSA-2048+ ranges).
+//   * Public signals struct is 21-wide (`leafKeyCommit`; no `intSpkiCommit`).
 // ===========================================================================
 
-export interface RegisterArgsV5_2 {
-  readonly proof: Groth16ProofV5_2;
-  readonly sig: PublicSignalsV5_2;
+export interface RegisterArgsV7 {
+  readonly proof: Groth16ProofV7;
+  readonly sig: PublicSignalsV7;
   readonly leafSpki: `0x${string}`;
   readonly intSpki: `0x${string}`;
   readonly signedAttrs: `0x${string}`;
-  readonly leafSig: readonly [`0x${string}`, `0x${string}`];
-  readonly intSig: readonly [`0x${string}`, `0x${string}`];
+  /** Variable length: P-256 64 B, RSA-2048 256 B, RSA-4096 512 B. */
+  readonly leafSig: `0x${string}`;
+  readonly intSig: `0x${string}`;
   readonly trustMerklePath: readonly [
     `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`,
     `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`,
@@ -175,48 +175,41 @@ const SPKI_HEX_LEN = 2 + 91 * 2;
 const U128_MAX = 1n << 128n;
 
 /**
- * Boundary-check a RegisterArgsV5_2 before encoding. Same posture as
- * `assertRegisterArgsV5Shape` — soundness gates are the contract's job;
- * this just catches early shape drift.
+ * Boundary-check a RegisterArgsV7 before encoding. Soundness gates are
+ * the contract's job; this just catches early shape drift.
  *
- * V5.2-specific addition: range-check the four `bindingPk*` limbs to
- * fit in 128 bits. The circuit's `Bits2Num(128)` constraint already
- * enforces this for proof validity; the SDK pre-check here protects
- * against a builder bug feeding the contract a >128-bit value (which
- * would also fail proof verification, but a shape error here surfaces
- * the bug pre-prove).
+ * Range-checks the four `bindingPk*` limbs to fit in 128 bits (mirrors
+ * the circuit's `Bits2Num(128)` constraint).
  */
-export function assertRegisterArgsV5_2Shape(args: RegisterArgsV5_2): void {
-  assertProofV5_2Shape(args.proof);
-  assertPublicSignalsV5_2Shape(args.sig);
+export function assertRegisterArgsV7Shape(args: RegisterArgsV7): void {
+  assertProofV7Shape(args.proof);
+  assertPublicSignalsV7Shape(args.sig);
   assertSpki(args.leafSpki, 'leafSpki');
   assertSpki(args.intSpki, 'intSpki');
   if (!HEX_RE.test(args.signedAttrs)) {
     throw new ZkqesError('witness.fieldTooLong', { reason: 'signedAttrs-hex' });
   }
-  assertBytes32Pair(args.leafSig, 'leafSig');
-  assertBytes32Pair(args.intSig, 'intSig');
+  assertVarBytes(args.leafSig, 'leafSig');
+  assertVarBytes(args.intSig, 'intSig');
   assertBytes32Path(args.trustMerklePath, 'trustMerklePath');
   assertBytes32Path(args.policyMerklePath, 'policyMerklePath');
   assertU256(args.trustMerklePathBits, 'trustMerklePathBits');
   assertU256(args.policyMerklePathBits, 'policyMerklePathBits');
 }
 
-function assertProofV5_2Shape(p: Groth16ProofV5_2): void {
+function assertProofV7Shape(p: Groth16ProofV7): void {
   if (p.a.length !== 2 || p.c.length !== 2) {
-    throw new ZkqesError('witness.fieldTooLong', { reason: 'proof-v5_2-ac' });
+    throw new ZkqesError('witness.fieldTooLong', { reason: 'proof-v7-ac' });
   }
   if (p.b.length !== 2 || p.b[0]!.length !== 2 || p.b[1]!.length !== 2) {
-    throw new ZkqesError('witness.fieldTooLong', { reason: 'proof-v5_2-b' });
+    throw new ZkqesError('witness.fieldTooLong', { reason: 'proof-v7-b' });
   }
 }
 
-function assertPublicSignalsV5_2Shape(s: PublicSignalsV5_2): void {
-  // timestamp ≤ 2^64 — sanity cap from contract docs.
+function assertPublicSignalsV7Shape(s: PublicSignalsV7): void {
   if (s.timestamp < 0n || s.timestamp >= 1n << 64n) {
     throw new ZkqesError('witness.fieldTooLong', { reason: 'timestamp-range' });
   }
-  // bindingPk* limbs — Bits2Num(128). Range-check matches circuit.
   for (const [name, val] of [
     ['bindingPkXHi', s.bindingPkXHi],
     ['bindingPkXLo', s.bindingPkXLo],
@@ -230,8 +223,7 @@ function assertPublicSignalsV5_2Shape(s: PublicSignalsV5_2): void {
       });
     }
   }
-  // All other fields are uint256.
-  for (const v of publicSignalsV5_2ToArray(s)) assertU256(v, 'sig.field');
+  for (const v of publicSignalsV7ToArray(s)) assertU256(v, 'sig.field');
 }
 
 function assertSpki(hex: string, field: string): void {
@@ -240,9 +232,9 @@ function assertSpki(hex: string, field: string): void {
   }
 }
 
-function assertBytes32Pair(pair: readonly string[], field: string): void {
-  if (pair.length !== 2 || !HEX32_RE.test(pair[0]!) || !HEX32_RE.test(pair[1]!)) {
-    throw new ZkqesError('witness.fieldTooLong', { reason: 'bytes32-pair', field });
+function assertVarBytes(hex: string, field: string): void {
+  if (!HEX_RE.test(hex) || (hex.length & 1) !== 0) {
+    throw new ZkqesError('witness.fieldTooLong', { reason: 'var-bytes-shape', field });
   }
 }
 
@@ -263,11 +255,7 @@ function assertU256(v: bigint, field: string): void {
   }
 }
 
-// V5.6 unified-register changed the on-chain register() ABI from
-// (proof, sig, ...) to (chainProof, leafProof, ...) where leafProof
-// inlines a/b/c with the 22 public signals. Step4 builds the calldata
-// inline via wagmi's writeContract (no SDK encoder), so the
-// `encodeV5_2RegisterCalldata` helper that lived here pre-V5.6 has
-// been removed. The shape-validators + array converters above remain
+// V7 register() takes a single `RegisterCall` struct argument. Step4
+// builds the calldata inline via wagmi's writeContract (no SDK encoder),
+// so this file exposes only the shape-validators + array converters as
 // the canonical pre-encode gate.
-

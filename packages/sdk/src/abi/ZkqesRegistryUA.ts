@@ -1,10 +1,13 @@
 // Auto-generated full ABI from
 // packages/contracts/out/ZKQESRegistryUA.sol/ZKQESRegistryUA.json
-// — repumped 2026-05-08 for V5.6 unified-register (rotateWallet removed,
-//   registerWithAge added, BindingRebound event added).
+// — repumped 2026-05-09 for V7 (V5.5 wire + V5.6 features):
+//   * RegisterCall struct (11 fields incl. bytes leafSig/intSig)
+//   * 21-signal LeafProof (leafKeyCommit @ slot 11; intSpkiCommit dropped)
+//   * ChainProof = { rTL, leafKeyCommit }
+//   * VERSION = "ZKQES/V7"
 //
 // Refresh procedure: forge build, then
-//   node -e "require(\".../ZKQESRegistryUA.json\").abi" | json-stringify
+//   node -e "console.log(JSON.stringify(require(\".../ZKQESRegistryUA.json\").abi, null, 2))"
 //   and paste below as the array literal.
 
 export const zkqesRegistryUaAbi = [
@@ -287,7 +290,7 @@ export const zkqesRegistryUaAbi = [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract IGroth16VerifierV5_3"
+        "internalType": "contract IGroth16VerifierV5_5"
       }
     ],
     "stateMutability": "view"
@@ -397,203 +400,200 @@ export const zkqesRegistryUaAbi = [
     "name": "register",
     "inputs": [
       {
-        "name": "chainProof",
+        "name": "args",
         "type": "tuple",
-        "internalType": "struct IZKQESRegistry.ChainProof",
+        "internalType": "struct IZKQESRegistry.RegisterCall",
         "components": [
           {
-            "name": "rTL",
+            "name": "chainProof",
+            "type": "tuple",
+            "internalType": "struct IZKQESRegistry.ChainProof",
+            "components": [
+              {
+                "name": "rTL",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafKeyCommit",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "leafProof",
+            "type": "tuple",
+            "internalType": "struct IZKQESRegistry.LeafProof",
+            "components": [
+              {
+                "name": "a",
+                "type": "uint256[2]",
+                "internalType": "uint256[2]"
+              },
+              {
+                "name": "b",
+                "type": "uint256[2][2]",
+                "internalType": "uint256[2][2]"
+              },
+              {
+                "name": "c",
+                "type": "uint256[2]",
+                "internalType": "uint256[2]"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "nullifier",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "ctxHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "ctxHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signedAttrsHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signedAttrsHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafTbsHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafTbsHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "policyLeafHash",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafKeyCommit",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "identityFingerprint",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "identityCommitment",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "rotationMode",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "rotationOldCommitment",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "rotationNewWallet",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkXHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkXLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkYHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkYLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "leafSpki",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "intSpki",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "signedAttrs",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "leafSig",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "intSig",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "trustMerklePath",
+            "type": "bytes32[16]",
+            "internalType": "bytes32[16]"
+          },
+          {
+            "name": "trustMerklePathBits",
             "type": "uint256",
             "internalType": "uint256"
           },
           {
-            "name": "algorithmTag",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "policyMerklePath",
+            "type": "bytes32[16]",
+            "internalType": "bytes32[16]"
           },
           {
-            "name": "leafSpkiCommit",
+            "name": "policyMerklePathBits",
             "type": "uint256",
             "internalType": "uint256"
           }
         ]
-      },
-      {
-        "name": "leafProof",
-        "type": "tuple",
-        "internalType": "struct IZKQESRegistry.LeafProof",
-        "components": [
-          {
-            "name": "a",
-            "type": "uint256[2]",
-            "internalType": "uint256[2]"
-          },
-          {
-            "name": "b",
-            "type": "uint256[2][2]",
-            "internalType": "uint256[2][2]"
-          },
-          {
-            "name": "c",
-            "type": "uint256[2]",
-            "internalType": "uint256[2]"
-          },
-          {
-            "name": "timestamp",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "nullifier",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "ctxHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "ctxHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "signedAttrsHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "signedAttrsHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "leafTbsHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "leafTbsHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "policyLeafHash",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "leafSpkiCommit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "intSpkiCommit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "identityFingerprint",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "identityCommitment",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "rotationMode",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "rotationOldCommitment",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "rotationNewWallet",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkXHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkXLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkYHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkYLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ]
-      },
-      {
-        "name": "leafSpki",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "intSpki",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "signedAttrs",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "leafSig",
-        "type": "bytes32[2]",
-        "internalType": "bytes32[2]"
-      },
-      {
-        "name": "intSig",
-        "type": "bytes32[2]",
-        "internalType": "bytes32[2]"
-      },
-      {
-        "name": "trustMerklePath",
-        "type": "bytes32[16]",
-        "internalType": "bytes32[16]"
-      },
-      {
-        "name": "trustMerklePathBits",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "policyMerklePath",
-        "type": "bytes32[16]",
-        "internalType": "bytes32[16]"
-      },
-      {
-        "name": "policyMerklePathBits",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -610,203 +610,200 @@ export const zkqesRegistryUaAbi = [
     "name": "registerWithAge",
     "inputs": [
       {
-        "name": "chainProof",
+        "name": "args",
         "type": "tuple",
-        "internalType": "struct IZKQESRegistry.ChainProof",
+        "internalType": "struct IZKQESRegistry.RegisterCall",
         "components": [
           {
-            "name": "rTL",
+            "name": "chainProof",
+            "type": "tuple",
+            "internalType": "struct IZKQESRegistry.ChainProof",
+            "components": [
+              {
+                "name": "rTL",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafKeyCommit",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "leafProof",
+            "type": "tuple",
+            "internalType": "struct IZKQESRegistry.LeafProof",
+            "components": [
+              {
+                "name": "a",
+                "type": "uint256[2]",
+                "internalType": "uint256[2]"
+              },
+              {
+                "name": "b",
+                "type": "uint256[2][2]",
+                "internalType": "uint256[2][2]"
+              },
+              {
+                "name": "c",
+                "type": "uint256[2]",
+                "internalType": "uint256[2]"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "nullifier",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "ctxHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "ctxHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signedAttrsHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signedAttrsHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafTbsHashHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafTbsHashLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "policyLeafHash",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "leafKeyCommit",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "identityFingerprint",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "identityCommitment",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "rotationMode",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "rotationOldCommitment",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "rotationNewWallet",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkXHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkXLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkYHi",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "bindingPkYLo",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "leafSpki",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "intSpki",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "signedAttrs",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "leafSig",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "intSig",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "trustMerklePath",
+            "type": "bytes32[16]",
+            "internalType": "bytes32[16]"
+          },
+          {
+            "name": "trustMerklePathBits",
             "type": "uint256",
             "internalType": "uint256"
           },
           {
-            "name": "algorithmTag",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "policyMerklePath",
+            "type": "bytes32[16]",
+            "internalType": "bytes32[16]"
           },
           {
-            "name": "leafSpkiCommit",
+            "name": "policyMerklePathBits",
             "type": "uint256",
             "internalType": "uint256"
           }
         ]
-      },
-      {
-        "name": "leafProof",
-        "type": "tuple",
-        "internalType": "struct IZKQESRegistry.LeafProof",
-        "components": [
-          {
-            "name": "a",
-            "type": "uint256[2]",
-            "internalType": "uint256[2]"
-          },
-          {
-            "name": "b",
-            "type": "uint256[2][2]",
-            "internalType": "uint256[2][2]"
-          },
-          {
-            "name": "c",
-            "type": "uint256[2]",
-            "internalType": "uint256[2]"
-          },
-          {
-            "name": "timestamp",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "nullifier",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "ctxHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "ctxHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "signedAttrsHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "signedAttrsHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "leafTbsHashHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "leafTbsHashLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "policyLeafHash",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "leafSpkiCommit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "intSpkiCommit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "identityFingerprint",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "identityCommitment",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "rotationMode",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "rotationOldCommitment",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "rotationNewWallet",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkXHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkXLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkYHi",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bindingPkYLo",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ]
-      },
-      {
-        "name": "leafSpki",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "intSpki",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "signedAttrs",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "leafSig",
-        "type": "bytes32[2]",
-        "internalType": "bytes32[2]"
-      },
-      {
-        "name": "intSig",
-        "type": "bytes32[2]",
-        "internalType": "bytes32[2]"
-      },
-      {
-        "name": "trustMerklePath",
-        "type": "bytes32[16]",
-        "internalType": "bytes32[16]"
-      },
-      {
-        "name": "trustMerklePathBits",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "policyMerklePath",
-        "type": "bytes32[16]",
-        "internalType": "bytes32[16]"
-      },
-      {
-        "name": "policyMerklePathBits",
-        "type": "uint256",
-        "internalType": "uint256"
       },
       {
         "name": "ageCutoffDate",
@@ -1145,17 +1142,12 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "error",
-    "name": "BadIntSpki",
+    "name": "BadLeafKeyCommit",
     "inputs": []
   },
   {
     "type": "error",
     "name": "BadLeafSig",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "BadLeafSpki",
     "inputs": []
   },
   {
@@ -1220,17 +1212,27 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidP256SigLength",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MalformedRsaSpki",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MalformedSpki",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NullifierUsed",
     "inputs": []
   },
   {
     "type": "error",
     "name": "OnlyAdmin",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "PoseidonDeployFailed",
     "inputs": []
   },
   {
@@ -1255,7 +1257,22 @@ export const zkqesRegistryUaAbi = [
   },
   {
     "type": "error",
+    "name": "SpkiTooLong",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "StaleBinding",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedAlgorithm",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedAlgorithm",
     "inputs": []
   },
   {
