@@ -48,8 +48,8 @@ cargo add zkqes-sdk         // not yet published`;
 
 const USECASES = [
   ['Sybil-proof airdrops', 'One identity, one claim. Drop tokens to verified Ukrainians without seeing addresses tied to people.', 'dao'],
-  ['1-person-1-vote DAO', 'Quadratic voting against a Sybil-proof set. Pseudonymous, accountable.', 'dao'],
-  ['Anonymous LP / KYC pool', 'Pool participation gated on qualified identity, no PII on chain.', 'defi'],
+  ['1-person-1-vote DAO', 'Quadratic voting against a Sybil-proof set. Sybil-resistant, accountable.', 'dao'],
+  ['Selective-disclosure LP / KYC pool', 'Pool participation gated on qualified identity, no PII on chain.', 'defi'],
   ['Civic petitions on-chain', 'Citizen petitions where the signature trail is auditable but not deanonymising.', 'civic'],
 ] as const;
 

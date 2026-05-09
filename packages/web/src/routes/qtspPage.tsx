@@ -274,7 +274,7 @@ export function QtspPageView({ meta, samples, intermediates }: QtspPageViewProps
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, alignItems: 'center' }}>
               <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>
                 {meta.displayName} is fully live. Bind your wallet to a qualified identity backed by this QTSP
-                — every-day pseudonymity, recoverable accountability.
+                — every-day selective disclosure, recoverable accountability.
               </div>
               <Link to="/v5/registerV5" search={{ qtsp: qtspPathParam }}
                     className="cv-btn" style={{ background: 'var(--cv-ua-yellow)', color: 'var(--cv-ua-blue)', fontSize: 16, padding: '12px 20px' }}>

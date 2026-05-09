@@ -69,7 +69,7 @@ export function LandingHero() {
         <section data-section="hero" className="cv-card is-stripe" style={{ padding: '24px 26px' }}>
           <div className="cv-cardhead" style={{ marginBottom: 12 }}>
             <span className="cv-ix">01</span>
-            <span>ANONYMOUS QUALIFIED IDENTITY · eIDAS · UA DSP</span>
+            <span>CERTIFIED COUNTRY-SCOPED UNIQUENESS · eIDAS · UA DSP</span>
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-ua">UA · Diia</span>
             <span className="cv-pill is-eu">EU · {QTSP_SUMMARY_META.totalTsps - 1} listed</span>
@@ -299,7 +299,7 @@ export function LandingHero() {
               that the issuing authority retains the ability to identify a
               holder under lawful process — onto the chain.
               <br /><br />
-              Everyday <b style={{ color: 'var(--cv-ua-yellow)' }}>pseudonymity</b> for the holder.
+              Everyday <b style={{ color: 'var(--cv-ua-yellow)' }}>selective disclosure</b> for the holder.
               Recoverable <b style={{ color: 'var(--cv-ua-yellow)' }}>accountability</b> for the state.
               The same trust structure as the QES itself.
             </div>

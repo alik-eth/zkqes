@@ -31,7 +31,7 @@ const FAQ = [
   ['Why Ukraine first?',
     'Diia is one of very few mature, public-issuer QES infrastructures with broad citizen adoption. EU expansion follows the same pattern; nothing about V1 is UA-locked.'],
   ['Is this anonymous?',
-    'No — and that is the point. zkqes surfaces the exact trust property of every state-issued credential: every-day pseudonymity for the holder; recoverable accountability for the state under lawful process.'],
+    'No — and that is the point. zkqes surfaces the exact trust property of every state-issued credential: every-day selective disclosure for the holder; recoverable accountability for the state under lawful process.'],
   ['Is the proof browser or mobile?',
     'Desktop only. The browser path needs Firefox + 38 GB RAM (Chrome / Safari hit the 4 GB WASM heap cap). The @zkqes/cli fast-path needs ~14 s + 3.7 GiB peak — works on any modern laptop. No mobile path.'],
   ['Why Base?',
@@ -67,7 +67,7 @@ export function AboutScreen() {
           <p style={{ maxWidth: 740, fontSize: 15, marginTop: 18, lineHeight: 1.55 }}>
             zkqes surfaces a property of every state-issued credential — that the
             issuing authority retains the ability to identify a holder under lawful
-            process — onto the chain. Everyday pseudonymity for the holder.
+            process — onto the chain. Everyday selective disclosure for the holder.
             Recoverable accountability for the state. The same trust structure
             as the qualified electronic signature itself.
           </p>
@@ -78,7 +78,7 @@ export function AboutScreen() {
           <div className="cv-card is-yellow">
             <div className="cv-cardhead">
               <span className="cv-ix">←</span>
-              <span>FOR THE HOLDER · pseudonymity</span>
+              <span>FOR THE HOLDER · selective disclosure</span>
             </div>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, lineHeight: 1.5 }}>
               <Bullet>One identity, unlimited wallets, zero on-chain correlation.</Bullet>
@@ -106,7 +106,7 @@ export function AboutScreen() {
             </ul>
             <div className="cv-hatch" style={{ margin: '14px -16px', borderColor: 'var(--cv-ua-yellow)' }} />
             <div style={{ fontSize: 11, opacity: .85, letterSpacing: '.06em' }}>
-              "Identity, escrowed." — not anonymous. Civic-grade pseudonymity.
+              "Identity, escrowed." — not anonymous. Country-scoped certified uniqueness.
             </div>
           </div>
         </section>

@@ -14,7 +14,7 @@
       "notOnLedgerBody": "name, address, document numbers, signature, certificate contents.",
       "recoveryLabel": "What can be recovered, by whom, under what process",
       "recoveryBody": "by the issuing authority, under lawful order, at meaningful compute cost. Not by third parties.",
-      "closing": "This is identity escrow. Every-day pseudonymity for the holder; recoverable accountability for the state. The same trust structure as the qualified electronic signature itself — preserved on-chain."
+      "closing": "This is identity escrow. Every-day selective disclosure for the holder; recoverable accountability for the state. The same trust structure as the qualified electronic signature itself — preserved on-chain."
     }
   },
   "cli": {

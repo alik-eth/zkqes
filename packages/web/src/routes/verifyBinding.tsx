@@ -539,7 +539,7 @@ function PrivacyCard() {
       </ul>
       <div className="cv-hatch" style={{ margin: '14px -16px', borderColor: 'var(--cv-ua-yellow)' }} />
       <div style={{ fontSize: 11, opacity: .85 }}>
-        Pseudonymity is preserved by the circuit. Accountability — the QTSP can identify the holder under lawful process — is preserved by the law.
+        Selective disclosure is preserved by the circuit. Accountability — the QTSP can identify the holder under lawful process — is preserved by the law.
       </div>
     </div>
   );
