@@ -204,11 +204,56 @@ Default answers that have been validated in session:
 
 A small set of string literals in the codebase begin with `qkb-` and are NOT branding — they are protocol-internal byte strings hashed (keccak256 / SHA-256 / Poseidon) into circuit publics, contract storage, or off-chain deterministically-derived values. The full list is in `docs/superpowers/specs/2026-05-03-zkqes-rename-design.md` §3. Each occurrence in code carries a `// frozen protocol byte string; see specs/2026-05-03-zkqes-rename-design.md §3` comment. **Do not rename these in any future amendment**; new domain-separation tags in new amendments use the `zkqes-` prefix from the start.
 
+## Country identifier privacy — onboarding discipline
+
+Spec: `docs/superpowers/specs/2026-05-09-country-identifier-privacy-guideline.md` (authoritative).
+
+Every country onboarding goes through an explicit identifier-exposure review and lands in one of four buckets. The bucket determines what privacy claim is honest in product copy, code comments, and spec text — and gates whether we ship now, ship per-QTSP, or defer.
+
+| Bucket | Definition | Honest privacy claim | Examples |
+|---|---|---|---|
+| **A** | Operationally public / readily enumerable identifier | Stable uniqueness anchor is **not secret**; deterministic public hash is dictionary-attackable | UA FOP / business-adjacent flows |
+| **B** | Protected personal identifier, but low-entropy | Anchor is **not operationally public** but **not cryptographically private** if exposed deterministically | DE `IdNr`, FR `NIR` / numéro fiscal, PL `PESEL`, IT `codice fiscale` |
+| **C** | Separate public business identifier alongside personal one | Cert may expose either; review per-cert before claiming | DE `W-IdNr`, IT `partita IVA`, BE enterprise number |
+| **D** | Sector-pseudonymous (hidden base + per-sector derived ID) | Genuine pseudonymization at the protocol level | AT `Stammzahl` → `bPK` |
+
+**Country scope is per-country at the contract level, not at runtime.** The country identifier is baked into the contract name (e.g., `ZKQESRegistryUA`, future `ZKQESRegistryDE`), not a constructor argument. This means:
+- No country-tag public signal needed in the circuit.
+- No runtime country dispatch in the registry.
+- Per-country deploy script + per-country trust-list root + per-country bucket classification.
+- `ZkqesRegistryV5_5` (algorithm-agnostic, country-blind) is the **template** to be forked per-country (`ZKQESRegistryV5_5_UA`, `ZKQESRegistryV5_5_DE`, …).
+
+**Forbidden language** in code, copy, or spec (per spec §3.2):
+- "anonymous stable identifier"
+- "private tax-ID hash"
+- "pseudonym" — unless the country lands in Bucket D
+- "tax ID is public" / "enumerated tax ID" — both wrong as protocol-wide assertions
+
+**Required language** (per spec §3.1):
+- "country-scoped uniqueness"
+- "certified uniqueness from state-issued identity data"
+- "limited privacy for the stable dedup key" (in Buckets A/B/C)
+- "self-contained certified uniqueness"
+
+**Onboarding checklist** (per spec §6) — required before shipping a new country:
+1. Real signed artifact inspected (`.p7s` / signed PDF — not just policy docs).
+2. Stable fields classified (person-stable / cert-stable / business-stable / format-unstable).
+3. Exposure classified (public / protected-low-entropy / provider-local / sector-pseudonymous).
+4. Bucket assigned (A/B/C/D).
+5. Written decision: ship now / ship per-QTSP / defer / defer pending hidden-derivation layer.
+
+**Working assumptions today** (spec §8 — refresh on real-sample review):
+- **UA**: Bucket A. `identityFingerprint = Poseidon(subjectSerialPacked, FINGERPRINT_DOMAIN)` over a TINUA-prefixed serial is dictionary-attackable; this is the honest characterization, not a privacy bug.
+- **AT**: Bucket D conceptually; awaiting cert review before shipping.
+- **DE / FR / IT / PL**: assume B/C, NOT A; confirm with real samples before shipping.
+- **HU**: unresolved; policy text suggests TINHU-prefixed serial but needs sample.
+
 ## Phase status snapshot
 
 Keep a one-line summary current here:
 
-- **V5 protocol** — shipped through V5.4 rollup at tag `v0.5.5-pre-ceremony`. Real-QES validation passes end-to-end against Diia. Phase B trusted setup ceremony recruiting; Sepolia + mainnet gated on ceremony.
+- **V5 protocol** — shipped through V5.4 rollup at tag `v0.5.5-pre-ceremony`. Real-QES validation passes end-to-end against Diia (UA). Phase B trusted setup ceremony recruiting; Sepolia + mainnet gated on ceremony.
 - **zkqes structural rename** — in flight on `chore/zkqes-rename-train` per spec `2026-05-03-zkqes-rename-design.md` + plan `2026-05-03-zkqes-rename-orchestration.md`. Full QKB/QIE/Identity-Escrow → zkqes. Tag baseline: `v0.6.0-zkqes-rename`.
-- **V5.5 multi-algorithm extension** — foundation arc landed across three worktrees (2026-05-08): `feat/v5_5-web` (TS KeyCommit + walker + witness builder), `feat/v5_5-contracts` (KeyCommit.sol + SpkiAlg + HostSig dispatch + ZkqesRegistryV5_5 + rotateWallet + RSA e2e), `feat/v5_5-circuits` (KeyCommitVar primitive + main circuit). KEY_COMMIT_DOMAIN = bigint(keccak256("zkqes-key-commit-v1")) mod p_bn254 — three-language byte-parity locked at `18645781269818968495274020647839177040876380151358417993861915365514852958754`. 33 forge tests + 13 vitest + 1 mocha all green. Spec at `2026-05-07-v5_5-multi-algorithm-signature-extension.md`. Main circuit compiles at 5,604,985 non-linear constraints; founder accepted **pot23 ceremony** (spec §13.4) — recruitment + ceremony coord scripts (`--ptau-power 23` flag) pending Phase B kick-off. Flattener regen for algorithm-agnostic trusted-cas.json + main-circuit ↔ witness-builder round-trip test deferred to next session.
-- **V5.6 lost-wallet recovery** — design draft at `2026-05-08-v5_6-lost-wallet-recovery-amendment.md` (v0.2 unified `register` + `registerWithAge`, replaces v0.1's rotate-shaped design). Pre-T0; awaiting plan-writing. Independent of V5.5; mergeable in either order.
+- **V5.5 multi-algorithm extension** — **merged to main 2026-05-08** at `ed76fd5` (alongside V5.6). All four worktree branches integrated cleanly: flattener (algorithm-agnostic keyCommit), contracts (KeyCommit + SpkiAlg + HostSig + ZkqesRegistryV5_5 + DeployV5_5), circuits (KeyCommitVar + main circuit + stub ceremony output), web/SDK (V5.5 builder + parity fixture). KEY_COMMIT_DOMAIN = `18645781269818968495274020647839177040876380151358417993861915365514852958754` (frozen, four-language parity). Main circuit: 5,604,710 constraints, 21 public signals. Stub ceremony live-smoked end-to-end on pot23: zkey + Groth16VerifierV5_5Stub.sol + sample proof/public/witness all produced; `groth16 verify: OK`. Post-merge tests: 107 forge + 64 flattener vitest + 252 SDK vitest = 423 green. Phase B real ceremony pending recruitment.
+- **V5.6 lost-wallet recovery** — **merged to main 2026-05-08** at `ed76fd5`. v0.2 unified-register design: drop `rotateWallet`, add atomic `registerWithAge`. Spec at `2026-05-08-v5_6-lost-wallet-recovery-amendment.md`. V5.6 cleanup intentionally drops pre-V5.4 contracts/ABIs/test surface (forge: 455 → 107).
+- **Country identifier privacy guideline** — spec at `2026-05-09-country-identifier-privacy-guideline.md`. Authoritative for all future country onboarding (see §"Country identifier privacy" above for the bucket model + forbidden/required language). Pending: audit existing user-facing copy (HomeDocument, Step1-4) for forbidden terms; per-country contract naming convention for V5.5 forks.
