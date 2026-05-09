@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {ZKQESRegistryUA} from "../src/ZKQESRegistryUA.sol";
-import {Groth16VerifierV5_5Stub} from "../src/Groth16VerifierV5_5Stub.sol";
+import {Groth16VerifierV5_5} from "../src/Groth16VerifierV5_5.sol";
 import {Groth16AgeVerifierUAStub} from "../src/Groth16AgeVerifierUAStub.sol";
 import {Poseidon} from "../src/libs/Poseidon.sol";
 import {PoseidonBytecode} from "../src/libs/PoseidonBytecode.sol";
@@ -56,8 +56,12 @@ contract DeployV7UA is Script {
         vm.startBroadcast(deployerKey);
 
         if (identityVerifier == address(0)) {
-            identityVerifier = address(new Groth16VerifierV5_5Stub(true));
-            console2.log("Deployed fresh Groth16VerifierV5_5Stub:           ", identityVerifier);
+            // Real snarkjs-emitted Groth16 verifier from the V5.5
+            // single-contributor ceremony (packages/circuits/ceremony/v5_5).
+            // Replace via IDENTITY_VERIFIER_ADDR once a multi-party
+            // ceremony lands.
+            identityVerifier = address(new Groth16VerifierV5_5());
+            console2.log("Deployed Groth16VerifierV5_5 (ceremony output):   ", identityVerifier);
         } else {
             console2.log("Using identity verifier:                          ", identityVerifier);
         }

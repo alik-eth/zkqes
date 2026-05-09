@@ -52,6 +52,31 @@
   "v7": {
     "country": "UA",
     "spec": "docs/superpowers/specs/2026-05-09-v7-merged-amendment.md",
+    "registry": "0xf0Ef8b29231B985B5A9bED9acDbdC39aA628A6Ce",
+    "identityVerifier": "0x552541362cf433e27Af70eA9328f637386EcC3F3",
+    "identityVerifierKind": "ceremony-stub-single-contributor",
+    "ageVerifier": "0x2d3B2F9A339AFab6033291CE6cEB8D1c59A27633",
+    "ageVerifierKind": "stub",
+    "deployedAt": "2026-05-09",
+    "deployBlock": 41295180,
+    "deployTx": "0x00067a40c4a0dc189e8c6099a99d70239ffc6e61a14fe1ea90fa964ee6ebf556",
+    "verified": true,
+    "verifierFlipNote": "identityVerifier is the real snarkjs-emitted Groth16 from the V5.5 single-contributor ceremony (ceremony/v5_5/Groth16VerifierV5_5Stub.sol output, renamed Groth16VerifierV5_5). Multi-party ceremony swap = fresh registry redeploy + new pump (verifier slot is immutable). ageVerifier is still a no-op stub.",
+    "auxiliaryAddresses": {
+      "poseidonT3": "0x3265699CD4520Cc3613b7dFc40e7180eC936F07D",
+      "poseidonT7": "0x89D84d9E847FEba8F79EAFC138548Ac673Aa4CB8"
+    },
+    "deployTxs": {
+      "identityVerifier": "0x38d6af1d8c829d9f5be63499429b8882c0b87c6c8a693a3eea769781ecb7266b",
+      "ageVerifier": "0x97d67225555fb86d814b1e21c0ea2d8303674625eecd9af8a36c9952b7c5f835",
+      "poseidonT3": "0xcef782358052cc2704a6527d16ada862366b1cad08cf8641d6140b86ecad0151",
+      "poseidonT7": "0xcce0aa45fee231addc681d3356f825d981070f0870a2a4e98f8328b082e749cc",
+      "registry": "0x00067a40c4a0dc189e8c6099a99d70239ffc6e61a14fe1ea90fa964ee6ebf556"
+    }
+  },
+  "v7_interim": {
+    "country": "UA",
+    "spec": "docs/superpowers/specs/2026-05-09-v7-merged-amendment.md",
     "registry": "0xC2925886A90Ea42DC614398348a3B34Ce468BD1E",
     "identityVerifier": "0x54778fb3618E215259837621F922493F4B728861",
     "identityVerifierKind": "stub",
@@ -72,6 +97,8 @@
       "poseidonT3": "0x3285b5f35969e9838b84c213bfda466b948a99316f6cf4080f65702ebe001898",
       "poseidonT7": "0xc8234e6495cda5f17c6635cfabf456bb7596abb2a2cba470e1c272ee4574982e",
       "registry": "0x635f61c7821e6209247adc1f6584cb744eba697c89dd5274eecf6a02669f1e93"
-    }
+    },
+    "supersededAt": "2026-05-09",
+    "supersededBy": "v7 entry below (real ceremony verifier)"
   }
 }
