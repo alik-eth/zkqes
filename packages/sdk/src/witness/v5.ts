@@ -13,6 +13,17 @@ export {
   type BuildWitnessV5_2Input,
 } from './v5/index.js';
 
+// V5.5 witness builder — algorithm-agnostic 21-signal output (the
+// shape V7 consumes). Layered on `buildWitnessV5_2` (drops P-256
+// limbs + leafSpkiCommit/intSpkiCommit, adds leafKeyCommit + raw
+// SPKI slice). Spec:
+//   docs/superpowers/specs/2026-05-07-v5_5-multi-algorithm-signature-extension.md
+export {
+  buildWitnessV5_5,
+  type WitnessV5_5,
+  type BuildWitnessV5_5Input,
+} from './v5_5/build-witness-v5_5.js';
+
 export {
   buildWitnessV5,
   computeIdentityFingerprint,

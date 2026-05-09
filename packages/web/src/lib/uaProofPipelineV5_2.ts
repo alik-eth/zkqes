@@ -1,31 +1,39 @@
 /**
- * V5.2 proof pipeline — sibling of `uaProofPipelineV5.ts`. Mirrors the
- * V5.1 four-stage flow (parse → witness → prove → encode) but consumes
- * the V5.2 SDK surface where the public-signal layout changed:
+ * UA proof pipeline (V7 retarget — was V5.2).
  *
- *   - V5.1 → V5.2 deltas (cf. `2026-05-01-keccak-on-chain-amendment.md`):
- *       · `msgSender` is dropped (slot 0 in V5.1 → removed in V5.2).
- *       · Four `bindingPk*` 16-byte BE limbs are appended at slots 18-21
- *         (so the contract can recompute keccak(bindingPk) for the
- *         walletDerivationGate, instead of the circuit doing it).
- *       · Net public-signal count: 19 → 22.
+ * V7 spec: docs/superpowers/specs/2026-05-09-v7-merged-amendment.md
  *
- * Browser-side, this means:
- *   - `runV5_2Pipeline()` calls `buildWitnessV5_2` (which delegates to
- *     `buildWitnessV5` for the shared work, then drops msgSender + adds
- *     the four pk limbs).
- *   - `publicSignalsV5_2FromArray` validates the 22-signal shape and
- *     returns a typed `PublicSignalsV5_2`.
- *   - `RegisterArgsV5_2` swaps in the new sig tuple; the calling
- *     component encodes via `zkqesRegistryV5_2Abi` directly.
+ * V7 = V5.5 wire format (21-signal Groth16, KeyCommit leaves, HostSig
+ * dispatch, variable-length `bytes` signature calldata) + V5.6 features
+ * (unified register + rebind, registerWithAge, proveAge).
+ *
+ * Deltas vs the prior V5.2/V5.4 pipeline this file used to implement:
+ *   - Public signals: 22 → 21. Slot [11] `leafSpkiCommit` renamed to
+ *     `leafKeyCommit`; V5.4 slot [12] `intSpkiCommit` is DROPPED (the
+ *     contract recomputes `KeyCommit.commitSpki(intSpki)` on-chain at
+ *     Gate 4). All slots after the dropped one renumber down by −1.
+ *   - Witness builder: `buildWitnessV5_2` → `buildWitnessV5_5`
+ *     (algorithm-agnostic SPKI slice + `leafKeyCommit` instead of
+ *     P-256-specific limbs + spkiCommit).
+ *   - SDK types: `RegisterArgsV5_2` / `PublicSignalsV5_2` /
+ *     `Groth16ProofV5_2` / `publicSignalsV5_2FromArray` →
+ *     `RegisterArgsV7` / `PublicSignalsV7` / `Groth16ProofV7` /
+ *     `publicSignalsV7FromArray`.
+ *   - ChainProof: `{ rTL, algorithmTag, leafSpkiCommit }` →
+ *     `{ rTL, leafKeyCommit }`. The `algorithmTag` field is gone —
+ *     V5.5 `HostSig` dispatches per SPKI without an out-of-band tag.
+ *   - Signature calldata: `bytes32[2]` → variable-length `0x${string}`
+ *     hex. P-256 still 64 bytes (`r || s`); RSA-2048+ widens up to 512.
+ *   - register() / registerWithAge() take a single `RegisterCall` struct
+ *     argument on-chain (vs flat positional V5.4 args). The struct
+ *     packing happens in Step4 at `writeContract` time; this pipeline
+ *     produces the typed `RegisterArgsV7` payload it consumes.
  *
  * walletSecret derivation (HKDF for EOA, Argon2id for SCW) is UNCHANGED
- * across V5.1 → V5.2 — the rotation auth stays Poseidon₂(walletSecret,
- * ctxHash) on the circuit side. Only the public-signal layout shifted.
+ * — V7 keeps the rotation-auth Poseidon scheme verbatim.
  *
- * The V5.1 pipeline (`./uaProofPipelineV5.ts`) is left intact for
- * sibling-not-replace posture: any consumer still on V5.1 (e.g. legacy
- * tests, or reverted-upgrade-path investigations) keeps working.
+ * The legacy V5.1 pipeline (`./uaProofPipelineV5.ts`) was deleted in
+ * the V7 retarget; this file is the only UA pipeline.
  */
 import { Buffer } from 'buffer';
 import { fromBER } from 'asn1js';
@@ -34,19 +42,18 @@ import { buildInclusionPath, zeroHashes } from './merkleLookup';
 import {
   MockProver,
   type IProver,
-  publicSignalsV5_2FromArray,
+  publicSignalsV7FromArray,
   proveV5,
   type CircuitArtifactUrls,
-  type PublicSignalsV5_2,
-  type RegisterArgsV5_2,
-  type Groth16ProofV5_2,
-  buildWitnessV5_2,
+  type PublicSignalsV7,
+  type RegisterArgsV7,
+  type Groth16ProofV7,
+  buildWitnessV5_5,
   parseP7s,
   type CmsExtraction,
   decodeEcdsaSigSequence,
-  bytes32ToHex,
   CliProveError,
-  type WitnessV5_2,
+  type WitnessV5_5,
 } from '@zkqes/sdk';
 import { SnarkjsWorkerProver } from '@zkqes/sdk/prover/snarkjsWorker';
 import { V5_PROVER_ARTIFACTS } from './circuitArtifacts';
@@ -142,14 +149,14 @@ export interface V5_2PipelineOptions {
 }
 
 export interface V5_2PipelineResult {
-  readonly publicSignals: PublicSignalsV5_2;
-  readonly proof: Groth16ProofV5_2;
-  /** Assembled RegisterArgsV5_2 ready for `register()` calldata.
-   *  Note: the witness-builder side (signedAttrs raw, leafSpki, intSpki,
-   *  leafSig, intSig, merkle paths + bits) is filled with mock zeros
-   *  when `useMockProver: true` — the Step 4 component skips submit in
-   *  that case. */
-  readonly registerArgs: RegisterArgsV5_2;
+  readonly publicSignals: PublicSignalsV7;
+  readonly proof: Groth16ProofV7;
+  /** Assembled RegisterArgsV7 ready for V7 `register(RegisterCall)`
+   *  calldata. Note: the witness-builder side (signedAttrs raw,
+   *  leafSpki, intSpki, leafSig, intSig, merkle paths + bits) is
+   *  filled with mock zeros when `useMockProver: true` — the Step 4
+   *  component skips submit in that case. */
+  readonly registerArgs: RegisterArgsV7;
   /**
    * Discriminator: which prover actually generated the proof.
    *   'cli'     — `proveViaCli` returned a 2xx (CLI was present + healthy)
@@ -242,19 +249,19 @@ async function runRealPath(
             throw new Error(
               'V5.2 real-prover pipeline: no intermediate cert in .p7s, no ' +
                 'opts.intSpki override, and no opts.trustedCas to fall back ' +
-                'on — cannot compute intSpkiCommit',
+                'on — cannot derive intSpki for HostSig dispatch + Gate 4 trust-list membership',
             );
           })();
 
   if (!opts.walletSecret) {
     throw new Error(
-      'V5.2 real-prover pipeline requires opts.walletSecret (32-byte wallet secret ' +
+      'V7 real-prover pipeline requires opts.walletSecret (32-byte wallet secret ' +
         'derived via HKDF for EOA or Argon2id for SCW). Derive with ' +
         'deriveWalletSecretEoa() / deriveWalletSecretScw() before calling runV5_2Pipeline().',
     );
   }
-  tick('build-witness', 25, 'building V5.2 witness from binding + CMS');
-  const witness = await buildWitnessV5_2({
+  tick('build-witness', 25, 'building V5.5 witness from binding + CMS (V7 wire)');
+  const witness = await buildWitnessV5_5({
     bindingBytes: Buffer.from(opts.bindingBytes),
     leafCertDer: cms.leafCertDer,
     leafSpki,
@@ -262,17 +269,6 @@ async function runRealPath(
     signedAttrsDer: cms.signedAttrsDer,
     signedAttrsMdOffset: cms.signedAttrsMdOffset,
     walletSecret: Buffer.from(opts.walletSecret),
-  }, {
-    // Local-dev escape hatch: when running against the V5.2 stub
-    // artifacts (`qkb-v5_2-stub.zkey` + its companion wasm), the
-    // V5.3 OID-anchor input signal doesn't exist in the wasm —
-    // emitting it triggers snarkjs's "Too many values" error. Set
-    // `VITE_V5_OMIT_V5_3_OID_ANCHOR=1` in `packages/web/.env.local`
-    // to opt out. Default keeps V5.3-shape so post-ceremony builds
-    // are correct.
-    omitV53OidAnchor:
-      typeof import.meta !== 'undefined' &&
-      import.meta.env?.VITE_V5_OMIT_V5_3_OID_ANCHOR === '1',
   });
 
   // Run the prover. CLI path is preferred when `cliPresent: true` is
@@ -292,13 +288,13 @@ async function runRealPath(
     },
   );
 
-  // V5.2's `publicSignalsV5_2FromArray` asserts the 22-element shape
+  // V7's `publicSignalsV7FromArray` asserts the 21-element shape
   // here — keeps the cross-package contract tight against any future
-  // drift between the SDK's V5.2 layout and what either prover emits.
-  const publicSignals = publicSignalsV5_2FromArray(publicSignalsRaw);
+  // drift between the SDK's V7 layout and what either prover emits.
+  const publicSignals = publicSignalsV7FromArray(publicSignalsRaw);
 
-  tick('encode-calldata', 90, 'assembling RegisterArgsV5_2');
-  const proof: Groth16ProofV5_2 = {
+  tick('encode-calldata', 90, 'assembling RegisterArgsV7');
+  const proof: Groth16ProofV7 = {
     a: [BigInt(proofRaw.pi_a[0] ?? '0'), BigInt(proofRaw.pi_a[1] ?? '0')] as const,
     // G2 Fp2 limb swap. snarkjs's `pi_b` JSON serializes each Fp2 as
     // [c0, c1] (real first); Solidity Groth16 verifiers (and snarkjs's
@@ -318,7 +314,7 @@ async function runRealPath(
   // bundled `layers.json` keyed by the matched CA's `merkleIndex`.
   // Falls back to all-zero path if `trustedCasLayers` wasn't passed
   // — only useful pre-deploy; live chain rejects.
-  let trustPath: RegisterArgsV5_2['trustMerklePath'];
+  let trustPath: RegisterArgsV7['trustMerklePath'];
   let trustPathBits = 0n;
   if (opts.trustedCas && opts.trustedCasLayers && cms.intCertDer === undefined) {
     // The intermediate cert was resolved off-chain via trustedCas
@@ -340,10 +336,10 @@ async function runRealPath(
       trustPath = inclusion.path16;
       trustPathBits = inclusion.bits;
     } else {
-      trustPath = Array.from({ length: 16 }, (): `0x${string}` => ZERO_BYTES32) as unknown as RegisterArgsV5_2['trustMerklePath'];
+      trustPath = Array.from({ length: 16 }, (): `0x${string}` => ZERO_BYTES32) as unknown as RegisterArgsV7['trustMerklePath'];
     }
   } else {
-    trustPath = Array.from({ length: 16 }, (): `0x${string}` => ZERO_BYTES32) as unknown as RegisterArgsV5_2['trustMerklePath'];
+    trustPath = Array.from({ length: 16 }, (): `0x${string}` => ZERO_BYTES32) as unknown as RegisterArgsV7['trustMerklePath'];
   }
   // Policy merkle path. Until a real policy registry ships, the admin
   // sets `policyRoot` to a depth-16 tree that contains the user's
@@ -355,36 +351,40 @@ async function runRealPath(
   const policyPath16 = (Array.from({ length: 16 }, (_, i) => {
     const z = policyZeroes[i] ?? 0n;
     return `0x${z.toString(16).padStart(64, '0')}` as `0x${string}`;
-  })) as unknown as RegisterArgsV5_2['policyMerklePath'];
+  })) as unknown as RegisterArgsV7['policyMerklePath'];
 
-  // RegisterArgsV5_2 raw-bytes encoding: pkijs gives us Buffer-typed certs
+  // RegisterArgsV7 raw-bytes encoding: pkijs gives us Buffer-typed certs
   // and signedAttrs; viem's writeContract accepts `0x${string}` hex.
   const leafSpkiHex = `0x${leafSpki.toString('hex')}` as `0x${string}`;
   const intSpkiHex = `0x${intSpki.toString('hex')}` as `0x${string}`;
   const signedAttrsHex = `0x${cms.signedAttrsDer.toString('hex')}` as `0x${string}`;
 
-  // ECDSA-Sig-Value SEQUENCE decoding for register() calldata — same
-  // approach as the V5.1 pipeline (cms.leafSigR for the leaf SignerInfo
-  // signature; pkijs unwraps the leaf cert's signatureValue for intSig).
+  // ECDSA-Sig-Value SEQUENCE decoding. V7/V5.5 widens the calldata
+  // sig from `bytes32[2]` to a single variable-length `bytes` blob
+  // (HostSig consumes algorithm-native ranges: P-256 = 64 bytes,
+  // RSA-2048 = 256 bytes, RSA-4096 = 512 bytes). For P-256 we
+  // concatenate r||s into a flat 64-byte hex blob.
   const leafSigSeq = cms.leafSigR ?? Buffer.alloc(0);
   if (leafSigSeq.length === 0) {
     throw new Error(
-      'V5.2 real-prover pipeline: parseP7s returned empty leaf SignerInfo signature',
+      'V7 real-prover pipeline: parseP7s returned empty leaf SignerInfo signature',
     );
   }
   const { r: leafR, s: leafS } = decodeEcdsaSigSequence(leafSigSeq);
+  const leafSigHex = `0x${Buffer.concat([Buffer.from(leafR), Buffer.from(leafS)]).toString('hex')}` as `0x${string}`;
 
   const intSigSeq = extractCertSignatureSeq(cms.leafCertDer);
   const { r: intR, s: intS } = decodeEcdsaSigSequence(intSigSeq);
+  const intSigHex = `0x${Buffer.concat([Buffer.from(intR), Buffer.from(intS)]).toString('hex')}` as `0x${string}`;
 
-  const registerArgs: RegisterArgsV5_2 = {
+  const registerArgs: RegisterArgsV7 = {
     proof,
     sig: publicSignals,
     leafSpki: leafSpkiHex,
     intSpki: intSpkiHex,
     signedAttrs: signedAttrsHex,
-    leafSig: [bytes32ToHex(leafR), bytes32ToHex(leafS)] as const,
-    intSig: [bytes32ToHex(intR), bytes32ToHex(intS)] as const,
+    leafSig: leafSigHex,
+    intSig: intSigHex,
     trustMerklePath: trustPath,
     trustMerklePathBits: trustPathBits,
     policyMerklePath: policyPath16,
@@ -402,7 +402,7 @@ async function runRealPath(
  * fallback dispatch logic so the latter is testable in isolation.
  */
 async function runBrowserProver(
-  witness: WitnessV5_2,
+  witness: WitnessV5_5,
   tick: (stage: V5_2PipelineStage, pct: number, message?: string) => void,
 ): Promise<{ proofRaw: import('@zkqes/sdk').Groth16Proof; publicSignalsRaw: string[] }> {
   tick('prove', 50, 'running snarkjs Groth16 prover');
@@ -596,7 +596,7 @@ async function buildInclusionPathFromLayers(
   index: number,
   layers: { depth: number; layers: ReadonlyArray<ReadonlyArray<string>> },
 ): Promise<{
-  path16: RegisterArgsV5_2['trustMerklePath'];
+  path16: RegisterArgsV7['trustMerklePath'];
   bits: bigint;
 }> {
   // `merkleLookup.buildInclusionPath` consumes a mutable LayersFile;
@@ -617,7 +617,7 @@ async function buildInclusionPathFromLayers(
     if ((proof.indices[i] ?? 0) === 1) bits |= 1n << BigInt(i);
   }
   return {
-    path16: padded as unknown as RegisterArgsV5_2['trustMerklePath'],
+    path16: padded as unknown as RegisterArgsV7['trustMerklePath'],
     bits,
   };
 }
@@ -665,12 +665,12 @@ async function runMockPath(
   await delay(20);
   tick('prove', 40);
 
-  // Canned 22-signal output — values are deterministic but synthetic.
-  // Position-correct per spec §"Public-signal layout V5.1 → V5.2"
-  // (FROZEN). msgSender (V5.1 slot 0) is removed; bindingPk* limbs
-  // (V5.2 slots 18-21) are appended.
+  // Canned 21-signal output — values are deterministic but synthetic.
+  // Position-correct per V7 spec §3.1 (FROZEN): V5.4 slot [12]
+  // `intSpkiCommit` is DROPPED, slot [11] renamed `leafSpkiCommit` →
+  // `leafKeyCommit`. All higher slots renumber down by −1.
   //
-  // Slot map:
+  // Slot map (21 entries):
   //   0  timestamp
   //   1  nullifier
   //   2-3   ctxHashHi/Lo
@@ -678,16 +678,14 @@ async function runMockPath(
   //   6-7   signedAttrsHashHi/Lo
   //   8-9   leafTbsHashHi/Lo
   //   10 policyLeafHash
-  //   11 leafSpkiCommit
-  //   12 intSpkiCommit
-  //   13 identityFingerprint
-  //   14 identityCommitment
-  //   15 rotationMode  (= 0, register)
-  //   16 rotationOldCommitment (= identityCommitment, register-mode default)
-  //   17 rotationNewWallet (synthetic placeholder — register mode doesn't
-  //                         enforce a specific wallet here)
-  //   18-21 bindingPkXHi/Lo, bindingPkYHi/Lo (V5.2 limbs — synthetic)
-  const cannedSignals: PublicSignalsV5_2 = {
+  //   11 leafKeyCommit                ← V5.5 (replaces leafSpkiCommit)
+  //   12 identityFingerprint          ← was [13]
+  //   13 identityCommitment           ← was [14]
+  //   14 rotationMode  (= 0, register)
+  //   15 rotationOldCommitment (= identityCommitment)
+  //   16 rotationNewWallet
+  //   17-20 bindingPk{X,Y}{Hi,Lo}      ← was [18..21]
+  const cannedSignals: PublicSignalsV7 = {
     timestamp: BigInt(Math.floor(Date.now() / 1000)),
     nullifier: 3n,
     ctxHashHi: 4n, ctxHashLo: 5n,
@@ -695,14 +693,13 @@ async function runMockPath(
     signedAttrsHashHi: 8n, signedAttrsHashLo: 9n,
     leafTbsHashHi: 10n, leafTbsHashLo: 11n,
     policyLeafHash: 12n,
-    leafSpkiCommit: 13n,
-    intSpkiCommit: 14n,
+    leafKeyCommit: 13n,
     identityFingerprint: 15n,
     identityCommitment: 16n,
     rotationMode: 0n,            // register mode
     rotationOldCommitment: 16n,  // == identityCommitment (register-mode default)
     rotationNewWallet: 1n,
-    // V5.2 bindingPk* limbs — synthetic non-zero values, all <2^128.
+    // bindingPk* limbs — synthetic non-zero values, all <2^128.
     bindingPkXHi: 100n,
     bindingPkXLo: 101n,
     bindingPkYHi: 102n,
@@ -718,11 +715,12 @@ async function runMockPath(
         protocol: 'groth16',
         curve: 'bn128',
       },
+      // 21 entries — order MUST match V7 spec §3.1 verbatim.
       publicSignals: [
         String(cannedSignals.timestamp), '3', '4', '5', '6', '7', '8',
-        '9', '10', '11', '12', '13', '14',
-        '15', '16', '0', '16', '1',
-        '100', '101', '102', '103',
+        '9', '10', '11', '12', '13',     // [0..11] thru leafKeyCommit
+        '15', '16', '0', '16', '1',      // [12..16] identityFingerprint..rotationNewWallet
+        '100', '101', '102', '103',      // [17..20] bindingPk* limbs
       ],
     },
   });
@@ -735,10 +733,10 @@ async function runMockPath(
   const proveResult = await proveV5(proverInput, { prover, artifacts });
   tick('prove', 80);
 
-  const publicSignals = publicSignalsV5_2FromArray(proveResult.publicSignals);
+  const publicSignals = publicSignalsV7FromArray(proveResult.publicSignals);
 
   tick('encode-calldata', 95);
-  const proof: Groth16ProofV5_2 = {
+  const proof: Groth16ProofV7 = {
     a: [BigInt(proveResult.proof.pi_a[0] ?? '0'), BigInt(proveResult.proof.pi_a[1] ?? '0')] as const,
     // G2 Fp2 limb swap — same reason as the real-path pack above.
     b: [
@@ -751,15 +749,19 @@ async function runMockPath(
   const path16 = Array.from(
     { length: 16 },
     (): `0x${string}` => ZERO_BYTES32,
-  ) as unknown as RegisterArgsV5_2['trustMerklePath'];
-  const registerArgs: RegisterArgsV5_2 = {
+  ) as unknown as RegisterArgsV7['trustMerklePath'];
+  // V7 sigs are variable-length `bytes`; for the mock path use a flat
+  // 64-byte zero blob (P-256 `r||s` shape) so anything that asserts
+  // even-length hex stays happy.
+  const ZERO_64_BYTES = `0x${'00'.repeat(64)}` as const;
+  const registerArgs: RegisterArgsV7 = {
     proof,
     sig: publicSignals,
     leafSpki: ZERO_91_BYTES,
     intSpki: ZERO_91_BYTES,
     signedAttrs: '0x',
-    leafSig: [ZERO_BYTES32, ZERO_BYTES32] as const,
-    intSig: [ZERO_BYTES32, ZERO_BYTES32] as const,
+    leafSig: ZERO_64_BYTES,
+    intSig: ZERO_64_BYTES,
     trustMerklePath: path16,
     trustMerklePathBits: 0n,
     policyMerklePath: path16,

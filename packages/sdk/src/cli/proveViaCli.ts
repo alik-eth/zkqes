@@ -28,6 +28,7 @@
 //
 // HTTP API contract reference: orchestration §1.1.
 import type { WitnessV5_2 } from '../witness/v5/build-witness-v5_2.js';
+import type { WitnessV5_5 } from '../witness/v5_5/build-witness-v5_5.js';
 import type { CliProveResult, CliTimings } from './types.js';
 import type { Groth16Proof } from '../core/index.js';
 
@@ -49,7 +50,13 @@ export const CLI_PROVE_URL = 'http://127.0.0.1:9080/prove';
  * raise a structured error."
  */
 export async function proveViaCli(
-  witness: WitnessV5_2,
+  // V7 retarget: pipeline now passes WitnessV5_5; older callers (and
+  // proveViaCli's own unit tests) still hand it a V5_2-shaped object.
+  // Both witness types are JSON-serialized verbatim and the CLI
+  // server's snarkjs witness-calc only fails late if the field set
+  // doesn't match its compiled .wasm. Accept either at the type
+  // boundary; runtime semantics unchanged.
+  witness: WitnessV5_2 | WitnessV5_5 | Record<string, unknown>,
 ): Promise<CliProveResult> {
   let res: Response;
   try {

@@ -23,6 +23,7 @@ import {
   proveViaCli,
   type Groth16Proof,
   type WitnessV5_2,
+  type WitnessV5_5,
 } from '@zkqes/sdk';
 
 export interface RunProverOptions {
@@ -48,7 +49,10 @@ export interface RunProverResult {
 }
 
 export async function runCliFirstProver(
-  witness: WitnessV5_2,
+  // V7 retarget: production pipeline passes WitnessV5_5; tests still
+  // construct WitnessV5_2 stubs. Both shapes JSON-serialize identically
+  // for the CLI server's perspective.
+  witness: WitnessV5_2 | WitnessV5_5,
   opts: RunProverOptions,
 ): Promise<RunProverResult> {
   if (opts.cliPresent) {

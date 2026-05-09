@@ -295,6 +295,7 @@ export {
 export {
   buildWitnessV5,
   buildWitnessV5_2,
+  buildWitnessV5_5,
   computeIdentityFingerprint,
   parseP7s,
   extractBindingOffsets,
@@ -311,10 +312,12 @@ export {
   MAX_POLICY_ID,
   type BuildWitnessV5Input,
   type BuildWitnessV5_2Input,
+  type BuildWitnessV5_5Input,
   type CmsExtraction,
   type V2CoreBindingOffsets,
   type WitnessV5,
   type WitnessV5_2,
+  type WitnessV5_5,
   type ParsedSpki,
   type EcdsaRS,
 } from './witness/v5.js';

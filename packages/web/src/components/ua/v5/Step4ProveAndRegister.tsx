@@ -18,7 +18,7 @@ import {
   parseP7s,
   findSubjectSerial,
   CliProveError,
-  type RegisterArgsV5_2,
+  type RegisterArgsV7,
   buildAgeWitness,
   packAgeProof,
 } from '@zkqes/sdk';
@@ -276,12 +276,12 @@ export function Step4ProveAndRegister({
   }, [txMined, ageStage]);
 
   const [pipelineDone, setPipelineDone] = useState(false);
-  // Captured `RegisterArgsV5_2` from the most recent successful prove
+  // Captured `RegisterArgsV7` from the most recent successful prove
   // run. Lifts the closure-local value out of `runPipelineAndSubmit`
   // so the post-success UI can render a "Download proof.json" button
   // — useful for replay, debugging revert reasons against an Anvil
   // fork, or sharing a witness with circuits-eng without re-proving.
-  const [provedArgs, setProvedArgs] = useState<RegisterArgsV5_2 | null>(null);
+  const [provedArgs, setProvedArgs] = useState<RegisterArgsV7 | null>(null);
 
   // V5.6 pre-flight: bindingId derived off the proven identityFingerprint;
   // used to read existing binding state and detect a rebind case BEFORE
@@ -460,20 +460,25 @@ export function Step4ProveAndRegister({
     void submitRegister(registerArgs, ageCalldata);
   };
 
-  /** Fire V5.4 `ZKQESRegistryUA.register()` with a known-good
-   *  `RegisterArgsV5_2`. Reuses the V5.2-shape leaf proof verbatim
-   *  (slot order is identical; V5.4's identityVerifier carries the
-   *  same vkey) but wraps it in V5.4's tuple shape: a 3-field
-   *  `ChainProof` + a flattened `LeafProof` (a/b/c + 22 publics) +
-   *  the same supporting bytes. The on-chain trustedRoot must match
-   *  `chainProof.rTL` — admin rotates it via setTrustedRoot. */
+  /** Fire V7 `ZKQESRegistryUA.register(RegisterCall args)` with a
+   *  known-good `RegisterArgsV7`. V7 collapses the prior 11 flat
+   *  positional args into a single `RegisterCall` struct (per
+   *  `2026-05-09-v7-merged-amendment.md` §3.2):
+   *    - `chainProof` = { rTL, leafKeyCommit }  (algorithmTag DROPPED)
+   *    - `leafProof`  = { a, b, c, ...21-publics }  (V5.5 wire,
+   *                     leafKeyCommit @ slot 11, intSpkiCommit dropped)
+   *    - `leafSpki`/`intSpki`/`signedAttrs` as `bytes`
+   *    - `leafSig`/`intSig` as variable-length `bytes` (was bytes32[2])
+   *    - trust + policy merkle paths.
+   *  Trusted root must match `chainProof.rTL` — admin rotates via
+   *  setTrustedRoot. */
   const submitRegister = async (
-    registerArgs: RegisterArgsV5_2,
+    registerArgs: RegisterArgsV7,
     ageCalldata: Awaited<ReturnType<typeof proveAgeOnly>> = null,
   ): Promise<void> => {
     if (!uaDep || !publicClient) return;
     // Read the on-chain `trustedRoot` and use it verbatim for
-    // chainProof.rTL — the V5.6 register's Gate 0b reverts BadTrustList
+    // chainProof.rTL — V7 register's Gate 0b reverts NotOnTrustedList
     // if these don't byte-match. Reading at submit time tolerates
     // admin rotations between page loads.
     const rTL = await publicClient.readContract({
@@ -483,8 +488,7 @@ export function Step4ProveAndRegister({
     });
     const chainProof = {
       rTL: BigInt(rTL),
-      algorithmTag: 0n,
-      leafSpkiCommit: registerArgs.sig.leafSpkiCommit,
+      leafKeyCommit: registerArgs.sig.leafKeyCommit,
     };
     const leafProof = {
       a: registerArgs.proof.a,
@@ -492,19 +496,19 @@ export function Step4ProveAndRegister({
       c: registerArgs.proof.c,
       ...registerArgs.sig,
     };
-    const baseRegisterArgs = [
+    const callStruct = {
       chainProof,
       leafProof,
-      registerArgs.leafSpki,
-      registerArgs.intSpki,
-      registerArgs.signedAttrs,
-      registerArgs.leafSig,
-      registerArgs.intSig,
-      registerArgs.trustMerklePath,
-      registerArgs.trustMerklePathBits,
-      registerArgs.policyMerklePath,
-      registerArgs.policyMerklePathBits,
-    ] as const;
+      leafSpki: registerArgs.leafSpki,
+      intSpki: registerArgs.intSpki,
+      signedAttrs: registerArgs.signedAttrs,
+      leafSig: registerArgs.leafSig,
+      intSig: registerArgs.intSig,
+      trustMerklePath: registerArgs.trustMerklePath,
+      trustMerklePathBits: registerArgs.trustMerklePathBits,
+      policyMerklePath: registerArgs.policyMerklePath,
+      policyMerklePathBits: registerArgs.policyMerklePathBits,
+    };
 
     if (ageCalldata) {
       // V5.6 atomic path — one tx covers register + proveAge.
@@ -512,11 +516,7 @@ export function Step4ProveAndRegister({
         address: uaDep.address,
         abi: zkqesRegistryUaAbi,
         functionName: 'registerWithAge',
-        args: [
-          ...baseRegisterArgs,
-          BigInt(ageCutoffYmd),
-          ageCalldata,
-        ],
+        args: [callStruct, BigInt(ageCutoffYmd), ageCalldata],
         // register (~2.5M ceiling) + proveAge (~1.5M) + bridging
         // overhead — leave headroom for calldata-heavy QTSP certs.
         gas: 4_000_000n,
@@ -528,7 +528,7 @@ export function Step4ProveAndRegister({
       address: uaDep.address,
       abi: zkqesRegistryUaAbi,
       functionName: 'register',
-      args: baseRegisterArgs,
+      args: [callStruct],
       gas: 2_500_000n,
     });
   };
@@ -541,7 +541,7 @@ export function Step4ProveAndRegister({
    *
    * The schema sentinel is `zkqes/register-args/v5_2`. bigint fields
    * are decimal strings on disk; rehydrate via `BigInt(...)`. The
-   * shape validator (`assertRegisterArgsV5_2Shape` from the SDK)
+   * shape validator (`assertRegisterArgsV7Shape` from the SDK)
    * catches malformed hex / wrong slot counts before the wallet popup.
    */
   const onUploadProof = (file: File): void => {
@@ -583,7 +583,7 @@ export function Step4ProveAndRegister({
           ...a,
           trustMerklePathBits: trustBits,
           policyMerklePathBits: policyBits,
-        } as unknown as RegisterArgsV5_2;
+        } as unknown as RegisterArgsV7;
         setProvedArgs(rehydrated);
         setProofSource('uploaded');
         setPipelineDone(true);
@@ -1136,14 +1136,14 @@ export function Step4ProveAndRegister({
  *   - done    (`done` flag): "✓ Proof generated in Xs"
  */
 /**
- * Serialize a `RegisterArgsV5_2` to JSON and trigger a browser
+ * Serialize a `RegisterArgsV7` to JSON and trigger a browser
  * download. `bigint` values (Merkle path bits, public-signal slots) get
  * stringified to decimal — the receiver can rehydrate via `BigInt(...)`
  * keyed off the well-known schema. Includes a small header so out-of-
  * band readers can tell which contract version + chain the args target.
  */
 function downloadProofJson(
-  args: RegisterArgsV5_2,
+  args: RegisterArgsV7,
   age: {
     bindingId: `0x${string}`;
     cutoffYmd: number;
