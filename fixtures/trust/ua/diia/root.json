@@ -1,7 +1,7 @@
 {
   "schema": "qkb-v4-trust-root/v1",
   "country": "UA",
-  "trustedListRoot": "0x25ce7bfa7693e391a7e1d5df666caa5b622bf709cc6797289a74bfc272462b3e",
+  "trustedListRoot": "0x0d74174722e1d524bc5a49d36a949d74234a578c167c68d00691ac65d5e66c6c",
   "treeDepth": 16,
   "serviceCount": 2,
   "trustDomain": "qkb-v4-ua",
@@ -23,18 +23,18 @@
       "tspName": "State enterprise \"DIIA\"",
       "serviceName": "\"DIIA\". Qualified Trust Services Provider (UA-43395033-2311)",
       "territory": "UA",
-      "serviceStatus": "granted",
-      "poseidonHash": "0x10ff6e20f00fc1a159d49ce818bab81e35829dc80038d0a52ac86e037a4d73f4"
+      "serviceStatus": "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted",
+      "poseidonHash": "0x082a2b23bda3970d003e140021a3437893715675a525738f35b0eb2d98258063"
     },
     {
       "merkleIndex": 1,
       "tspName": "State enterprise \"DIIA\"",
       "serviceName": "\"DIIA\". Qualified Trust Services Provider (UA-43395033-2503)",
       "territory": "UA",
-      "serviceStatus": "granted",
-      "poseidonHash": "0x2a72fb63263767c4afc90e459749c1015969a458c1456af57656e7f459b47131"
+      "serviceStatus": "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted",
+      "poseidonHash": "0x03cd0b5962fdc315db6d1ffa53f2c901ba12fea44ee115b73a1768384709043b"
     }
   ],
-  "generatedAt": "2026-04-24T01:23:40.966Z",
-  "note": "Byte-identical to V3 deployed trustedListRoot — same pinned Diia QTSP source. Derivable via: node packages/lotl-flattener/dist/index.js --lotl packages/lotl-flattener/fixtures/diia/lotl.xml --filter-country UA --tree-depth 16 --lotl-version ua-tl-ec-diia-2026-04-17 --trust-domain qkb-v4-ua --trust-source ua-tl-ec-diia-2026-04-17 --out <dir>"
+  "generatedAt": "2026-05-09T22:05:14.373Z",
+  "note": "V7 KeyCommit-leaves Merkle root. Pumped 2026-05-09 alongside the V7 ZKQESRegistryUA redeploy with real ceremony Groth16 verifier. Derivable via: node packages/lotl-flattener/dist/index.js --lotl packages/lotl-flattener/fixtures/diia/lotl.xml --filter-country UA --tree-depth 16 --lotl-version ua-tl-ec-diia-2026-04-17 --trust-domain qkb-v4-ua --trust-source ua-tl-ec-diia-2026-04-17 --out <dir>"
 }

@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "lotlSnapshot": "2026-05-07T17:18:17.589Z",
+  "lotlSnapshot": "2026-05-09T22:05:14.373Z",
   "treeDepth": 16,
-  "trustDomain": "qkb-v5-ua-diia",
+  "trustDomain": "qkb-v4-ua",
   "trustSources": [
-    "diia-fixture"
+    "ua-tl-ec-diia-2026-04-17"
   ],
   "cas": [
     {
@@ -20,7 +20,7 @@
       "serviceValidFrom": 1669290540,
       "qualifiers": [],
       "qualificationElements": [],
-      "poseidonHash": "0x25c75002be608921f63953fb9cd7d2d51bf749c779019b46b03fbf9a7a4cc63b"
+      "poseidonHash": "0x082a2b23bda3970d003e140021a3437893715675a525738f35b0eb2d98258063"
     },
     {
       "merkleIndex": 1,
@@ -35,7 +35,7 @@
       "serviceValidFrom": 1760358720,
       "qualifiers": [],
       "qualificationElements": [],
-      "poseidonHash": "0x0395c9bdb3a440a3f39a0dc82d0088b7b799183822d4356fd6d93d585907a44b"
+      "poseidonHash": "0x03cd0b5962fdc315db6d1ffa53f2c901ba12fea44ee115b73a1768384709043b"
     }
   ]
 }
