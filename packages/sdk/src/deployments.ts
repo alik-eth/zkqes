@@ -59,20 +59,18 @@ export interface ZkqesRegistryUaDeployment {
 export const ZKQES_REGISTRY_UA = {
   baseSepolia: {
     chainId: 84532,
-    // V5.4 UA registry, deployed 2026-05-05 at block 41115149.
-    // Source: fixtures/contracts/base-sepolia.json v5_4.registry.
-    address: '0x262D017051196F8C686BFBa00Cbbe2BD5B055491' as Address,
-    // Both verifiers are immutable stubs pre-Phase-B-ceremony; swap
-    // requires fresh registry redeploy + this constant repump.
-    identityVerifier: '0xa669F0Ede4eBD025897554Af8aCcE31eA4990f04' as Address,
-    ageVerifier: '0xc30DF40b1E2F8af15a36DBebc0E1BD91E1E2a693' as Address,
-    verifierKind: 'stub',
-    deployBlock: 41115149,
-    deployedAt: '2026-05-05',
-    // V5.4 cert NFT — deployed 2026-05-08 to mint one ERC-721 per
-    // binding via VerifiedUkrainian's `onlyVerifiedUkrainian` gate.
-    certificate: '0x55e99B0eF662e69665c54955F7D55e96fADbb6E6' as Address,
-    certificateMintDeadline: 1893456000, // 2030-01-01
+    // V7 UA registry, deployed 2026-05-09 at block 41295180.
+    // Source: fixtures/contracts/base-sepolia.json v7.registry.
+    address: '0xf0Ef8b29231B985B5A9bED9acDbdC39aA628A6Ce' as Address,
+    // identityVerifier is the real snarkjs-emitted Groth16 from the
+    // V5.5 single-contributor ceremony. ageVerifier is still a stub.
+    // Multi-party ceremony swap = fresh registry redeploy + this
+    // constant repump.
+    identityVerifier: '0x552541362cf433e27Af70eA9328f637386EcC3F3' as Address,
+    ageVerifier: '0x2d3B2F9A339AFab6033291CE6cEB8D1c59A27633' as Address,
+    verifierKind: 'real',
+    deployBlock: 41295180,
+    deployedAt: '2026-05-09',
   },
 } as const satisfies Record<string, ZkqesRegistryUaDeployment>;
 

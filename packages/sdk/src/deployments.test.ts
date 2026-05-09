@@ -5,24 +5,24 @@ import {
 } from './deployments.js';
 import { zkqesRegistryUaAbi } from './abi/ZkqesRegistryUA.js';
 
-describe('ZKQES_REGISTRY_UA — V5.4 per-country deployment metadata', () => {
+describe('ZKQES_REGISTRY_UA — V7 per-country deployment metadata', () => {
   it('exposes the Base Sepolia deploy at the documented address', () => {
-    // Source-of-truth pin: fixtures/contracts/base-sepolia.json v5_4.registry.
+    // Source-of-truth pin: fixtures/contracts/base-sepolia.json v7.registry.
     expect(ZKQES_REGISTRY_UA.baseSepolia.address).toBe(
-      '0x262D017051196F8C686BFBa00Cbbe2BD5B055491',
+      '0xf0Ef8b29231B985B5A9bED9acDbdC39aA628A6Ce',
     );
     expect(ZKQES_REGISTRY_UA.baseSepolia.chainId).toBe(84532);
-    expect(ZKQES_REGISTRY_UA.baseSepolia.deployBlock).toBe(41115149);
+    expect(ZKQES_REGISTRY_UA.baseSepolia.deployBlock).toBe(41295180);
   });
 
-  it('exposes the immutable verifier addresses (both stub pre-Phase-B)', () => {
+  it('exposes the immutable verifier addresses (real identity, stub age)', () => {
     expect(ZKQES_REGISTRY_UA.baseSepolia.identityVerifier).toBe(
-      '0xa669F0Ede4eBD025897554Af8aCcE31eA4990f04',
+      '0x552541362cf433e27Af70eA9328f637386EcC3F3',
     );
     expect(ZKQES_REGISTRY_UA.baseSepolia.ageVerifier).toBe(
-      '0xc30DF40b1E2F8af15a36DBebc0E1BD91E1E2a693',
+      '0x2d3B2F9A339AFab6033291CE6cEB8D1c59A27633',
     );
-    expect(ZKQES_REGISTRY_UA.baseSepolia.verifierKind).toBe('stub');
+    expect(ZKQES_REGISTRY_UA.baseSepolia.verifierKind).toBe('real');
   });
 
   it('zkqesRegistryUaForChainId resolves Base Sepolia (84532)', () => {
