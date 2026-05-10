@@ -239,6 +239,7 @@ export function HomeDocument() {
                       setStep(3);
                     }}
                     onBack={() => setStep(1)}
+                    {...(bindingBytes ? { bindingBytes } : {})}
                   />
                 )}
                 {(step === 3 || step === 4) && p7s && bindingBytes && (

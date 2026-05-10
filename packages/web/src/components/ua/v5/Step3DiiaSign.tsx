@@ -6,10 +6,42 @@
 // behaviour byte-identical.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { parseCades } from '@zkqes/sdk';
 
 export interface Step3Props {
   onP7s: (bytes: Uint8Array) => void;
   onBack: () => void;
+  /** JCS-canonicalized binding bytes from Step 2. Used for the
+   *  pre-flight messageDigest match — catches the "uploaded an old
+   *  .p7s signed against a different binding" case before the
+   *  prover burns 14s and fails at circuit line 528. */
+  bindingBytes?: Uint8Array;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  // Copy into a fresh ArrayBuffer-backed view; the SharedArrayBuffer-vs-
+  // ArrayBuffer typing in some Vite/TS configs makes WebCrypto reject
+  // the raw Uint8Array<ArrayBufferLike> shape.
+  const owned = new Uint8Array(bytes.length);
+  owned.set(bytes);
+  const buf = await crypto.subtle.digest('SHA-256', owned);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function eqBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
 }
 
 // PKCS#7 SignedData OID (1.2.840.113549.1.7.2) DER-encoded as
@@ -56,7 +88,7 @@ function validateP7s(filename: string, bytes: Uint8Array): ValidationResult {
   return { ok: true, size: bytes.length };
 }
 
-export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
+export function Step3DiiaSign({ onP7s, onBack, bindingBytes }: Step3Props) {
   const { t } = useTranslation();
   const [filename, setFilename] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -74,6 +106,36 @@ export function Step3DiiaSign({ onP7s, onBack }: Step3Props) {
       // Do NOT call onP7s — keep the parent state clean so step 4
       // doesn't pick up garbage.
       return;
+    }
+    // Pre-flight: extract the CAdES messageDigest attribute and
+    // compare it to sha256(bindingBytes). If they don't match, the
+    // .p7s was signed against a different binding (e.g. an old file
+    // from a prior session) and the circuit's line-528 integrity
+    // assert WILL fail. Surface the mismatch here so the user fixes
+    // it before burning 14s on a doomed prove.
+    if (bindingBytes) {
+      try {
+        const cades = parseCades(bytes);
+        const expected = await sha256Hex(bindingBytes);
+        const got = await sha256Hex(cades.messageDigest);
+        if (!eqBytes(cades.messageDigest, hexToBytes(expected))) {
+          setValidationError(
+            `messageDigest mismatch — this .p7s was signed against a different binding.\n` +
+            `  expected sha256(binding): ${expected}\n` +
+            `  got      .p7s.messageDigest: ${got}\n` +
+            `Re-sign the binding.qkb2.json you just downloaded in Step 2.`,
+          );
+          setSize(null);
+          return;
+        }
+      } catch (err) {
+        // parseCades failure → not necessarily a mismatch; could be a
+        // structural defect we want the prover's parser to surface
+        // anyway. Fall through.
+        setValidationError(
+          `Cades parse failed: ${err instanceof Error ? err.message : String(err)}. Continuing anyway — the prover may still accept it.`,
+        );
+      }
     }
     setValidationError(null);
     setSize(v.size ?? bytes.length);
