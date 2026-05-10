@@ -11,7 +11,7 @@ primary_region = "ams"
     # Vite inlines VITE_* at build time. WalletConnect projectIds are public
     # (every WC-enabled dapp ships theirs in the JS bundle), so committing
     # this string is fine.
-    VITE_WALLETCONNECT_PROJECT_ID = "c46544572774f96e20db476d5cc565be"
+    VITE_WALLETCONNECT_PROJECT_ID = "6493cc804b966b9c739a7624c0d21d7c"
 
 [http_service]
   internal_port = 8080

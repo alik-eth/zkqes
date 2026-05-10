@@ -46,7 +46,7 @@ RUN pnpm -F @zkqes/sdk build
 # (every WC-enabled dapp ships theirs in the JS bundle), checked-in
 # alongside packages/web/fly.toml:14.
 ARG VITE_CHAIN=base-sepolia
-ARG VITE_WALLETCONNECT_PROJECT_ID=c46544572774f96e20db476d5cc565be
+ARG VITE_WALLETCONNECT_PROJECT_ID=6493cc804b966b9c739a7624c0d21d7c
 ARG VITE_USE_MOCK_PROVER=
 # V7 / V5.5 prover artifacts pumped to R2 (prove.zkqes.org/v5_5-stub/).
 # Defaults pinned to the single-contributor ceremony output committed
