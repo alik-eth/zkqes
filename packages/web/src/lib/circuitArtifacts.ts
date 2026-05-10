@@ -62,9 +62,21 @@ const envZkeyUrl = env?.VITE_V5_ZKEY_URL;
 const envWasmSha = env?.VITE_V5_WASM_SHA256;
 const envZkeySha = env?.VITE_V5_ZKEY_SHA256;
 
+// Sha256-derived cache-buster suffix — see v5_4AgeArtifacts.ts for the
+// rationale. snarkjs.groth16.fullProve passes URLs straight to the
+// browser fetch, bypassing the SDK's sha256-verified CacheStorage.
+// Stale opaque-CORS responses can poison the cache and surface as
+// 'wasm validation error: at offset 4: failed to match magic number'.
+// Appending the first 8 sha chars prevents stale-cache hits while
+// preserving cache benefit on legitimate repeat loads.
+const wasmShaForUrl = envWasmSha || '__V5_PROVER_WASM_SHA256__';
+const zkeyShaForUrl = envZkeySha || '__V5_PROVER_ZKEY_SHA256__';
+const wasmCacheBust = wasmShaForUrl.startsWith('__') ? '' : `?v=${wasmShaForUrl.slice(0, 8)}`;
+const zkeyCacheBust = zkeyShaForUrl.startsWith('__') ? '' : `?v=${zkeyShaForUrl.slice(0, 8)}`;
+
 export const V5_PROVER_ARTIFACTS: V5ProverArtifacts = {
-  wasmUrl: envWasmUrl || '__V5_PROVER_WASM_URL__',
-  zkeyUrl: envZkeyUrl || '__V5_PROVER_ZKEY_URL__',
+  wasmUrl: envWasmUrl ? `${envWasmUrl}${wasmCacheBust}` : '__V5_PROVER_WASM_URL__',
+  zkeyUrl: envZkeyUrl ? `${envZkeyUrl}${zkeyCacheBust}` : '__V5_PROVER_ZKEY_URL__',
   wasmSha256: envWasmSha || '__V5_PROVER_WASM_SHA256__',
   zkeySha256: envZkeySha || '__V5_PROVER_ZKEY_SHA256__',
   schemaVersion: 'zkqes/2.0',

@@ -47,14 +47,25 @@ const env = (typeof import.meta !== 'undefined' ? import.meta.env : undefined) a
   | Record<string, string | undefined>
   | undefined;
 
+// Sha256-derived cache-buster suffix. snarkjs.groth16.fullProve passes
+// URLs straight to the browser fetch (NOT through the SDK's
+// sha256-verified CacheStorage layer), so a stale opaque-CORS response
+// cached pre-CORS-fix gets served as empty bytes and snarkjs throws
+// 'wasm validation error: at offset 4: failed to match magic number'.
+// Appending the first 8 sha chars to the URL short-circuits the
+// stale-cache hit without sacrificing the cache benefit on repeat
+// loads (same sha → same URL → cache hit).
+const wasmSha = env?.VITE_V5_4_AGE_WASM_SHA256 || '8322c9c527a7ed371ce81604180be98dceb033fb0be1ec87d6609093ccf55a56';
+const zkeySha = env?.VITE_V5_4_AGE_ZKEY_SHA256 || '919b87a856bc2afd7facecc9a24f988e5c5bd58440c86778ba48be9a97ba7b38';
+const wasmBase = env?.VITE_V5_4_AGE_WASM_URL || 'https://prove.zkqes.org/age-ua-v5_4/AgeDiiaUA.wasm';
+const zkeyBase = env?.VITE_V5_4_AGE_ZKEY_URL || 'https://prove.zkqes.org/age-ua-v5_4/age-ua-v5_4-initial.zkey';
+
 export const V5_4_AGE_ARTIFACTS: V5_4AgeArtifacts = {
-  wasmUrl: env?.VITE_V5_4_AGE_WASM_URL || 'https://prove.zkqes.org/age-ua-v5_4/AgeDiiaUA.wasm',
-  zkeyUrl: env?.VITE_V5_4_AGE_ZKEY_URL || 'https://prove.zkqes.org/age-ua-v5_4/age-ua-v5_4-initial.zkey',
+  wasmUrl: `${wasmBase}?v=${wasmSha.slice(0, 8)}`,
+  zkeyUrl: `${zkeyBase}?v=${zkeySha.slice(0, 8)}`,
   vkeyUrl: '', // TBD post-vkey-export per fixture metadata
-  wasmSha256:
-    env?.VITE_V5_4_AGE_WASM_SHA256 || '8322c9c527a7ed371ce81604180be98dceb033fb0be1ec87d6609093ccf55a56',
-  zkeySha256:
-    env?.VITE_V5_4_AGE_ZKEY_SHA256 || '919b87a856bc2afd7facecc9a24f988e5c5bd58440c86778ba48be9a97ba7b38',
+  wasmSha256: wasmSha,
+  zkeySha256: zkeySha,
   publicSignals: 3,
   ceremonyPhase: 'initial',
 };
