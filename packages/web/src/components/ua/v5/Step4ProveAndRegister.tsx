@@ -427,9 +427,11 @@ export function Step4ProveAndRegister({
     setProofSource(source);
     setPipelineDone(true);
     setProvedArgs(registerArgs);
-    // Tell HomeDocument the prove succeeded — advances 3 → 4 so the
-    // download/submit UI gets its own dedicated rectangle.
-    onProveComplete?.();
+    // Don't advance yet — wait until the optional age prove resolves.
+    // If age opt-in is off (or unsupported) the advance fires below
+    // immediately. If on, advance only if age prove succeeds (so the
+    // user doesn't end up at step 4 with a plain register() option
+    // when their intent was atomic registerWithAge).
     if (!v5Deployed) {
       setSubmitSkippedReason(t('mintV5.awaitingDeploy'));
       return;
@@ -459,18 +461,26 @@ export function Step4ProveAndRegister({
         if (ageCalldata) {
           setAgeProvedArgs({ bindingId, cutoffYmd: ageCutoffYmd, calldata: ageCalldata });
           setAgeStage('submitting');
+          onProveComplete?.();
         } else {
+          // Age prover refused (e.g. cutoff out of range). Stay on
+          // step 3 with the error surfaced — user retries or unchecks.
           setAgeStage('skipped');
         }
       } catch (err) {
-        // Age prove failed — surface error but don't block the register
-        // submission. User can retry age standalone post-mine.
+        // Age prove failed (OOM, ceremony missing, network). Stay on
+        // step 3 with the error visible. User retries (e.g. install
+        // CLI for the 14s/3.7 GB native path) or unchecks age + re-runs.
+        // Crucially: we do NOT auto-fall-back to register-without-age,
+        // because the user explicitly intended atomic registerWithAge.
         setAgeError(err instanceof Error ? err.message : String(err));
         setAgeStage('error');
         ageCalldata = null;
       }
-    } else if (!ageOptIn) {
+    } else {
+      // Age opt-out path. Advance immediately.
       setAgeStage('skipped');
+      onProveComplete?.();
     }
 
     // V7 UX: do NOT auto-submit. The user gets an explicit
