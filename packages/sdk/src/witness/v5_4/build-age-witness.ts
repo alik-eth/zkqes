@@ -45,7 +45,11 @@ import type { Buffer } from 'buffer';
 
 import { extractDobFromDiiaUA } from '../../dob/index.js';
 import { ZkqesError } from '../../errors/index.js';
+import { findTbsInCert } from '../v5/leaf-cert-walk.js';
 import { parseP7s } from '../v5/parse-p7s.js';
+
+/** AgeDiiaUA circuit's MAX_DER parameter — leafTbsBytes is padded to this width. */
+const AGE_MAX_TBS = 1536;
 
 /**
  * Inputs to the V5.4 age-witness builder.
@@ -128,15 +132,43 @@ export async function buildAgeWitness(
   // without round-tripping a proof.
   const ageQualified: 0 | 1 = extraction.ymd <= args.ageCutoffDate ? 1 : 0;
 
-  // Step 4 — assemble the witness. Field names track the AgeDiiaUA
-  // circuit's `signal input` declarations as of the spec; circuits-eng
-  // may extend additively (Phase A is skeleton — Phase C swaps in the
-  // real .r1cs and any field-rename will be cross-broadcast first).
+  // Step 4 — extract the leaf TBS sub-DER (the `to-be-signed` portion
+  // the circuit's DobExtractor walks). AgeDiiaUA declares
+  // `signal input leafTbsBytes[1536]` so the witness must right-pad
+  // the actual TBS bytes with zeros up to 1536 and pass the true
+  // content length in `leafTbsLen`.
+  const leafDer = new Uint8Array(cms.leafCertDer);
+  // `findTbsInCert` is byte-indexed; type narrows to Buffer in its
+  // signature but the runtime only reads through subscript access so a
+  // Uint8Array satisfies it. Cast keeps the SDK Buffer-import-free.
+  const tbsRange = findTbsInCert(leafDer as unknown as Buffer);
+  if (tbsRange.length > AGE_MAX_TBS) {
+    throw new ZkqesError('binding.field', {
+      field: 'leafTbsBytes',
+      reason: 'tbs-exceeds-max',
+      raw: `leaf TBS is ${tbsRange.length} bytes, exceeds AgeDiiaUA MAX_DER=${AGE_MAX_TBS}`,
+    });
+  }
+  const tbsPadded = new Array<number>(AGE_MAX_TBS).fill(0);
+  for (let i = 0; i < tbsRange.length; i++) {
+    tbsPadded[i] = leafDer[tbsRange.offset + i]!;
+  }
+
+  // Step 5 — assemble the witness. V5.10 isomorphism: the three public
+  // signals are declared as `signal input` in the circuit, so they
+  // MUST appear in the witness JSON alongside the private inputs.
+  // Field names track the AgeDiiaUA circuit's `signal input`
+  // declarations byte-for-byte (see AgeDiiaUA.circom §99-§111).
+  const nullifierCtxStr = BigInt(args.nullifierCtxKeccak).toString();
   const witness: Record<string, string | number | readonly number[]> = {
-    leafCertBytes: Array.from(new Uint8Array(cms.leafCertDer)),
-    sdaFrameOffsetInTbs: extraction.sdaFrameOffsetInTbs,
-    ageCutoffDateIn: args.ageCutoffDate,
-    nullifierCtxInput: BigInt(args.nullifierCtxKeccak).toString(),
+    // public signals (slots 0, 1, 2 — order matches FROZEN §1.3)
+    ageQualified,
+    ageCutoffDate: args.ageCutoffDate,
+    nullifierCtx: nullifierCtxStr,
+    // private witness
+    leafTbsBytes: tbsPadded,
+    leafTbsLen: tbsRange.length,
+    nullifierCtxInput: nullifierCtxStr,
   };
 
   return {
