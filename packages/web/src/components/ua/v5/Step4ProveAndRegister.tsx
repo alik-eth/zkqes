@@ -837,8 +837,8 @@ export function Step4ProveAndRegister({
             <span>years (cutoff {ageCutoffYmd})</span>
           </label>
           <p style={{ margin: 0, fontSize: 11.5, color: 'var(--cv-mute)', lineHeight: 1.4 }}>
-            Optional. Same .p7s, ~14s extra prove + a 2nd tx after register
-            mines. Sets <code>ageProvenCutoffs[binding][cutoff] = true</code> on
+            Optional. Same .p7s, ~14s extra prove and one atomic tx
+            (registerWithAge). Sets <code>ageProvenCutoffs[binding][cutoff] = true</code> on
             chain — verifiers query that flag without ever seeing your DOB.
           </p>
         </div>
