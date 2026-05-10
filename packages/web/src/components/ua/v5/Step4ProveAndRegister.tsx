@@ -457,7 +457,12 @@ export function Step4ProveAndRegister({
       setAgeStage('skipped');
     }
 
-    void submitRegister(registerArgs, ageCalldata);
+    // V7 UX: do NOT auto-submit. The user gets an explicit
+    // "Download proof.json" / "Submit register()" choice once the
+    // proof is ready. Captured `registerArgs` + `ageCalldata` flow
+    // through `provedArgs` + `ageProvedArgs` state already set above
+    // (line ~416, line ~444). The Submit button below renders
+    // unconditionally on a successful prove.
   };
 
   /** Fire V7 `ZKQESRegistryUA.register(RegisterCall args)` with a
@@ -907,7 +912,7 @@ export function Step4ProveAndRegister({
           >
             ⤓ Download proof.json
           </button>
-          {proofSource === 'uploaded' && v5Deployed && (
+          {v5Deployed && !txHash && !txMined && (
             <button
               type="button"
               onClick={() =>
@@ -918,7 +923,7 @@ export function Step4ProveAndRegister({
               }
               disabled={txPending}
               className="cv-btn"
-              data-testid="v5-submit-uploaded-proof"
+              data-testid="v5-submit-proof"
             >
               {isRebindCandidate
                 ? t('registerV5.step4.replayRebind', '▶ Submit rebind() with this proof')

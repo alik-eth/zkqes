@@ -184,9 +184,9 @@
     "step4": {
       "title": "Prove and register",
       "ceremonyPending": "Awaiting ceremony artifacts. The Phase 2 ceremony hasn't finished yet — this button activates once the prover .zkey is published.",
-      "cta": "Generate proof + register",
-      "ctaWithAge": "▶ Prove + register + prove age (1 tx)",
-      "ctaRebind": "▶ Prove + rebind to this wallet",
+      "cta": "▶ Generate proof",
+      "ctaWithAge": "▶ Generate proof + age proof",
+      "ctaRebind": "▶ Generate rebind proof",
       "replay": "▶ Submit register() with this proof",
       "replayWithAge": "▶ Submit register + age (1 tx)",
       "replayRebind": "▶ Submit rebind() with this proof",
