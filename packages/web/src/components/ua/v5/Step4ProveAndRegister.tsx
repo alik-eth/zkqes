@@ -473,7 +473,18 @@ export function Step4ProveAndRegister({
         // CLI for the 14s/3.7 GB native path) or unchecks age + re-runs.
         // Crucially: we do NOT auto-fall-back to register-without-age,
         // because the user explicitly intended atomic registerWithAge.
-        setAgeError(err instanceof Error ? err.message : String(err));
+        //
+        // ZkqesError exposes only the code in .message (e.g.
+        // "prover.wasmOOM" — itself a catch-all for ANY worker error,
+        // not strictly OOM); the underlying message lives in
+        // .details.message. Surface both so the user sees what
+        // actually went wrong (404 / sha256 mismatch / real OOM / etc).
+        const code = err instanceof Error ? err.message : String(err);
+        const detail =
+          err && typeof err === 'object' && 'details' in err && err.details
+            ? (err as { details?: { message?: string } }).details?.message
+            : undefined;
+        setAgeError(detail ? `${code} — ${detail}` : code);
         setAgeStage('error');
         ageCalldata = null;
       }
