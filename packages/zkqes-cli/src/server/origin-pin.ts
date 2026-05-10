@@ -57,6 +57,7 @@ export function corsHeaders(
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Private-Network': 'true', // Chrome 117+ PNA
+    'Access-Control-Allow-Local-Network': 'true',   // Firefox 128+ LNA (W3C spec rename)
     Vary: 'Origin',
   };
 }
