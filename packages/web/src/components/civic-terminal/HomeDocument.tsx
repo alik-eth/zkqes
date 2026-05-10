@@ -26,13 +26,16 @@ import '../../styles/curve.css';
 import '../../styles/civic-terminal.css';
 
 // Wallet connect lives in the top status bar (RainbowKit), not as a
-// numbered step. The wizard is a 3-step flow:
+// numbered step. The wizard is a 4-step flow:
 //   01 — generate binding (Step2GenerateBinding under the hood)
-//   02 — sign with QES   (Step3DiiaSign under the hood)
-//   03 — prove + anchor  (Step4ProveAndRegister under the hood)
+//   02 — sign with QES    (Step3DiiaSign under the hood)
+//   03 — prove            (Step4ProveAndRegister, phase='prove')
+//   04 — review + anchor  (Step4ProveAndRegister, phase='review')
+// Step4ProveAndRegister renders BOTH 03 and 04 with internal state
+// preserved across the phase transition (provedArgs survives).
 // The internal Step{2,3,4} component names are historical and stay
-// (CLAUDE.md invariants reference them). UI numbering is 1/2/3.
-type StepNumber = 1 | 2 | 3;
+// (CLAUDE.md invariants reference them). UI numbering is 1/2/3/4.
+type StepNumber = 1 | 2 | 3 | 4;
 
 interface BrowserInfo {
   readonly name: 'Firefox' | 'Chrome' | 'Safari' | 'Edge' | 'Brave' | 'Other';
@@ -238,15 +241,17 @@ export function HomeDocument() {
                     onBack={() => setStep(1)}
                   />
                 )}
-                {step === 3 && p7s && bindingBytes && (
+                {(step === 3 || step === 4) && p7s && bindingBytes && (
                   <Step4ProveAndRegister
                     p7s={p7s}
                     bindingBytes={bindingBytes}
-                    onBack={() => setStep(2)}
+                    onBack={() => setStep(step === 4 ? 3 : 2)}
                     ageOptIn={ageOptIn}
                     onAgeOptInChange={setAgeOptIn}
                     ageCutoffYmd={ageCutoffYmd}
                     onAgeCutoffYmdChange={setAgeCutoffYmd}
+                    phase={step === 4 ? 'review' : 'prove'}
+                    onProveComplete={() => setStep(4)}
                   />
                 )}
               </>
@@ -416,7 +421,7 @@ function Stat({ label, value, state, mono, hint }: {
 }
 
 function StepDots({ current }: { current: StepNumber }) {
-  const all = [1, 2, 3] as const;
+  const all = [1, 2, 3, 4] as const;
   return (
     <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
       {all.map((n) => (
@@ -427,7 +432,7 @@ function StepDots({ current }: { current: StepNumber }) {
         }} />
       ))}
       <span style={{ marginLeft: 6, fontSize: 10.5, color: 'var(--cv-mute)', letterSpacing: '.08em' }}>
-        {current} / 3
+        {current} / 4
       </span>
     </span>
   );

@@ -67,6 +67,17 @@ export interface Step4Props {
   onAgeOptInChange: (v: boolean) => void;
   ageCutoffYmd: number;
   onAgeCutoffYmdChange: (v: number) => void;
+  /** Wizard sub-step. 'prove' = pre-prove UI (CTA + age opt-in + progress);
+   *  'review' = post-prove UI (download + submit + tx + mint). Same
+   *  component renders both phases so internal state (provedArgs,
+   *  ageProvedArgs, txHash, …) is preserved when HomeDocument advances
+   *  the user from step 3 → step 4. Default 'prove' for backwards-
+   *  compat with callers that don't split. */
+  phase?: 'prove' | 'review';
+  /** Fires once after a successful prove (provedArgs becomes available).
+   *  HomeDocument uses this to advance step 3 → step 4 so the
+   *  download/register UI gets its own dedicated rectangle. */
+  onProveComplete?: () => void;
 }
 
 
@@ -116,6 +127,8 @@ export function Step4ProveAndRegister({
   onAgeOptInChange,
   ageCutoffYmd,
   onAgeCutoffYmdChange,
+  phase = 'prove',
+  onProveComplete,
 }: Step4Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -414,6 +427,9 @@ export function Step4ProveAndRegister({
     setProofSource(source);
     setPipelineDone(true);
     setProvedArgs(registerArgs);
+    // Tell HomeDocument the prove succeeded — advances 3 → 4 so the
+    // download/submit UI gets its own dedicated rectangle.
+    onProveComplete?.();
     if (!v5Deployed) {
       setSubmitSkippedReason(t('mintV5.awaitingDeploy'));
       return;
@@ -592,6 +608,9 @@ export function Step4ProveAndRegister({
         setProvedArgs(rehydrated);
         setProofSource('uploaded');
         setPipelineDone(true);
+        // Same advance trigger as the fresh-prove path — uploaded
+        // proofs go straight to the review/register screen.
+        onProveComplete?.();
         // Optional age payload — present when the file came from a v5_4
         // run with the age opt-in toggle on. The pack helper's bigint
         // outputs were stringified at download; rehydrate them so the
@@ -789,8 +808,9 @@ export function Step4ProveAndRegister({
           the user picks the cutoff before kicking off the proof.
           Disabled once the prove or age pipelines are in flight to
           stop a mid-run cutoff change desyncing the witness from the
-          tx args. */}
-      {uaDep && (
+          tx args. PROVE phase only — the choice is locked in once
+          the proof is generated, so step 4 (review) doesn't need it. */}
+      {phase === 'prove' && uaDep && (
         <div style={{
           border: '2px solid var(--cv-ink)', background: '#fff',
           padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8,
@@ -849,9 +869,10 @@ export function Step4ProveAndRegister({
         </div>
       )}
       {/* CLI nudge banner. Self-suppresses when CLI is detected,
-          dismissed, or still detecting — see CliBanner.tsx. */}
-      <CliBanner />
-      {!canProve && <CeremonyPendingPanel />}
+          dismissed, or still detecting — see CliBanner.tsx.
+          PROVE phase only. */}
+      {phase === 'prove' && <CliBanner />}
+      {phase === 'prove' && !canProve && <CeremonyPendingPanel />}
       {(stage || pipelineDone) && (
         <PipelineStageList stage={stage} done={pipelineDone} />
       )}
@@ -902,7 +923,7 @@ export function Step4ProveAndRegister({
           )}
         </p>
       )}
-      {provedArgs && (
+      {phase === 'review' && provedArgs && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -1030,7 +1051,7 @@ export function Step4ProveAndRegister({
           )}
         </div>
       )}
-      {!pipelineDone && (
+      {phase === 'prove' && !pipelineDone && (
         <label
           className="cv-btn is-ghost is-sm"
           style={{ cursor: 'pointer', alignSelf: 'flex-start' }}
@@ -1085,24 +1106,26 @@ export function Step4ProveAndRegister({
           {writeError.message}
         </p>
       )}
-      <button
-        type="button"
-        onClick={onProveAndRegister}
-        disabled={!canProve || txPending}
-        data-testid="v5-prove-register-cta"
-        className="cv-btn"
-        style={{
-          opacity: !canProve || txPending ? 0.5 : 1,
-          cursor: !canProve || txPending ? 'not-allowed' : 'pointer',
-          alignSelf: 'flex-start',
-        }}
-      >
-        {isRebindCandidate
-          ? t('registerV5.step4.ctaRebind', '▶ Prove + rebind to this wallet')
-          : ageOptIn
-            ? t('registerV5.step4.ctaWithAge', '▶ Prove + register + prove age (1 tx)')
-            : t('registerV5.step4.cta')}
-      </button>
+      {phase === 'prove' && (
+        <button
+          type="button"
+          onClick={onProveAndRegister}
+          disabled={!canProve || txPending}
+          data-testid="v5-prove-register-cta"
+          className="cv-btn"
+          style={{
+            opacity: !canProve || txPending ? 0.5 : 1,
+            cursor: !canProve || txPending ? 'not-allowed' : 'pointer',
+            alignSelf: 'flex-start',
+          }}
+        >
+          {isRebindCandidate
+            ? t('registerV5.step4.ctaRebind', '▶ Generate rebind proof')
+            : ageOptIn
+              ? t('registerV5.step4.ctaWithAge', '▶ Generate proof + age proof')
+              : t('registerV5.step4.cta')}
+        </button>
+      )}
       <button
         type="button"
         onClick={onBack}
