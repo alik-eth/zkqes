@@ -1240,16 +1240,23 @@ function PipelineStageList({
   else if (stage && (stage.stage === 'submit' || stage.stage === 'mined')) phase = 'posting';
 
   const elapsedSec = stage?.elapsedMs ? stage.elapsedMs / 1000 : null;
+  // pct < 0 from the pipeline = indeterminate (CLI prove in flight; no
+  // incremental progress feed). Render an animated marching bar +
+  // animated dots in the % slot instead of a frozen percentage.
+  const isIndeterminate = phase === 'proving' && stage?.stage === 'prove' && stage.pct < 0;
   const pct =
     phase === 'done' ? 100 :
     phase === 'posting' ? 100 :
+    isIndeterminate ? 100 :
     phase === 'proving' && stage?.stage === 'prove' ? Math.max(0, Math.min(100, Math.round(stage.pct))) :
     0;
 
   // ETA from linear extrapolation of prove progress; only valid for
   // phase==='proving' && pct in (0, 100).
   let etaText = '—';
-  if (phase === 'proving' && pct > 1 && pct < 100 && elapsedSec) {
+  if (isIndeterminate) {
+    etaText = elapsedSec ? `${elapsedSec.toFixed(0)}s elapsed` : 'working…';
+  } else if (phase === 'proving' && pct > 1 && pct < 100 && elapsedSec) {
     const totalSec = elapsedSec * (100 / pct);
     const remaining = Math.max(0, totalSec - elapsedSec);
     const m = Math.floor(remaining / 60);
@@ -1333,17 +1340,23 @@ function PipelineStageList({
         </div>
       </div>
 
-      {/* Diagonal-striped progress bar */}
+      {/* Diagonal-striped progress bar — stripes always march while
+          proving (so the eye sees motion even when pct is static or
+          indeterminate). */}
       <div style={{
         height: 22, border: '2px solid var(--cv-ink)', background: '#fff',
         position: 'relative', overflow: 'hidden',
       }}>
-        <div style={{
-          position: 'absolute', top: 0, left: 0, bottom: 0,
-          width: `${pct}%`,
-          background: 'repeating-linear-gradient(45deg, var(--cv-ua-yellow) 0 10px, var(--cv-ua-blue) 10px 20px)',
-          transition: 'width .25s linear',
-        }} />
+        <div
+          className={phase === 'proving' ? 'cv-prove-stripes' : undefined}
+          style={{
+            position: 'absolute', top: 0, left: 0, bottom: 0,
+            width: `${pct}%`,
+            background: 'repeating-linear-gradient(45deg, var(--cv-ua-yellow) 0 10px, var(--cv-ua-blue) 10px 20px)',
+            backgroundSize: '28.28px 28.28px',
+            transition: isIndeterminate ? 'none' : 'width .25s linear',
+          }}
+        />
       </div>
 
       {/* Status line — what's happening, in plain terms */}
@@ -1351,7 +1364,11 @@ function PipelineStageList({
         margin: 0, fontSize: 12.5, color: '#5b5648', lineHeight: 1.5,
       }}>
         {phase === 'prep' && 'parsing .p7s, building witness, packing calldata — sub-second.'}
-        {phase === 'proving' && (stage?.message ?? 'V5.3 ~3.9M-constraint Groth16. CLI ~14s · browser ~5 min.')}
+        {phase === 'proving' && (
+          isIndeterminate
+            ? (stage?.message ?? 'CLI prover working — no incremental progress; expect ~14 s.')
+            : (stage?.message ?? 'V5.3 ~3.9M-constraint Groth16. CLI ~14s · browser ~5 min.')
+        )}
         {phase === 'posting' && (stage?.stage === 'mined' ? 'mined.' : 'waiting on wallet to submit register()…')}
         {phase === 'done' && 'proof ready. anchor it on Base Sepolia below.'}
       </p>

@@ -283,7 +283,11 @@ async function runRealPath(
     {
       cliPresent: opts.cliPresent ?? false,
       ...(opts.onCliFallback ? { onCliFallback: opts.onCliFallback } : {}),
-      onProgress: (msg) => tick('prove', 35, msg),
+      // pct = -1 is the indeterminate sentinel for the UI: the CLI
+      // server returns when done (~14 s) with no incremental progress,
+      // so a fixed pct would look frozen.  PipelineStageList renders
+      // an animated marching-stripe bar when pct < 0.
+      onProgress: (msg) => tick('prove', -1, msg),
       runBrowser: () => runBrowserProver(witness, tick),
     },
   );
