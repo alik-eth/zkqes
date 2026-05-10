@@ -37,9 +37,9 @@ export const CLI_STATUS_URL = 'http://127.0.0.1:9080/status';
 export const CLI_DETECT_TIMEOUT_MS = 500;
 
 /** Hard-coded V1 circuit. The `circuit` field is enforced strictly so a
- *  V5.1 helper still listening on :9080 from a previous setup doesn't
- *  silently take over the V5.2 register flow. */
-export const CLI_EXPECTED_CIRCUIT = 'v5.2';
+ *  V5.x helper still listening on :9080 from a previous setup doesn't
+ *  silently take over the V7 register flow. */
+export const CLI_EXPECTED_CIRCUIT = 'v7';
 
 export async function detectCli(): Promise<CliStatus | null> {
   const ctl = new AbortController();

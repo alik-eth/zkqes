@@ -109,7 +109,7 @@ export class CliServer {
     const vkey = JSON.parse(vkeyRaw) as { nPublic?: number };
     if (vkey.nPublic !== 21) {
       throw new Error(
-        `vkey.nPublic=${String(vkey.nPublic)} expected 21 (V5.5/V7)`,
+        `vkey.nPublic=${String(vkey.nPublic)} expected 21 (V7)`,
       );
     }
     this.vkey = vkey;
@@ -270,7 +270,7 @@ export class CliServer {
 
       if (!Array.isArray(publicSignals) || publicSignals.length !== 21) {
         throw new Error(
-          `expected 21 public signals (V5.5/V7), got ${String(publicSignals?.length)}`,
+          `expected 21 public signals (V7), got ${String(publicSignals?.length)}`,
         );
       }
 

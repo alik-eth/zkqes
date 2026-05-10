@@ -3,7 +3,7 @@
   "version": "0.7.0",
   "private": true,
   "type": "module",
-  "description": "zkqes CLI server: localhost-bound native rapidsnark prover bridging the V5.5/V7 browser register flow to the on-disk zkey at 13.86 s / 3.70 GiB peak.",
+  "description": "zkqes CLI server: localhost-bound native rapidsnark prover bridging the V7 browser register flow to the on-disk zkey at 13.86 s / 3.70 GiB peak.",
   "bin": {
     "zkqes": "./dist/src/index.js"
   },

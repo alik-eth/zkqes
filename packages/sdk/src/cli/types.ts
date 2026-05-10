@@ -5,8 +5,8 @@
 // §1.1). Any drift here is a cross-worker breaking change — needs lead
 // sign-off + circuits-eng cross-read.
 //
-// V1 supports `circuit: 'v5.2'` only. The `circuit` field is kept as a
-// generic string in the type so a future V5.3 server can be statically
+// V1 supports `circuit: 'v7'` only. The `circuit` field is kept as a
+// generic string in the type so a future amendment can be statically
 // detected and refused by `detectCli` without a SDK rebuild gate.
 import type { Groth16Proof } from '../core/index.js';
 
@@ -22,7 +22,7 @@ export interface CliStatus {
   readonly ok: boolean;
   /** Server semver, e.g. `"zkqes-cli@1.0.0"`. */
   readonly version: string;
-  /** Hard-coded `"v5.2"` in V1 — `detectCli` rejects anything else. */
+  /** Hard-coded `"v7"` in V1 — `detectCli` rejects anything else. */
   readonly circuit: string;
   /** False during first-run download; `detectCli` rejects when false. */
   readonly zkeyLoaded: boolean;
@@ -70,7 +70,7 @@ export interface CliTimings {
  */
 export interface CliProveResult {
   readonly proof: Groth16Proof;
-  /** 22 decimal-string field elements per V5.2 layout. */
+  /** 21 decimal-string field elements per V7 layout. */
   readonly publicSignals: string[];
   /** Server-side post-prove sanity. NOT trusted alone — re-verify. */
   readonly verifyOk: boolean;

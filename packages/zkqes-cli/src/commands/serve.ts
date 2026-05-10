@@ -31,9 +31,9 @@ export function serveCommand(program: Command): void {
     .description(
       'Start the localhost HTTP prove server. Blocks until SIGINT/SIGTERM.',
     )
-    .requiredOption('--zkey <path>', 'V5.2 proving key (.zkey)')
-    .requiredOption('--wasm <path>', 'V5.2 witness-calculator WASM')
-    .requiredOption('--vkey <path>', 'V5.2 verification key (.json)')
+    .requiredOption('--zkey <path>', 'V7 proving key (.zkey)')
+    .requiredOption('--wasm <path>', 'V7 witness-calculator WASM')
+    .requiredOption('--vkey <path>', 'V7 verification key (.json)')
     .option(
       '--rapidsnark-bin <path>',
       'iden3 rapidsnark prover binary (sidecar). Default: bundled (pkg) or ~/.cache/zkqes-bin/... (dev).',
@@ -84,7 +84,7 @@ export function serveCommand(program: Command): void {
         host: opts.host,
         allowedOrigin: opts.allowedOrigin,
         version: `zkqes-cli@${PKG_VERSION}`,
-        circuit: 'v5.5',
+        circuit: 'v7',
       });
 
       await server.start();

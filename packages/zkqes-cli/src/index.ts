@@ -18,7 +18,7 @@ const program = new Command();
 program
   .name('zkqes')
   .description(
-    'zkqes CLI server — localhost-bound native rapidsnark prover for the V5.2 register flow.',
+    'zkqes CLI server — localhost-bound native rapidsnark prover for the V7 register flow.',
   )
   .version(PKG_VERSION);
 

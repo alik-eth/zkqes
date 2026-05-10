@@ -14,7 +14,7 @@ import { detectCli } from './detectCli.js';
 const VALID_STATUS = {
   ok: true,
   version: 'zkqes-cli@1.0.0',
-  circuit: 'v5.2',
+  circuit: 'v7',
   zkeyLoaded: true,
   busy: false,
   provesCompleted: 0,
@@ -72,7 +72,7 @@ describe('detectCli', () => {
     const status = await detectCli();
     expect(status).toMatchObject({
       ok: true,
-      circuit: 'v5.2',
+      circuit: 'v7',
       zkeyLoaded: true,
       version: 'zkqes-cli@1.0.0',
     });
@@ -121,7 +121,7 @@ describe('detectCli', () => {
   it('rejects a CliStatus with missing required fields', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({ ok: true, circuit: 'v5.2' }),
+        JSON.stringify({ ok: true, circuit: 'v7' }),
         { status: 200 },
       ),
     );
