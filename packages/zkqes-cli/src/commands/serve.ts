@@ -12,6 +12,10 @@
 import type { Command } from 'commander';
 import { resolve } from 'node:path';
 import { resolveSidecarPathOrThrow } from '../rapidsnark/sidecar-path.js';
+import {
+  SidecarVerifyError,
+  verifySidecarSha256,
+} from '../rapidsnark/sidecar-verify.js';
 import { CliServer } from '../server/http.js';
 import { PKG_VERSION } from './version.js';
 
@@ -71,9 +75,25 @@ export function serveCommand(program: Command): void {
       // (npm-install + postinstall hasn't run, or pkg bundle is
       // missing the asset — both surface to the operator with a clear
       // remediation suggestion).
-      const sidecarPath = opts.rapidsnarkBin
-        ? resolve(opts.rapidsnarkBin)
+      const sidecarExplicit = Boolean(opts.rapidsnarkBin);
+      const sidecarPath = sidecarExplicit
+        ? resolve(opts.rapidsnarkBin as string)
         : resolveSidecarPathOrThrow();
+
+      // Runtime sha256 pin: re-verify the extracted prover binary on
+      // every boot.  Skipped for explicit --rapidsnark-bin (Windows
+      // from-source / integration tests own their provenance).
+      if (!sidecarExplicit) {
+        try {
+          await verifySidecarSha256({ path: sidecarPath });
+        } catch (err) {
+          if (err instanceof SidecarVerifyError) {
+            process.stderr.write(`zkqes serve: ${err.message}\n`);
+            process.exit(3);
+          }
+          throw err;
+        }
+      }
 
       const server = new CliServer({
         zkeyPath: resolve(opts.zkey),
