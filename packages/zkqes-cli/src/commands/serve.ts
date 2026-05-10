@@ -84,7 +84,7 @@ export function serveCommand(program: Command): void {
         host: opts.host,
         allowedOrigin: opts.allowedOrigin,
         version: `zkqes-cli@${PKG_VERSION}`,
-        circuit: 'v5.2',
+        circuit: 'v5.5',
       });
 
       await server.start();

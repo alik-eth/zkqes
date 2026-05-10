@@ -107,9 +107,9 @@ export class CliServer {
     // mid-flow).
     const vkeyRaw = await readFile(this.cfg.vkeyPath, 'utf8');
     const vkey = JSON.parse(vkeyRaw) as { nPublic?: number };
-    if (vkey.nPublic !== 22) {
+    if (vkey.nPublic !== 21) {
       throw new Error(
-        `vkey.nPublic=${String(vkey.nPublic)} expected 22 (V5.2)`,
+        `vkey.nPublic=${String(vkey.nPublic)} expected 21 (V5.5/V7)`,
       );
     }
     this.vkey = vkey;
@@ -268,9 +268,9 @@ export class CliServer {
       const proof = JSON.parse(proofRaw) as unknown;
       const publicSignals = JSON.parse(publicRaw) as string[];
 
-      if (!Array.isArray(publicSignals) || publicSignals.length !== 22) {
+      if (!Array.isArray(publicSignals) || publicSignals.length !== 21) {
         throw new Error(
-          `expected 22 public signals (V5.2), got ${String(publicSignals?.length)}`,
+          `expected 21 public signals (V5.5/V7), got ${String(publicSignals?.length)}`,
         );
       }
 
