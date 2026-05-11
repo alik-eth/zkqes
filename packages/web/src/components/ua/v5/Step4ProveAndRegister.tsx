@@ -274,7 +274,50 @@ export function Step4ProveAndRegister({
       fetch(V5_4_AGE_ARTIFACTS.wasmUrl, { cache: 'no-store' }),
       fetch(V5_4_AGE_ARTIFACTS.zkeyUrl, { cache: 'no-store' }),
     ]);
-    const [wasmBlob, zkeyBlob] = await Promise.all([wasmResp.blob(), zkeyResp.blob()]);
+    // Defensive validation: read into ArrayBuffer first so we can
+    // sanity-check the magic header BEFORE handing to snarkjs. If an
+    // ad-blocker / extension / proxy stripped the body or returned
+    // an HTML error page, surface the exact failure (bytes received,
+    // first 16 bytes hex, content-type) rather than the generic
+    // "wasm validation error" snarkjs emits 30 s later.
+    const [wasmBuf, zkeyBuf] = await Promise.all([
+      wasmResp.arrayBuffer(),
+      zkeyResp.arrayBuffer(),
+    ]);
+    const wasmBytes = new Uint8Array(wasmBuf);
+    const zkeyBytes = new Uint8Array(zkeyBuf);
+    const toHex = (u8: Uint8Array, n: number): string =>
+      Array.from(u8.slice(0, n)).map((b) => b.toString(16).padStart(2, '0')).join(' ');
+    const wasmMagic = [0x00, 0x61, 0x73, 0x6d]; // "\0asm"
+    if (
+      wasmBytes.length < 8 ||
+      wasmBytes[0] !== wasmMagic[0] ||
+      wasmBytes[1] !== wasmMagic[1] ||
+      wasmBytes[2] !== wasmMagic[2] ||
+      wasmBytes[3] !== wasmMagic[3]
+    ) {
+      throw new Error(
+        `wasm fetch corrupted: ${wasmBytes.length} bytes, first16=${toHex(wasmBytes, 16)}, ` +
+        `status=${wasmResp.status}, ct=${wasmResp.headers.get('content-type')}, ` +
+        `url=${V5_4_AGE_ARTIFACTS.wasmUrl}. Likely an extension or proxy rewrote the body.`,
+      );
+    }
+    const zkeyMagic = [0x7a, 0x6b, 0x65, 0x79]; // "zkey"
+    if (
+      zkeyBytes.length < 8 ||
+      zkeyBytes[0] !== zkeyMagic[0] ||
+      zkeyBytes[1] !== zkeyMagic[1] ||
+      zkeyBytes[2] !== zkeyMagic[2] ||
+      zkeyBytes[3] !== zkeyMagic[3]
+    ) {
+      throw new Error(
+        `zkey fetch corrupted: ${zkeyBytes.length} bytes, first16=${toHex(zkeyBytes, 16)}, ` +
+        `status=${zkeyResp.status}, ct=${zkeyResp.headers.get('content-type')}, ` +
+        `url=${V5_4_AGE_ARTIFACTS.zkeyUrl}.`,
+      );
+    }
+    const wasmBlob = new Blob([wasmBytes], { type: 'application/wasm' });
+    const zkeyBlob = new Blob([zkeyBytes], { type: 'application/octet-stream' });
     const wasmBlobUrl = URL.createObjectURL(wasmBlob);
     const zkeyBlobUrl = URL.createObjectURL(zkeyBlob);
     let proveResult;
