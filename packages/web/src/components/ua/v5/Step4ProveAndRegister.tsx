@@ -262,20 +262,32 @@ export function Step4ProveAndRegister({
       ageCutoffDate: cutoffYmd,
       nullifierCtxKeccak,
     });
-    // Per-attempt cache-buster on top of the sha256-pinned `?v=` suffix
-    // so a once-poisoned HTTP-cache entry (truncated body, opaque-CORS
-    // empty bytes, etc.) can't survive across retries. Trade-off: each
-    // age prove re-fetches ~51 MB. Acceptable until we add a verified
-    // CacheStorage layer to snarkjs's URL fetches.
-    const t = Date.now();
-    const sep = (u: string): string => (u.includes('?') ? '&' : '?');
-    const wasmUrl = `${V5_4_AGE_ARTIFACTS.wasmUrl}${sep(V5_4_AGE_ARTIFACTS.wasmUrl)}_t=${t}`;
-    const zkeyUrl = `${V5_4_AGE_ARTIFACTS.zkeyUrl}${sep(V5_4_AGE_ARTIFACTS.zkeyUrl)}_t=${t}`;
-    const proveResult = await ageProver.prove(witnessOut.witness, {
-      side: 'v5',
-      wasmUrl,
-      zkeyUrl,
-    });
+    // Pre-fetch wasm + zkey in main thread with `cache: 'no-store'`,
+    // wrap as blob URLs, pass those to the worker. Blob URLs are
+    // origin-local and in-memory — uninterceptable by ad-blockers,
+    // proxies, service workers, or any HTTP-cache layer (browser
+    // or worker-context) that might mangle the response body. Defeats
+    // the persistent "wasm validation error: at offset 4: failed to
+    // match magic number" failure mode that even per-request URL
+    // cache-busting couldn't kill.
+    const [wasmResp, zkeyResp] = await Promise.all([
+      fetch(V5_4_AGE_ARTIFACTS.wasmUrl, { cache: 'no-store' }),
+      fetch(V5_4_AGE_ARTIFACTS.zkeyUrl, { cache: 'no-store' }),
+    ]);
+    const [wasmBlob, zkeyBlob] = await Promise.all([wasmResp.blob(), zkeyResp.blob()]);
+    const wasmBlobUrl = URL.createObjectURL(wasmBlob);
+    const zkeyBlobUrl = URL.createObjectURL(zkeyBlob);
+    let proveResult;
+    try {
+      proveResult = await ageProver.prove(witnessOut.witness, {
+        side: 'v5',
+        wasmUrl: wasmBlobUrl,
+        zkeyUrl: zkeyBlobUrl,
+      });
+    } finally {
+      URL.revokeObjectURL(wasmBlobUrl);
+      URL.revokeObjectURL(zkeyBlobUrl);
+    }
     if (witnessOut.publicSignals.ageQualified !== 1) {
       throw new Error(
         `age cutoff ${cutoffYmd} is after the cert's DOB — not eligible (ageQualified=0)`,
