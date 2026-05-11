@@ -59,6 +59,16 @@ packages/sdk/dist/
 packages/contracts-sdk/node_modules/
 packages/contracts-sdk/dist/
 
+# Developer-local Vite env overrides — these MUST NOT enter the
+# Docker build context. Vite reads .env.local for every mode
+# (including production), so any local-dev URLs / sha256s in
+# `packages/web/.env.local` would land verbatim in the prod
+# bundle. Caused a multi-hour debug session 2026-05-11 where the
+# production app was fetching `/local-zkey/age.wasm` (=Vite SPA
+# fallback = HTML body) instead of the real R2 wasm URL.
+**/.env.local
+**/.env.*.local
+
 # Top-level node_modules — pnpm-store is recreated by `pnpm install`.
 node_modules/
 
