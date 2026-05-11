@@ -379,9 +379,17 @@ contract ZKQESRegistryUA is IZKQESRegistry {
         // literal "zkqes-age-ctx-v1" — three sites compute the same hash:
         // circuit (private witness + passthrough public signal), SDK
         // (consumer-supplied via `nullifierCtxKeccak`), this contract.
+        //
+        // Reduce mod BN254 scalar p before comparing: the circuit's
+        // public signal is a field element (always < p), while raw
+        // keccak256 is a uniform uint256 — ~82% of which exceed p.
+        // Without reduction the equality check spuriously reverts on
+        // most cutoffs even when the SDK supplied the right preimage.
+        uint256 BN254_SCALAR_P =
+            21888242871839275222246405745257275088548364400416034343698204186575808495617;
         uint256 expectedCtx = uint256(keccak256(abi.encodePacked(
             "zkqes-age-ctx-v1", bindingId, ageCutoffDate
-        )));
+        ))) % BN254_SCALAR_P;
         if (proof.nullifierCtx != expectedCtx) revert AgeNullifierContextMismatch();
 
         // Pack the 3-input array for the snarkjs verifier ABI. Order
