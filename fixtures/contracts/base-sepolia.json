@@ -52,26 +52,28 @@
   "v7": {
     "country": "UA",
     "spec": "docs/superpowers/specs/2026-05-09-v7-merged-amendment.md",
-    "registry": "0xf0Ef8b29231B985B5A9bED9acDbdC39aA628A6Ce",
+    "registry": "0xfeA1aE6eFc07Fb5FF54B7a79A8744F8e4d466aC9",
     "identityVerifier": "0x552541362cf433e27Af70eA9328f637386EcC3F3",
     "identityVerifierKind": "ceremony-stub-single-contributor",
     "ageVerifier": "0x2d3B2F9A339AFab6033291CE6cEB8D1c59A27633",
     "ageVerifierKind": "stub",
-    "deployedAt": "2026-05-09",
-    "deployBlock": 41295180,
-    "deployTx": "0x00067a40c4a0dc189e8c6099a99d70239ffc6e61a14fe1ea90fa964ee6ebf556",
-    "verified": true,
-    "verifierFlipNote": "identityVerifier is the real snarkjs-emitted Groth16 from the V5.5 single-contributor ceremony (ceremony/v5_5/Groth16VerifierV5_5Stub.sol output, renamed Groth16VerifierV5_5). Multi-party ceremony swap = fresh registry redeploy + new pump (verifier slot is immutable). ageVerifier is still a no-op stub.",
+    "deployedAt": "2026-05-11",
+    "deployBlock": 41364301,
+    "deployTx": "0xfe33184d5d638e8fa50425e17f9265669bfc921721e656905dfa66bd50f978cb",
+    "verified": false,
+    "redeployReason": "Fix AgeNullifierContextMismatch: contract recomputed expectedCtx as raw uint256(keccak) while the proof's nullifierCtx public signal is reduced mod BN254_P. ~82 % of cutoffs would revert. Fix lands as `expectedCtx % BN254_SCALAR_P` in _proveAge (commit 3d13c26).",
+    "previousV7Registry": "0xf0Ef8b29231B985B5A9bED9acDbdC39aA628A6Ce",
+    "verifierFlipNote": "identityVerifier reused from prior V7 deploy — slot is immutable but the verifier contract is fine; only the registry's nullifierCtx check was buggy. ageVerifier is still a no-op stub.",
     "auxiliaryAddresses": {
-      "poseidonT3": "0x3265699CD4520Cc3613b7dFc40e7180eC936F07D",
-      "poseidonT7": "0x89D84d9E847FEba8F79EAFC138548Ac673Aa4CB8"
+      "poseidonT3": "0x1840b72E4111383AB16C5Ec2e039c32d9014097a",
+      "poseidonT7": "0x4Cd3B03cd35af27FcFfF278035e67cB1CBD1c58a"
     },
     "deployTxs": {
       "identityVerifier": "0x38d6af1d8c829d9f5be63499429b8882c0b87c6c8a693a3eea769781ecb7266b",
       "ageVerifier": "0x97d67225555fb86d814b1e21c0ea2d8303674625eecd9af8a36c9952b7c5f835",
-      "poseidonT3": "0xcef782358052cc2704a6527d16ada862366b1cad08cf8641d6140b86ecad0151",
-      "poseidonT7": "0xcce0aa45fee231addc681d3356f825d981070f0870a2a4e98f8328b082e749cc",
-      "registry": "0x00067a40c4a0dc189e8c6099a99d70239ffc6e61a14fe1ea90fa964ee6ebf556"
+      "poseidonT3": "(this redeploy block 41364299)",
+      "poseidonT7": "(this redeploy block 41364300)",
+      "registry": "0xfe33184d5d638e8fa50425e17f9265669bfc921721e656905dfa66bd50f978cb"
     }
   },
   "v7_interim": {

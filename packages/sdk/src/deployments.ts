@@ -59,9 +59,13 @@ export interface ZkqesRegistryUaDeployment {
 export const ZKQES_REGISTRY_UA = {
   baseSepolia: {
     chainId: 84532,
-    // V7 UA registry, deployed 2026-05-09 at block 41295180.
+    // V7 UA registry, redeployed 2026-05-11 at block 41364301 with the
+    // AgeNullifierContextMismatch (mod-p) fix. Previous V7 deploy at
+    // 0xf0Ef…A6Ce (block 41295180) is unfixable in place (constructor-
+    // bound verifier slot is immutable + nullifier-mismatch revert
+    // covers ~82 % of cutoffs).
     // Source: fixtures/contracts/base-sepolia.json v7.registry.
-    address: '0xf0Ef8b29231B985B5A9bED9acDbdC39aA628A6Ce' as Address,
+    address: '0xfeA1aE6eFc07Fb5FF54B7a79A8744F8e4d466aC9' as Address,
     // identityVerifier is the real snarkjs-emitted Groth16 from the
     // V5.5 single-contributor ceremony. ageVerifier is still a stub.
     // Multi-party ceremony swap = fresh registry redeploy + this
@@ -69,8 +73,8 @@ export const ZKQES_REGISTRY_UA = {
     identityVerifier: '0x552541362cf433e27Af70eA9328f637386EcC3F3' as Address,
     ageVerifier: '0x2d3B2F9A339AFab6033291CE6cEB8D1c59A27633' as Address,
     verifierKind: 'real',
-    deployBlock: 41295180,
-    deployedAt: '2026-05-09',
+    deployBlock: 41364301,
+    deployedAt: '2026-05-11',
   },
 } as const satisfies Record<string, ZkqesRegistryUaDeployment>;
 
