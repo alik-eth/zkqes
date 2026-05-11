@@ -223,7 +223,7 @@ export function Step4ProveAndRegister({
   const NULLIFIER_CTX_DOMAIN = 'zkqes-age-ctx-v1';
 
   // ageOptIn + ageCutoffYmd come from Step 3 via props.
-  const [ageStage, setAgeStage] = useState<'idle' | 'proving' | 'submitting' | 'mined' | 'error' | 'skipped'>('idle');
+  const [ageStage, setAgeStage] = useState<'idle' | 'proving' | 'proved' | 'submitting' | 'mined' | 'error' | 'skipped'>('idle');
   const [ageError, setAgeError] = useState<string | null>(null);
 
   // Memoize the age prover (Web Worker) so React StrictMode's double-
@@ -481,7 +481,10 @@ export function Step4ProveAndRegister({
         ageCalldata = await proveAgeOnly(bindingId, ageCutoffYmd);
         if (ageCalldata) {
           setAgeProvedArgs({ bindingId, cutoffYmd: ageCutoffYmd, calldata: ageCalldata });
-          setAgeStage('submitting');
+          // Proof done; user still has to click "submit" to fire the
+          // register tx. `submitting` is reserved for the in-flight tx
+          // window; keep it accurate so the status line isn't lying.
+          setAgeStage('proved');
           onProveComplete?.();
         } else {
           // Age prover refused (e.g. cutoff out of range). Stay on
@@ -575,6 +578,7 @@ export function Step4ProveAndRegister({
 
     if (ageCalldata) {
       // V5.6 atomic path — one tx covers register + proveAge.
+      setAgeStage('submitting');
       writeContract({
         address: uaDep.address,
         abi: zkqesRegistryUaAbi,
