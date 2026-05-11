@@ -202,7 +202,7 @@ function addCrimeaToUkraine(
 
 export interface EuMapProps {
   /** country code (alpha-2) → aggregate */
-  readonly byCountry: ReadonlyMap<string, { total: number; p256: number; live: number }>;
+  readonly byCountry: ReadonlyMap<string, { total: number; p256: number; rsa: number; supported: number; live: number }>;
   readonly selected: string;
   readonly onSelect: (cc: string) => void;
 }
@@ -302,16 +302,19 @@ export function EuMap({ byCountry, selected, onSelect }: EuMapProps) {
       <rect x={originX} y={originY} width={width} height={height} fill="url(#eu-sea-hatch)" />
 
       {features.map(({ feature: f, cc }) => {
-        const agg = byCountry.get(cc) ?? { total: 0, p256: 0, live: 0 };
+        const agg = byCountry.get(cc) ?? { total: 0, p256: 0, rsa: 0, supported: 0, live: 0 };
         const isSelected = selected === cc;
         const hasAny = agg.total > 0;
-        const hasP256 = agg.p256 > 0;
+        const hasSupported = agg.supported > 0;
         const hasLive = agg.live > 0;
+        // V7 supports both ECDSA-P-256 and RSA-2048; the choropleth no
+        // longer separates the two ("queued" tier collapses into the
+        // supported tier). Live > supported > unsupported.
         const fill = !hasAny
           ? '#e8e2d2'
           : hasLive
             ? 'var(--cv-ua-blue)'
-            : hasP256
+            : hasSupported
               ? 'var(--cv-ua-yellow)'
               : 'var(--cv-card)';
         const stroke = isSelected ? 'var(--cv-ua-blue)' : 'var(--cv-ink)';
@@ -352,18 +355,17 @@ export function EuMap({ byCountry, selected, onSelect }: EuMapProps) {
 
 function Tooltip({ cc, x, y, byCountry }: {
   cc: string; x: number; y: number;
-  byCountry: ReadonlyMap<string, { total: number; p256: number; live: number }>;
+  byCountry: ReadonlyMap<string, { total: number; p256: number; rsa: number; supported: number; live: number }>;
 }) {
-  const agg = byCountry.get(cc) ?? { total: 0, p256: 0, live: 0 };
+  const agg = byCountry.get(cc) ?? { total: 0, p256: 0, rsa: 0, supported: 0, live: 0 };
   const name = COUNTRY_NAMES[cc] ?? cc;
   const status = agg.live > 0
     ? { label: 'LIVE INTEGRATION', color: 'var(--cv-ua-yellow)' }
-    : agg.p256 > 0
-      ? { label: 'P-256 · SHIPS FIRST', color: 'var(--cv-ua-blue)' }
+    : agg.supported > 0
+      ? { label: 'SUPPORTED · RSA + P-256', color: 'var(--cv-ua-blue)' }
       : agg.total > 0
-        ? { label: 'RSA-ONLY · QUEUED', color: 'var(--cv-mute)' }
+        ? { label: 'NEEDS PER-COUNTRY REVIEW', color: 'var(--cv-mute)' }
         : { label: 'NOT IN SUPPORTED SET', color: 'var(--cv-mute)' };
-  const rsaCount = Math.max(0, agg.total - agg.p256);
   // Position tooltip in viewport coords, offset slightly so it doesn't
   // sit under the cursor; flip to left side when too close to right edge.
   const flipLeft = typeof window !== 'undefined' && x > window.innerWidth - 280;
@@ -408,8 +410,10 @@ function Tooltip({ cc, x, y, byCountry }: {
         <span style={{ textAlign: 'right', fontWeight: 600, color: agg.p256 > 0 ? 'var(--cv-ua-blue)' : 'var(--cv-mute)' }}>
           {agg.p256}
         </span>
-        <span style={{ color: 'var(--cv-mute)' }}>RSA-only</span>
-        <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--cv-mute)' }}>{rsaCount}</span>
+        <span style={{ color: 'var(--cv-mute)' }}>RSA-2048</span>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: agg.rsa > 0 ? 'var(--cv-ua-blue)' : 'var(--cv-mute)' }}>
+          {agg.rsa}
+        </span>
         <span style={{ color: 'var(--cv-mute)' }}>live integration</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: agg.live > 0 ? '#2e7d32' : 'var(--cv-mute)' }}>
           {agg.live > 0 ? `✓ ${agg.live}` : '—'}

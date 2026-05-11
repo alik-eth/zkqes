@@ -105,7 +105,13 @@ export function AllQtspsScreen() {
         formatsCurated: Boolean(meta?.supportedFormats?.length),
       };
     }).slice().sort((a, b) => {
-      // ECDSA-P-256 capable QTSPs come first — that's deploy priority.
+      // V7 supports both ECDSA-P-256 and RSA-2048; "supported" QTSPs
+      // (either curve) come first.  Among supported, P-256 ranks ahead
+      // of RSA-only because the P-256 dispatch is the smaller verifier
+      // — useful as a tiebreaker, not a deploy gate.
+      const aSupp = a.p256 || a.keyAlgs.includes('RSA');
+      const bSupp = b.p256 || b.keyAlgs.includes('RSA');
+      if (aSupp !== bSupp) return aSupp ? -1 : 1;
       if (a.p256 !== b.p256) return a.p256 ? -1 : 1;
       return a.country.localeCompare(b.country) || a.tspName.localeCompare(b.tspName);
     });
@@ -132,16 +138,20 @@ export function AllQtspsScreen() {
   }, [allRows, q, countryFilter, p256Only]);
 
   const p256Count = allRows.filter((r) => r.p256).length;
+  const rsaCount = allRows.filter((r) => r.keyAlgs.includes('RSA')).length;
+  const supportedCount = allRows.filter((r) => r.p256 || r.keyAlgs.includes('RSA')).length;
   const uaCount = allRows.filter((r) => r.country === 'UA').length;
   const euCount = allRows.length - uaCount;
 
   // Per-country aggregates for the tile-map. Keyed by country code.
   const byCountry = useMemo(() => {
-    const m = new Map<string, { total: number; p256: number; live: number }>();
+    const m = new Map<string, { total: number; p256: number; rsa: number; supported: number; live: number }>();
     for (const r of allRows) {
-      const e = m.get(r.country) ?? { total: 0, p256: 0, live: 0 };
+      const e = m.get(r.country) ?? { total: 0, p256: 0, rsa: 0, supported: 0, live: 0 };
       e.total += 1;
       if (r.p256) e.p256 += 1;
+      if (r.keyAlgs.includes('RSA')) e.rsa += 1;
+      if (r.p256 || r.keyAlgs.includes('RSA')) e.supported += 1;
       if (r.meta) e.live += 1;
       m.set(r.country, e);
     }
@@ -175,7 +185,7 @@ export function AllQtspsScreen() {
             <span style={{ flex: 1 }} />
             <span className="cv-pill is-eu">EU · {euCount}</span>
             <span className="cv-pill is-ua">UA · {uaCount}</span>
-            <span className="cv-pill is-ok">{p256Count} support P-256</span>
+            <span className="cv-pill is-ok">{supportedCount} supported · RSA + P-256</span>
           </div>
           <div className="cv-resp" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, alignItems: 'flex-end' }}>
             <div>
@@ -191,14 +201,17 @@ export function AllQtspsScreen() {
                 ECDSA secp256r1 (verified on-chain via EIP-7212 P256Verify, not
                 in-circuit) and how they encode date-of-birth in subject attributes.
                 <br /><br />
-                Every QTSP listed here is on the roadmap. We're shipping
-                <b> ECDSA-P-256 capable QTSPs first</b> ({p256Count} of {QTSP_SUMMARY_META.totalTsps}) — those
-                roll into the existing circuit with no curve change. RSA-only
-                QTSPs need a separate verifier; they queue behind the P-256 wave.
+                V7 supports <b>both ECDSA-P-256 and RSA-2048</b> in the same
+                circuit (algorithm-agnostic key commitment + per-host signature
+                dispatch). {supportedCount} of {QTSP_SUMMARY_META.totalTsps} QTSPs
+                listed here are covered by one of the two — {p256Count} via
+                ECDSA-P-256, {rsaCount} via RSA-2048. Per-country onboarding still
+                gates on certificate-format review (subject attributes, DOB
+                encoding) before each goes live.
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-              <span className="cv-sticker">{p256Count} ship first</span>
+              <span className="cv-sticker">{supportedCount} supported</span>
               <Link to="/integrations" className="cv-btn is-blue">↗ How to integrate</Link>
             </div>
           </div>
@@ -210,8 +223,8 @@ export function AllQtspsScreen() {
             <span className="cv-ix">▥</span>
             <span>MAP · EU + UA · Mercator · click a country to filter</span>
             <span style={{ flex: 1 }} />
-            <span className="cv-pill is-ok">P-256 · ships first</span>
-            <span className="cv-pill" style={{ background: 'var(--cv-card)' }}>RSA · queued</span>
+            <span className="cv-pill is-ok">P-256 · supported</span>
+            <span className="cv-pill is-ok">RSA · supported</span>
             {countryFilter && (
               <button onClick={() => setCountryFilter('')} className="cv-btn is-sm is-ghost">
                 ✕ clear {countryFilter}
@@ -227,8 +240,7 @@ export function AllQtspsScreen() {
           </div>
           <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap', fontSize: 11, color: 'var(--cv-mute)' }}>
             <Legend swatch="var(--cv-ua-blue)" label="live integration (curated)" />
-            <Legend swatch="var(--cv-ua-yellow)" label="ECDSA P-256 · ships first" />
-            <Legend swatch="var(--cv-card)" label="RSA-only · queued" />
+            <Legend swatch="var(--cv-ua-yellow)" label="supported (P-256 or RSA)" />
             <Legend swatch="#e8e2d2" label="not in supported set" />
             <span style={{ flex: 1 }} />
             <span style={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>
@@ -348,7 +360,7 @@ export function AllQtspsScreen() {
         <section className="cv-resp" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginTop: 8 }}>
           <FooterStat label="QTSPs" value={String(QTSP_SUMMARY_META.totalTsps)} />
           <FooterStat label="current certs" value={String(QTSP_SUMMARY_META.totalCas)} yellow />
-          <FooterStat label="P-256 capable" value={String(p256Count)} />
+          <FooterStat label="supported · RSA + P-256" value={String(supportedCount)} />
           <FooterStat label="EU snapshot" value={QTSP_SUMMARY_META.lotlSnapshot.slice(0, 10)} blue />
         </section>
 

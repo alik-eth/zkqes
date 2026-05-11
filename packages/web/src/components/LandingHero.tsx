@@ -84,9 +84,10 @@ export function LandingHero() {
               </h1>
               <p style={{ maxWidth: 680, fontSize: 14, marginTop: 18, lineHeight: 1.5 }}>
                 A zero-knowledge proof of a qualified electronic signature.
-                Bind any Ethereum wallet to a state-issued QES (Reg. EU 910/2014 ·
-                UA 2155-VIII) without disclosing who signed. One identity →
-                unlimited wallets, zero correlation.
+                Bind an Ethereum wallet to a state-issued QES and prove
+                certified country-scoped uniqueness without disclosing the full
+                credential. UA ships first; more countries follow only after
+                per-country certificate and identifier review.
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
@@ -242,7 +243,7 @@ export function LandingHero() {
           <div className="cv-card is-paper">
             <div className="cv-cardhead">
               <span className="dot live" />
-              <span>QTSP DIRECTORY · ECDSA P-256 · ships first</span>
+              <span>QTSP DIRECTORY · ECDSA P-256 + RSA-2048 · supported</span>
               <span style={{ flex: 1 }} />
               <span className="cv-pill is-ok">{liveCount} live</span>
               <span className="cv-pill">{queuedCount} queued</span>
@@ -254,7 +255,7 @@ export function LandingHero() {
                     <span className={`cv-pill ${q.country === 'UA' ? 'is-ua' : ''}`}>{q.country}</span>
                     <span style={{ fontWeight: 500 }}>{q.tspName}</span>
                     <span className={`cv-pill ${q.live ? 'is-ok' : ''}`} style={{ fontSize: 9.5 }}>
-                      {q.live ? 'live' : 'queued · P-256'}
+                      {q.live ? 'live' : 'supported · P-256'}
                     </span>
                   </>
                 );
@@ -283,7 +284,7 @@ export function LandingHero() {
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', fontSize: 12 }}>
               <span style={{ color: 'var(--cv-mute)' }}>
-                {p256Qtsps.length} P-256 · {rsaCount} RSA queued behind separate verifier
+                {p256Qtsps.length} P-256 · {rsaCount} RSA — both supported in V7
               </span>
               <span style={{ flex: 1 }} />
               <Link to="/qtsps" className="cv-btn is-sm is-ghost">view all {QTSP_SUMMARY_META.totalTsps} ↗</Link>
@@ -385,4 +386,3 @@ function FooterStat({ label, value, suffix, yellow, blue }: {
     </div>
   );
 }
-
