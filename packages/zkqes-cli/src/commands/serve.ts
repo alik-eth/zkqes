@@ -49,9 +49,9 @@ export function serveCommand(program: Command): void {
       '127.0.0.1',
     )
     .option(
-      '--allowed-origin <url>',
-      'CORS origin allowed to /prove',
-      'https://app.zkqes.org',
+      '--allowed-origin <urls>',
+      'comma-separated CORS allowlist for /prove',
+      'https://app.zkqes.org,http://localhost:5173,http://localhost:4173',
     )
     .action(async (rawOpts: ServeOptions) => {
       const opts: ServeOptions = rawOpts;

@@ -1,13 +1,14 @@
 // Origin-pin gate for the localhost prove API.
 //
-// Per orchestration plan §1.1, the helper accepts requests only from the
-// configured `allowedOrigin` (production: `https://app.zkqes.org`).
-// `/status` is exempt — it's used by browser-side detection from any
-// origin (e.g., a dev `http://localhost:5173` that wants to probe whether
-// a helper is running before deciding whether to surface the
-// "fast prover available" UI).  `/prove` is always pinned: a malicious
-// tab cannot co-opt the local helper to forge a proof against the user's
-// witness.
+// `allowedOrigin` is a comma-separated allowlist; `/prove` accepts a
+// request iff the request's `Origin` is a member. Default covers the
+// prod app + the two canonical Vite ports for local dev:
+//
+//   https://app.zkqes.org,http://localhost:5173,http://localhost:4173
+//
+// `/status` is exempt — it must be probable from any origin so the
+// browser-side detection works regardless of which host the SPA is
+// served from.
 //
 // Empty Origin (e.g., curl smoke from CLI without -H "Origin: …") is
 // treated as exempt for the same reason as /status — it can't be a
@@ -28,11 +29,18 @@ export interface OriginGateResult {
 
 const STATUS_PATHS = new Set(['/status']);
 
+function parseAllowlist(allowedOrigin: string): string[] {
+  return allowedOrigin
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 export function originGate(input: OriginGateInput): OriginGateResult {
   const { url, origin, allowedOrigin } = input;
   if (url !== undefined && STATUS_PATHS.has(url)) return { allowed: true };
   if (origin === '') return { allowed: true };
-  if (origin === allowedOrigin) return { allowed: true };
+  if (parseAllowlist(allowedOrigin).includes(origin)) return { allowed: true };
   return { allowed: false, reason: 'origin-mismatch' };
 }
 
@@ -52,8 +60,9 @@ export function corsHeaders(
   // (browser would accept the response cross-origin even though the
   // helper rejected the underlying request).  Empty string when no
   // match — browser then refuses to expose the response to JS.
+  const match = parseAllowlist(allowedOrigin).includes(origin) ? origin : '';
   return {
-    'Access-Control-Allow-Origin': origin === allowedOrigin ? origin : '',
+    'Access-Control-Allow-Origin': match,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Private-Network': 'true', // Chrome 117+ PNA

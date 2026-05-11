@@ -29,14 +29,19 @@ to-have. See also: helper-vs-app design history at
 `docs/superpowers/specs/2026-05-03-qkb-helper-design.md` (superseded
 by the CLI-server design).
 
-## V5.24 — Origin pin is `https://app.zkqes.org` exclusively
+## V5.24 — Origin pin is a small fixed allowlist (prod + Vite dev)
 
-`POST /prove` requires the request's `Origin` header to match the
-configured `--allowed-origin`. Default: production
-(`https://app.zkqes.org`); production CLI builds will eventually
-hard-code this with no flag. Dev builds expose `--allowed-origin
-<url>` for local development against `http://localhost:5173` or
-similar staging origins.
+`POST /prove` requires the request's `Origin` header to be a member
+of the configured `--allowed-origin` allowlist (comma-separated).
+Default: `https://app.zkqes.org,http://localhost:5173,http://localhost:4173`
+— prod app plus the two canonical Vite ports (dev / preview).
+
+Founder-approved 2026-05-11 (this file's prior "single origin only"
+rule is superseded): the practical cost of a per-session restart
+when switching between prod and local outweighed the marginal
+narrative tightening of single-origin. The allowlist is still
+EXACT-MATCH (no wildcards, no port ranges, no schemes glob) — adding
+an entry remains a per-build config change.
 
 `/status` is exempt from the origin pin — it must be probable from
 any origin so the browser-side detection works regardless of which
@@ -47,11 +52,10 @@ The threat model is "browser tab on a different origin" and browsers
 always set `Origin` on cross-origin fetches; an empty header can't
 be a hostile browser request.
 
-If a future agent proposes broadening the allowlist to multiple
-origins or removing the exact-match check — push back. Wildcard or
-multi-origin support widens the attack surface; per-build config
-keeps it tight. See `src/server/origin-pin.ts` for the gate
-implementation.
+If a future agent proposes widening to wildcards, scheme globs, or
+unbounded `--allowed-origin '*'` — push back. The current shape is
+"small fixed list," not "anything goes." See
+`src/server/origin-pin.ts` for the membership-check implementation.
 
 ## V5.25 — Manifest signature verification is REQUIRED in production
 
@@ -220,11 +224,10 @@ will see `identityescrow.org` references; main HEAD has
 `app.zkqes.org`.  The orchestration §1.1 contract update (§ "Origin
 allowlist") is the load-bearing source of truth.
 
-Multi-origin allowlist explicitly NOT supported (per V5.24 — single
-origin keeps the security narrative tight).  Dev builds expose
-`--allowed-origin <url>` for `http://localhost:5173` etc.;
-production CLI builds will eventually hard-code the production
-origin with no flag.
+Multi-origin allowlist enabled as of 2026-05-11 (see V5.24 above).
+`--allowed-origin` accepts a comma-separated list; default covers
+prod + Vite dev (5173) + Vite preview (4173). Switching machines
+or origins no longer requires a CLI restart.
 
 Bumped `@zkqes/cli` package version `0.5.2-pre` → `0.5.4.1-pre` to
 signal the post-tag fix.
