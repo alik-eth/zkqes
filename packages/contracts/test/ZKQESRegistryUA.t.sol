@@ -718,6 +718,38 @@ contract ZKQESRegistryUATest is Test {
 
     /* ================ proveAge ================ */
 
+    /// Production-reproduction: pins the actual (bindingId, cutoff,
+    /// nullifierCtx) triple from a real Base Sepolia revert (tx
+    /// 0x4098d03db718d939451a4bc6c2f8d39756e0e3ffc9a1eb17bfc01f7ee3734473).
+    ///
+    /// The user's frontend submitted nullifierCtx in its (correct)
+    /// field-element form. The pre-fix contract recomputed the raw
+    /// uint256 — which differed when raw ≥ p — and reverted with
+    /// AgeNullifierContextMismatch. This test asserts the equality
+    /// the post-fix contract performs:
+    ///
+    ///   submittedCtx == uint256(keccak256(packed)) % p
+    ///
+    /// holds for the exact prod inputs. If a future change accidentally
+    /// removes the mod-p reduction, this test reverts with a precise
+    /// "these specific real-user inputs no longer match" failure.
+    function test_proveAge_nullifierCtx_modP_matchesProductionRevertedTx() public pure {
+        bytes32 bindingId  = 0xe25f658bb46f834d60393dd8fbcb43aac05ea31bd388516c163c1d9f09e1aa36;
+        uint256 cutoff     = 20080511;
+        uint256 submitted  = 14051500354480078065511050419915005671565764927602938037227704095479041016481;
+        uint256 rawExpected = 79716228969997903732250267655686830937210858128851041068322316655206466503332;
+
+        uint256 raw = uint256(keccak256(abi.encodePacked(
+            "zkqes-age-ctx-v1", bindingId, cutoff
+        )));
+        assertEq(raw, rawExpected, "raw keccak diverged from pinned prod value");
+        assertGe(raw, BN254_SCALAR_P, "prod case overflows p (else regression vacuous)");
+
+        uint256 reduced = raw % BN254_SCALAR_P;
+        assertEq(reduced, submitted, "post-fix recompute must match user's submitted ctx");
+    }
+
+
     /// Regression: `expectedCtx = keccak256(...) % p` (not raw uint256).
     ///
     /// Without the mod-p reduction in `_proveAge`, this test reverts with
